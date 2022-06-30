@@ -10,11 +10,61 @@ enum Operator {
     REVERSED_DEVIDED,
 }
 
-function LOP(op: Operator): Operator{
+function OPString(op: Operator): string {
+    switch (op) {
+        case Operator.PLUS:
+            return "+";
+
+        case Operator.MINUS:
+            return "-";
+
+        case Operator.MULTIPLY:
+            return "*";
+
+        case Operator.DEVIDED:
+            return "/";
+
+        case Operator.REVERSED_MINUS:
+            return "-";
+
+        case Operator.REVERSED_DEVIDED:
+            return "/";
+
+        default:
+            throw new Error("unexpected operator");
+    }
+}
+
+function OPLevel(op: Operator): number {
+    switch (op) {
+        case Operator.PLUS:
+            return 0;
+
+        case Operator.MINUS:
+            return 0;
+
+        case Operator.MULTIPLY:
+            return 1;
+
+        case Operator.DEVIDED:
+            return 1;
+
+        case Operator.REVERSED_MINUS:
+            return 0;
+
+        case Operator.REVERSED_DEVIDED:
+            return 1;
+
+        default:
+            throw new Error("unexpected operator");
+    }
+}
+
+function LOP(op: Operator): Operator {
     switch (op) {
         case Operator.PLUS:
             return Operator.REVERSED_MINUS;
-        
+
         case Operator.MINUS:
             return Operator.MINUS;
 
@@ -35,11 +85,11 @@ function LOP(op: Operator): Operator{
     }
 }
 
-function ROP(op: Operator): Operator{
+function ROP(op: Operator): Operator {
     switch (op) {
         case Operator.PLUS:
             return Operator.MINUS;
-        
+
         case Operator.MINUS:
             return Operator.PLUS;
 
@@ -204,7 +254,7 @@ class Relationship {
         }
         setNumberAndParent(rootNode);
         rootNode.parentNode = pos;
-        let transformAtNode = function(node: OperatorNode) {
+        let transformAtNode = function (node: OperatorNode) {
             // must have one child null
             if (node.parentNode == null || typeof node.parentNode === "number") {
                 if (node.parentNode == null) {
@@ -274,6 +324,45 @@ class Relationship {
         }
         newRelationship.args = newArgs;
         return [newRelationship, argSequence];
+    }
+    debug(): string {
+        let pointer = 0;
+        let debugAtNode = (node: OperatorNode): string => {
+            let leftout = "";
+            let rightout = "";
+            if (node.leftNode == null || typeof node.leftNode === "number") {
+                if (this.args[pointer].element.name != null) {
+                    leftout = this.args[pointer].element.name + "." + this.args[pointer].name;
+                } else {
+                    leftout = this.args[pointer].name;
+                }
+                pointer++;
+            } else {
+                leftout = debugAtNode(node.leftNode);
+                if (OPLevel(node.op) > OPLevel(node.leftNode.op)) {
+                    leftout = "(" + leftout + ")";
+                }
+            }
+            if (node.rightNode == null || typeof node.rightNode === "number") {
+                if (this.args[pointer].element.name != null) {
+                    rightout = this.args[pointer].element.name + "." + this.args[pointer].name;
+                } else {
+                    rightout = this.args[pointer].name;
+                }
+                pointer++;
+            } else {
+                rightout = debugAtNode(node.rightNode);
+                if (OPLevel(node.op) > OPLevel(node.rightNode.op)) {
+                    rightout = "(" + rightout + ")";
+                }
+            }
+            if (node.op == Operator.REVERSED_DEVIDED || node.op == Operator.REVERSED_MINUS) {
+                return rightout + " " + OPString(node.op) + " " + leftout;
+            } else {
+                return leftout + " " + OPString(node.op) + " " + rightout;
+            }
+        }
+        return debugAtNode(this.func.root);
     }
 }
 
@@ -382,4 +471,4 @@ class Controller {
     }
 }
 
-export {Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller};
+export { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller };
