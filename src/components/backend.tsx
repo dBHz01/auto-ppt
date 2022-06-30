@@ -6,6 +6,58 @@ enum Operator {
     MINUS,
     MULTIPLY,
     DEVIDED,
+    REVERSED_MINUS,
+    REVERSED_DEVIDED,
+}
+
+function LOP(op: Operator): Operator{
+    switch (op) {
+        case Operator.PLUS:
+            return Operator.REVERSED_MINUS;
+        
+        case Operator.MINUS:
+            return Operator.MINUS;
+
+        case Operator.MULTIPLY:
+            return Operator.REVERSED_DEVIDED;
+
+        case Operator.DEVIDED:
+            return Operator.DEVIDED;
+
+        case Operator.REVERSED_MINUS:
+            return Operator.PLUS;
+
+        case Operator.REVERSED_DEVIDED:
+            return Operator.MULTIPLY;
+
+        default:
+            throw new Error("unexpected operator");
+    }
+}
+
+function ROP(op: Operator): Operator{
+    switch (op) {
+        case Operator.PLUS:
+            return Operator.MINUS;
+        
+        case Operator.MINUS:
+            return Operator.PLUS;
+
+        case Operator.MULTIPLY:
+            return Operator.DEVIDED;
+
+        case Operator.DEVIDED:
+            return Operator.MULTIPLY;
+
+        case Operator.REVERSED_MINUS:
+            return Operator.REVERSED_MINUS;
+
+        case Operator.REVERSED_DEVIDED:
+            return Operator.REVERSED_DEVIDED;
+
+        default:
+            throw new Error("unexpected operator");
+    }
 }
 
 interface Value {
@@ -31,6 +83,12 @@ class RawNumber implements Value {
 
             case Operator.DEVIDED:
                 return new RawNumber(this.val / other.val);
+
+            case Operator.REVERSED_MINUS:
+                return new RawNumber(other.val - this.val);
+
+            case Operator.REVERSED_DEVIDED:
+                return new RawNumber(other.val / this.val);
 
             default:
                 return new RawNumber(0);
@@ -106,16 +164,129 @@ class Relationship {
         this.level = _level;
         this.timestamp = new Date();
     }
+    transform(pos: number): [Relationship, Array<number>] {
+        // change target with args[pos], recalculate the func and args, return a new Relationship and the sequence of args
+        // attention: the args in the new Relationship are shallow copied
+        if (pos >= this.args.length) {
+            throw new Error("error position in transformation");
+        }
+        let newRelationship = new Relationship(this.func.deepCopy(), this.args, this.target, this.type, this.level);
+        let rootNode = newRelationship.func.root;
+        let pointer = 0;
+        let posNode = new OperatorNode(Operator.PLUS); // Node at pos
+        let setNumberAndParent = function (node: OperatorNode) {
+            if (node.leftNode == null || typeof node.leftNode === "number") {
+                if (pointer == pos) {
+                    posNode = node;
+                    node.leftNode = undefined;
+                    pointer++;
+                } else {
+                    node.leftNode = pointer;
+                    pointer++;
+                }
+            } else {
+                node.leftNode.parentNode = node;
+                setNumberAndParent(node.leftNode as OperatorNode);
+            }
+            if (node.rightNode == null || typeof node.rightNode === "number") {
+                if (pointer == pos) {
+                    posNode = node;
+                    node.rightNode = undefined;
+                    pointer++;
+                } else {
+                    node.rightNode = pointer;
+                    pointer++;
+                }
+            } else {
+                node.rightNode.parentNode = node;
+                setNumberAndParent(node.rightNode as OperatorNode);
+            }
+        }
+        setNumberAndParent(rootNode);
+        rootNode.parentNode = pos;
+        let transformAtNode = function(node: OperatorNode) {
+            // must have one child null
+            if (node.parentNode == null || typeof node.parentNode === "number") {
+                if (node.parentNode == null) {
+                    throw new Error("parent node should not be null");
+                } else {
+                    if (node.leftNode == null) {
+                        node.leftNode = node.parentNode;
+                        node.parentNode = undefined;
+                        node.op = ROP(node.op);
+                    } else if (node.rightNode == null) {
+                        node.rightNode = node.parentNode;
+                        node.parentNode = undefined;
+                        node.op = LOP(node.op);
+                    } else {
+                        throw new Error("must have one child null");
+                    }
+                }
+            } else {
+                if (node.parentNode.leftNode == node) {
+                    node.parentNode.leftNode = undefined;
+                } else {
+                    node.parentNode.rightNode = undefined;
+                }
+                transformAtNode(node.parentNode);
+                if (node.leftNode == null) {
+                    node.leftNode = node.parentNode;
+                    node.parentNode.parentNode = node;
+                    node.op = ROP(node.op);
+                    node.parentNode = undefined;
+                } else if (node.rightNode == null) {
+                    node.rightNode = node.parentNode;
+                    node.parentNode.parentNode = node;
+                    node.op = LOP(node.op);
+                    node.parentNode = undefined;
+                } else {
+                    throw new Error("must have one child null");
+                }
+            }
+        }
+        transformAtNode(posNode);
+        newRelationship.func.root = posNode;
+        let argSequence = new Array<number>();
+        let getArgsSequence = function (node: OperatorNode) {
+            if (node.leftNode == null || typeof node.leftNode === "number") {
+                if (node.leftNode == null) {
+                    throw new Error("should not contain null after transform");
+                } else {
+                    argSequence.push(node.leftNode);
+                }
+            } else {
+                getArgsSequence(node.leftNode);
+            }
+            if (node.rightNode == null || typeof node.rightNode === "number") {
+                if (node.rightNode == null) {
+                    throw new Error("should not contain null after transform");
+                } else {
+                    argSequence.push(node.rightNode);
+                }
+            } else {
+                getArgsSequence(node.rightNode);
+            }
+        }
+        getArgsSequence(posNode);
+        let newArgs = new Array<Attribute>();
+        for (let i of argSequence) {
+            newArgs.push(this.args[i]);
+        }
+        newRelationship.args = newArgs;
+        return [newRelationship, argSequence];
+    }
 }
 
 class OperatorNode {
     op: Operator;
-    leftNode: OperatorNode | undefined;
-    rightNode: OperatorNode | undefined;
-    constructor(_op: Operator, _leftNode?: OperatorNode, _rightNode?: OperatorNode) {
+    leftNode: OperatorNode | number | undefined;
+    rightNode: OperatorNode | number | undefined;
+    parentNode: OperatorNode | number | undefined; // only for transformation
+    constructor(_op: Operator, _leftNode?: OperatorNode, _rightNode?: OperatorNode, _parentNonde?: OperatorNode) {
         this.op = _op;
         this.leftNode = _leftNode;
         this.rightNode = _rightNode;
+        this.parentNode = _parentNonde;
     }
 }
 
@@ -138,17 +309,32 @@ class FuncTree {
                 leftValue = args[pointer].val;
                 pointer++;
             } else {
-                leftValue = calSubTree(rootNode.leftNode);
+                leftValue = calSubTree(rootNode.leftNode as OperatorNode);
             }
             if (rootNode.rightNode == null) {
                 rightValue = args[pointer].val;
                 pointer++;
             } else {
-                rightValue = calSubTree(rootNode.rightNode);
+                rightValue = calSubTree(rootNode.rightNode as OperatorNode);
             }
             return leftValue.calculate(rootNode.op, rightValue);
         }
         return calSubTree(this.root);
+    }
+    deepCopy(): FuncTree {
+        let newRoot = new OperatorNode(this.root.op);
+        let deepCopyAtNode = function (node: OperatorNode): OperatorNode {
+            let newNode = new OperatorNode(node.op);
+            if (node.leftNode != null) {
+                newNode.leftNode = deepCopyAtNode(node.leftNode as OperatorNode);
+            }
+            if (node.rightNode != null) {
+                newNode.rightNode = deepCopyAtNode(node.rightNode as OperatorNode);
+            }
+            return newNode
+        }
+        newRoot = deepCopyAtNode(this.root);
+        return new FuncTree(newRoot, this.argNum);
     }
 }
 

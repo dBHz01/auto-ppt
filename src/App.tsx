@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Stage, Layer, Rect, Text, Group } from "react-konva";
 import './App.css';
 import { Controller, ElementType, FuncTree, Operator, OperatorNode, RawNumber, SingleElement } from './components/backend';
+import { testBackend } from './components/test_backend';
 import { Button } from 'antd';
 
 class AllComponents extends React.Component {
@@ -70,6 +71,7 @@ class App extends Component {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         this.clickButton = this.clickButton.bind(this);
+        testBackend();
     }
     clickButton() {
         console.log(this.allComponentsRef);
