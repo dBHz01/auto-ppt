@@ -24,9 +24,15 @@ function testBackend() {
      
     console.log(controller.getAttribute(id_3, "x").val);
 
-    console.log(controller.getAttribute(id_3, "x").fromRelationship?.transform(0)[0].debug())
-    console.log(controller.getAttribute(id_3, "x").fromRelationship?.transform(1)[0].debug())
-    console.log(controller.getAttribute(id_3, "x").fromRelationship?.transform(2)[0].debug())
+    let oldRelationship = controller.getAttribute(id_3, "x").fromRelationship
+
+    console.log(oldRelationship?.debug());
+
+    console.log(oldRelationship?.transform(0)[0].debug());
+    console.log(oldRelationship?.transform(1)[0].debug());
+    console.log(oldRelationship?.transform(2)[0].debug());
+
+    console.log(oldRelationship?.transform(0)[0].func.calculate(oldRelationship?.transform(0)[0].args));
 
 }
 export {testBackend};

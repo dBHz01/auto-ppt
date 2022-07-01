@@ -116,11 +116,13 @@ interface Value {
     val: any;
     calculate(op: Operator, other: Value): Value;
 }
+
 function assert(cond: boolean){
     if(!cond){
         throw 'assert failed';
     }
 }
+
 class RawNumber implements Value {
     val: number;
     constructor(_val: number) {
@@ -269,6 +271,7 @@ class Relationship {
         let rootNode = newRelationship.func.root;
         let pointer = 0;
         let posNode = new OperatorNode(Operator.PLUS); // Node at pos
+        // 这里为FuncTree设置子节点number以及维护parent
         let setNumberAndParent = function (node: OperatorNode) {
             if (node.leftNode == null || typeof node.leftNode === "number") {
                 if (pointer == pos) {
@@ -363,6 +366,21 @@ class Relationship {
             }
         }
         getArgsSequence(posNode);
+        // 清除number节点以及parent, 正常使用时候的relationship不应该包含number节点或者parent
+        let cleanNumberAndParent = function (node: OperatorNode) {
+            if (typeof node.leftNode === "number") {
+                node.leftNode = undefined;
+            } else if (node.leftNode != null) {
+                cleanNumberAndParent(node.leftNode);
+            }
+            if (typeof node.rightNode === "number") {
+                node.rightNode = undefined;
+            } else if (node.rightNode != null) {
+                cleanNumberAndParent(node.rightNode);
+            }
+            node.parentNode = undefined;
+        }
+        cleanNumberAndParent(posNode);
         let newArgs = new Array<Attribute>();
         argSequence[pos] = -1 // added
         let newArgSequence = []
