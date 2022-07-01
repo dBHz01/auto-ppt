@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Stage, Layer, Rect, Text, Group , Circle} from "react-konva";
 import './App.css';
 import { Controller, ElementType, FuncTree, Operator, OperatorNode, RawNumber, SingleElement } from './components/backend';
+import { testBackend } from './components/test_backend';
 import { Button } from 'antd';
 
 function delay(ms: number) {
@@ -22,20 +23,26 @@ class AllComponents extends React.Component {
         this.controller.addAttribute(id_1, "y", new RawNumber(30 + 25));
         delay(1000);
         let id_2 = this.controller.createElement(ElementType.RECTANGLE, "second");
-        this.controller.addAttribute(id_2, "x", new RawNumber(170 + 25));
-        this.controller.addAttribute(id_2, "y", new RawNumber(30 + 25));
+        this.controller.addAttribute(id_2, "x", new RawNumber(0));
+        this.controller.addAttribute(id_2, "y", new RawNumber(0));
+        /*
         delay(1000);
         let id_3 = this.controller.createElement(ElementType.RECTANGLE, "third");
         this.controller.addAttribute(id_3, "x", new RawNumber(100 + 25));
         this.controller.addAttribute(id_3, "y", new RawNumber(100 + 25));
+        */
+        let func_0 = new FuncTree(new OperatorNode(Operator.EQ), 1);
         let func_1 = new FuncTree(new OperatorNode(Operator.PLUS), 2);
+        /*
         let r = new OperatorNode(Operator.PLUS);
         let d = new OperatorNode(Operator.DEVIDED);
         r.rightNode = d;
         let func_2 = new FuncTree(r, 3);
+        */
+        this.controller.addRelationship(func_0, [this.controller.getAttribute(id_1, "y")], this.controller.getAttribute(id_2, "y"));
         this.controller.addRelationship(func_1, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha")], this.controller.getAttribute(id_2, "x"));
-        this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "y"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "y"));
-        this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "x"));
+        // this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "y"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "y"));
+        // this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "x"));
         // console.log(this.controller.getAttribute(id_2, "x").val);
 
         // this.controller.estimate_next_prio()
@@ -97,6 +104,25 @@ class AllComponents extends React.Component {
             )
         })
 
+        this.controller.nextValidPost.slice(0, 10).forEach((tp, idx)=>{
+            elements.push(<Group key={`valid-${idx}`}>
+                <Rect
+                    x={tp[0].val.val-2.5}
+                    y={tp[1].val.val-2.5}
+                    width={5}
+                    height={5}
+                    fill={"blue"}
+                />
+                <Text
+                    x={tp[0].val.val}
+                    y={tp[1].val.val}
+                    text={`${idx}`}
+                    fontSize={5}
+                />
+            </Group>
+            )
+        })
+
         return (
             <Group>
                 {elements}
@@ -111,6 +137,7 @@ class App extends Component {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         this.clickButton = this.clickButton.bind(this);
+        testBackend();
     }
     clickButton() {
         console.log(this.allComponentsRef);
@@ -130,10 +157,16 @@ class App extends Component {
         console.log(this.allComponentsRef.current?.controller.getElement(3))
     }
 
-    onNext(){
+    onNextPrio(){
         this.allComponentsRef.current?.controller.estimate_next_prio();
         this.forceUpdate();
     }
+
+    onNextPost(){
+        this.allComponentsRef.current?.controller.estimate_next_post();
+        this.forceUpdate();
+    }
+
     render() {
         return (
             <div>
@@ -148,8 +181,12 @@ class App extends Component {
                 >click</Button>
                 <Button
                     type="primary"
-                    onClick={this.onNext.bind(this)}
-                >Next</Button>
+                    onClick={this.onNextPrio.bind(this)}
+                >Next先验推测</Button>
+                <Button
+                    type="primary"
+                    onClick={this.onNextPost.bind(this)}
+                >Next后验推测</Button>
             </div>
         );
     }
