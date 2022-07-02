@@ -1,4 +1,4 @@
-import {getAllCase, count} from './utility'
+import {getAllCase, count, getTs} from './utility'
 enum Operator {
     PLUS,
     MINUS,
@@ -28,6 +28,9 @@ function OPString(op: Operator): string {
 
         case Operator.REVERSED_DEVIDED:
             return "/";
+        
+        case Operator.EQ:
+            return "";
 
         default:
             throw new Error("unexpected operator");
@@ -160,7 +163,7 @@ class Attribute {
     name: string;
     val: Value;
     element: SingleElement;
-    timestamp: Date;
+    timestamp: number;
     fromRelationship?: Relationship;
     toRelationships?: Relationship[];
     constructor(_name: string, _val: Value, _element: SingleElement, _fromRelationship?: Relationship, _toRelationships?: Relationship[]) {
@@ -169,7 +172,7 @@ class Attribute {
         this.element = _element;
         this.fromRelationship = _fromRelationship;
         this.toRelationships = _toRelationships;
-        this.timestamp = new Date();
+        this.timestamp = getTs();
     }
     setFromRelationship(f: Relationship) {
         this.fromRelationship = f;
@@ -203,13 +206,13 @@ class SingleElement {
     name?: string;
     type: ElementType;
     attributes: Map<string, Attribute>;
-    timestamp: Date;
+    timestamp: number;
     constructor(_id: number, _type: ElementType, _name?: string) {
         this.id = _id;
         this.type = _type;
         this.name = _name;
         this.attributes = new Map<string, Attribute>();
-        this.timestamp = new Date();
+        this.timestamp = getTs();
     }
     addAttribute(attr: Attribute) {
         this.attributes.set(attr.name, attr);
@@ -252,14 +255,14 @@ class Relationship {
     target: Attribute;
     type?: RelationshipType;
     level?: number;
-    timestamp: Date;
+    timestamp: number;
     constructor(_func: FuncTree, _args: Attribute[], _target: Attribute, _type?: RelationshipType, _level?: number) {
         this.func = _func;
         this.args = _args;
         this.target = _target;
         this.type = _type;
         this.level = _level;
-        this.timestamp = new Date();
+        this.timestamp = getTs();
     }
     transform(pos: number): [Relationship, Array<number>] {
         // change target with args[pos], recalculate the func and args, return a new Relationship and the sequence of args
@@ -423,7 +426,9 @@ class Relationship {
                 }
             }
             if (node.rightNode == null || typeof node.rightNode === "number") {
-                if (this.args[pointer].element.name != null) {
+                if(this.args[pointer] == null){
+                    rightout = ""
+                } else if (this.args[pointer].element.name != null) {
                     rightout = this.args[pointer].element.name + "." + this.args[pointer].name;
                 } else {
                     rightout = this.args[pointer].name;
@@ -588,7 +593,8 @@ class PostResultCandidate {
     // 可以更加方便地计算相似度
     indexMapping: number[];
     val: Value;
-    constructor(_oriRel: Relationship, _newRel: Relationship, _indexMapping: number[]){
+    keepLeft: boolean;
+    constructor(_oriRel: Relationship, _newRel: Relationship, _indexMapping: number[], keepLeft: boolean){
         this.oriRel = _oriRel;
         this.newRel = _newRel;
         this.indexMapping = _indexMapping;
@@ -606,6 +612,7 @@ class PostResultCandidate {
             
         }
         this.val = this.newRel.func.calculate(this.newRel.args);
+        this.keepLeft = keepLeft;
     }
 
     isInvalid():boolean {
@@ -614,20 +621,25 @@ class PostResultCandidate {
 }
 
 class Controller {
-    elements: SingleElement[];
+    elements: Map<number, SingleElement>;
     idAllocator: number;
     constAllocator: number;
 
     nextValid:Array<[PrioResultCandidate, PrioResultCandidate, number]>;
     nextInvalid:Array<[PrioResultCandidate, PrioResultCandidate, number]>;
 
-    nextValidPost:Array<[PostResultCandidate, PostResultCandidate, number]>;
-    nextInvalidPost:Array<[PostResultCandidate, PostResultCandidate, number]>;
+    nextValidPost:Array<[PostResultCandidate, PostResultCandidate, number, number, number, number, number, number]>;
+    nextInvalidPost:Array<[PostResultCandidate, PostResultCandidate, number, number, number, number, number, number]>;
+
+    crtPostPos: number;
+    crtPrioPos: number;
+    crtPostEle: SingleElement|undefined;
+    crtPrioEle: SingleElement|undefined;
 
     constructor() {
-        this.elements = new Array<SingleElement>();
+        this.elements = new Map<number, SingleElement>();
         let constElement = new SingleElement(0, ElementType.CONST, "const");
-        this.elements.push(constElement);
+        this.elements.set(0, constElement);
         this.idAllocator = 1;
         this.constAllocator = 0;
         this.nextValid = [];
@@ -635,6 +647,11 @@ class Controller {
         this.addAttribute(0, 'const_dis', new RawNumber(PREDEFINE_DIS));
         this.nextValidPost = [];
         this.nextInvalidPost = [];
+
+        this.crtPostPos = -1;
+        this.crtPrioPos = -1;
+        this.crtPostEle = undefined;
+        this.crtPrioEle = undefined;
     }
 
     getConstAttr(name: string): Attribute{
@@ -645,22 +662,49 @@ class Controller {
         // return element id
         let newElement = new SingleElement(this.idAllocator, _type, _name);
         this.idAllocator++;
-        this.elements.push(newElement);
+        this.elements.set(this.idAllocator - 1, newElement);
         return this.idAllocator - 1;
     }
-    getElement(_id: number): SingleElement {
-        if (this.elements.length > _id) {
-            return this.elements[_id];
-        } else {
-            throw Error("error element");
+
+    deleteElement(id: number):boolean{
+        let ele = this.getElement(id);
+        let noAttributeUsed = true;
+        ele.attributes.forEach((attr)=>{
+            if(attr.toRelationships != null && attr.toRelationships.length > 0){
+                noAttributeUsed = false;
+            }
+        })
+        if(!noAttributeUsed){
+            return false;
         }
+
+        ele.attributes.forEach((attr)=>{
+            if(attr.fromRelationship == null){
+                return;
+            }
+
+            attr.fromRelationship.args.forEach((attr2)=>{
+                attr2.toRelationships?.splice(attr2.toRelationships.indexOf(attr.fromRelationship!), 1)
+            })
+        })
+        this.elements.delete(ele.id);
+        return true;
+    }
+
+    getElement(_id: number): SingleElement {
+        for(let ele of this.elements.values()){
+            if(ele.id === _id){
+                return ele;
+            }
+        }
+        throw Error("error element");
     }
     addAttribute(_id: number, _name: string, _val: Value) {
-        let newAttribute = new Attribute(_name, _val, this.elements[_id]);
-        this.elements[_id].addAttribute(newAttribute);
+        let newAttribute = new Attribute(_name, _val, this.elements.get(_id)!);
+        this.elements.get(_id)!.addAttribute(newAttribute);
     }
     getAttribute(_id: number, _name: string): Attribute {
-        let attr = this.elements[_id].attributes.get(_name);
+        let attr = this.elements.get(_id)!.attributes.get(_name);
         if (attr != undefined) {
             return attr;
         } else {
@@ -680,6 +724,10 @@ class Controller {
         this.nextInvalid = [];
         this.nextValidPost = [];
         this.nextInvalidPost = [];
+        this.crtPostPos = -1;
+        this.crtPrioPos = -1;
+        this.crtPostEle = undefined;
+        this.crtPrioEle = undefined;
         // let nextElementID = this.createElement(ElementType.RECTANGLE);
         // let nextElement = this.getElement(nextElementID);
         let nextElement = new SingleElement(-1, ElementType.RECTANGLE);
@@ -692,8 +740,10 @@ class Controller {
         let xCandidates:Array<PrioResultCandidate> = [];
         let yCandidates:Array<PrioResultCandidate> = [];
         for(let crtOp of uniPriorOp){
-            for(let i = 1; i < this.elements.length; ++ i){
-                let crtElement = this.elements[i];
+            for(let crtElement of this.elements.values()){
+                if(crtElement.id === 0){
+                    continue;
+                }
 
                 let crtXAttr = crtElement.getAttribute('x');
                 let crtYAttr = crtElement.getAttribute('y');
@@ -715,21 +765,23 @@ class Controller {
 
         let xysTuple: Array<[PrioResultCandidate, PrioResultCandidate, number]> = []; // x, y and score
         for(let xCdt of xCandidates){
-            let avgTimeX = xCdt.ref.map((x)=>x.element.timestamp).reduce((p, c)=>(p+c.getTime()), 0) / xCdt.ref.length;
+            let avgTimeX = xCdt.ref.map((x)=>x.element.timestamp).reduce((p, c)=>(p+c), 0) / xCdt.ref.length;
             let avgXX = xCdt.ref.map((x)=>x.element.getAttribute('x')).reduce((p, c)=>(p+c?.val.val), 0) / xCdt.ref.length;
             let avgYX = xCdt.ref.map((x)=>x.element.getAttribute('y')).reduce((p, c)=>(p+c?.val.val), 0) / xCdt.ref.length;
             
             for(let yCdt of yCandidates){
                 let score = -1;
-                let avgTimeY = yCdt.ref.map((x)=>x.timestamp).reduce((p, c)=>(p+c.getTime()), 0) / yCdt.ref.length;
+                let avgTimeY = yCdt.ref.map((x)=>x.timestamp).reduce((p, c)=>(p+c), 0) / yCdt.ref.length;
                 let avgXY = yCdt.ref.map((x)=>x.element.getAttribute('x')).reduce((p, c)=>(p+c?.val.val), 0) / yCdt.ref.length;
                 let avgYY = yCdt.ref.map((x)=>x.element.getAttribute('y')).reduce((p, c)=>(p+c?.val.val), 0) / yCdt.ref.length;
 
-                let deltaT = Math.abs(xCdt.tgt.timestamp.getTime() - avgTimeX) + Math.abs(yCdt.tgt.timestamp.getTime() - avgTimeY);
+                let deltaT = Math.abs(xCdt.tgt.timestamp - avgTimeX) + Math.abs(yCdt.tgt.timestamp - avgTimeY);
                 deltaT /= 1000;
 
                 let dis = Math.sqrt((avgXX - xCdt.val.val) ** 2 + (avgYX - yCdt.val.val) ** 2);
                 dis += Math.sqrt((avgXY - xCdt.val.val) ** 2 + (avgYY - yCdt.val.val) ** 2);
+
+                dis /= 100
 
                 // 计算两个refs 之间的平均距离
                 let topoDis = 0;
@@ -768,7 +820,7 @@ class Controller {
         this.nextInvalid = [];
         for(let tp of xysTuple){
             let invalid:boolean = false;
-            for(let ele of this.elements){
+            for(let ele of this.elements.values()){
                 if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
                     this.nextInvalid.push(tp);
                     invalid = true;
@@ -782,10 +834,12 @@ class Controller {
         // 选择score最大的位置进行绘制
         let mostPossible = this.nextValid[0];
         this.addElementByPrio(mostPossible[0], mostPossible[1]);
+        this.crtPrioPos = 0;
     }
 
     addElementByPrio(xpc: PrioResultCandidate, ypc: PrioResultCandidate){
         let newEle = this.createElement(ElementType.RECTANGLE, `newEle-${Date.now()}`);
+        this.crtPrioEle = this.getElement(newEle);
         this.addAttribute(newEle, "x", new RawNumber(0));
         this.addAttribute(newEle, "y", new RawNumber(0));
         let xArgs = [];
@@ -867,6 +921,10 @@ class Controller {
         this.nextInvalid = [];
         this.nextValidPost = [];
         this.nextInvalidPost = [];
+        this.crtPostPos = -1;
+        this.crtPrioPos = -1;
+        this.crtPostEle = undefined;
+        this.crtPrioEle = undefined;
 
         let nextElement = new SingleElement(-1, ElementType.RECTANGLE);
         nextElement.attributes.set('x', new Attribute('x', new RawNumber(0), nextElement));
@@ -877,10 +935,10 @@ class Controller {
         let pcXs = this.genPostCandidate(nextElement.getAttribute('x')!);
         let pcYs = this.genPostCandidate(nextElement.getAttribute('y')!);
 
-        let positionPool: Array<[PostResultCandidate, PostResultCandidate, number]> = [];
+        let positionPool: Array<[PostResultCandidate, PostResultCandidate, number, number, number, number, number, number]> = [];
         for(let pcX of pcXs){
             let nonConstArgsNumInY = count(pcX.newRel.args, (item)=>(item.element.id != 0));
-            let avgArgTimeX = pcX.newRel.args.map((x)=>(x.timestamp.getTime())).reduce((pv, cv)=>(pv+cv)) / pcX.newRel.args.length;
+            let avgArgTimeX = pcX.newRel.args.map((x)=>(x.timestamp)).reduce((pv, cv)=>(pv+cv)) / pcX.newRel.args.length;
             let avgXInXArgs = nonConstArgsNumInY === 0? 0:pcX.newRel.args
                     .flatMap((attr)=>(attr.element.id === 0? []: [attr.element.getAttribute('x')!.val.val]))
                     .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
@@ -894,11 +952,15 @@ class Controller {
                 let nonConstArgsNumInY = count(pcY.newRel.args, (item)=>(item.element.id != 0));
                 let score = -1;
                 // 时间，也就是新加入的元素和所有被用来计算的元素直接时间差小
-                let avgArgTimeY = pcY.newRel.args.map((x)=>(x.timestamp.getTime())).reduce((pv, cv)=>(pv+cv)) / pcY.newRel.args.length;
-                let deltaT = Math.abs(pcX.newRel.target.timestamp.getTime() - avgArgTimeX) + Math.abs(pcY.newRel.target.timestamp.getTime() - avgArgTimeY);
+                let avgArgTimeY = pcY.newRel.args.map((x)=>(x.timestamp)).reduce((pv, cv)=>(pv+cv)) / pcY.newRel.args.length;
+                let deltaT = Math.abs(pcX.newRel.target.timestamp - avgArgTimeX) + Math.abs(pcY.newRel.target.timestamp - avgArgTimeY);
                 deltaT /= 1000;
 
-               
+                // 对于后验关系，关系本身的时间也是很重要的
+                let deltaRelT = Math.abs(pcX.oriRel.timestamp - nextElement.timestamp);
+                deltaRelT += Math.abs(pcY.oriRel.timestamp - nextElement.timestamp);
+                deltaRelT /= 1000;
+
                 let avgXInYArgs = nonConstArgsNumInY === 0? 0:pcY.newRel.args
                     .flatMap((attr)=>(attr.element.id === 0? []: [attr.element.getAttribute('x')!.val.val]))
                     .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
@@ -910,6 +972,8 @@ class Controller {
                 let dis = Math.sqrt((avgXInXArgs - pcX.val.val) ** 2 + (avgYInXArgs - pcY.val.val) ** 2) 
                     + Math.sqrt((avgXInYArgs - pcX.val.val) ** 2 + (avgYInYArgs - pcY.val.val) ** 2);
                 
+                dis /= 100
+
                 let topoDis = 0;
                 for(let xRef of pcX.newRel.args){
                     for(let yRef of pcY.newRel.args){
@@ -917,8 +981,24 @@ class Controller {
                     }
                 }
                 topoDis /= (pcX.newRel.args.length * pcX.newRel.args.length)
-                score = deltaT + dis + topoDis;
-                positionPool.push([pcX, pcY, score]);
+                // 如果本来这两个relationship就是为同一个对象服务的，可以有认为更加可能
+                let factor = 1;
+                if(pcX.oriRel.target.element !== pcY.oriRel.target.element){
+                    factor = 2;
+                }
+
+                // 不希望涉及过多的元素
+                let oriRelType:Set<SingleElement> = new Set(pcX.oriRel.args.map(x=>x.element));
+                pcY.oriRel.args.forEach((a)=>{oriRelType.add(a.element)});
+
+                let newRelType:Set<SingleElement> = new Set(pcX.newRel.args.map(x=>x.element));
+                pcY.newRel.args.forEach((a)=>{newRelType.add(a.element)});
+
+                factor *= (1 + Math.abs(oriRelType.size - newRelType.size) / Math.min(oriRelType.size, newRelType.size))
+                factor *= (pcX.keepLeft === pcY.keepLeft? 1: 2);
+
+                score = (deltaT + dis + topoDis + deltaRelT) * factor;
+                positionPool.push([pcX, pcY, score, factor, deltaT, dis, topoDis, deltaRelT]);
            }
         }
 
@@ -936,7 +1016,7 @@ class Controller {
         console.log(positionPool);
         for(let tp of positionPool){
             let invalid:boolean = false;
-            for(let ele of this.elements){
+            for(let ele of this.elements.values()){
                 if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
                     this.nextInvalidPost.push(tp);
                     invalid = true;
@@ -948,11 +1028,13 @@ class Controller {
             }
         }
 
+        this.crtPostPos = 0;
         this.addElementByPost(this.nextValidPost[0][0], this.nextValidPost[0][1]);
     }
 
     addElementByPost(xpc: PostResultCandidate, ypc: PostResultCandidate){
         let newEle = this.createElement(ElementType.RECTANGLE, `newEle-${Date.now()}`);
+        this.crtPostEle = this.getElement(newEle);
         this.addAttribute(newEle, "x", new RawNumber(0));
         this.addAttribute(newEle, "y", new RawNumber(0));
         let xArgs = [... xpc.newRel.args];
@@ -997,7 +1079,7 @@ class Controller {
                     }
                     for(let argList of allArgSeq){
                         let newRel = new Relationship(info[0].func.deepCopy(), argList, tgtAttr);
-                        let crtCandidate = new PostResultCandidate(info[0], newRel, indexMapping);
+                        let crtCandidate = new PostResultCandidate(info[0], newRel, indexMapping, true);
                         if(!crtCandidate.isInvalid()){
                             genRes.push(crtCandidate);
                         }
@@ -1010,7 +1092,7 @@ class Controller {
                     let allArgSeq = getAllCase(candidateArgs);
                     for(let argList of allArgSeq){
                         let newRelCopied = new Relationship(newRel.func.deepCopy(), argList, tgtAttr);
-                        let crtCandidate = new PostResultCandidate(info[0], newRelCopied, indexMap)
+                        let crtCandidate = new PostResultCandidate(info[0], newRelCopied, indexMap, false)
                         if(!crtCandidate.isInvalid()){
                             genRes.push(crtCandidate);
                         }
@@ -1025,8 +1107,10 @@ class Controller {
 
     getAllRelations():Array<Relationship>{
         let result: Relationship[] = [];
-        for(let i = 1; i < this.elements.length; ++ i){
-            let ele = this.elements[i];
+        for(let ele of this.elements.values()){
+            if(ele.id === 0){
+                continue;
+            }
             ele.attributes.forEach((attr, _attrName)=>{
                 if(attr.fromRelationship != null){
                     result.push(attr.fromRelationship);
@@ -1038,7 +1122,7 @@ class Controller {
 
     getAllSameAttr(tgtAttr: Attribute):Attribute[]{
         let res:Attribute[] = [];
-        for(let ele of this.elements){ // const 相关也要处理
+        for(let ele of this.elements.values()){ // const 相关也要处理
             ele.attributes.forEach((attr, _name)=>{
                 if(tgtAttr.isSameAttribute(attr)){
                     res.push(attr);
@@ -1046,6 +1130,29 @@ class Controller {
             })
         }
         return res;
+    }
+
+    moveToNextPrio(){
+        if(this.crtPrioPos < 0 || this.crtPrioEle == null){
+            return;
+        }
+        if(!this.deleteElement(this.crtPrioEle.id)){
+            return;
+        }
+
+        this.crtPrioPos = (this.crtPrioPos + 1) % 10;
+        this.addElementByPrio(this.nextValid[this.crtPrioPos][0], this.nextValid[this.crtPrioPos][1])
+    }
+
+    moveToNextPost(){
+        if(this.crtPostPos < 0 || this.crtPostEle == null){
+            return;
+        }
+        if(!this.deleteElement(this.crtPostEle.id)){
+            return;
+        }
+        this.crtPostPos = (this.crtPostPos + 1) % 10;
+        this.addElementByPost(this.nextValidPost[this.crtPostPos][0], this.nextValidPost[this.crtPostPos][1])
     }
 }
 

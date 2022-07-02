@@ -16,42 +16,39 @@ class AllComponents extends React.Component {
         super(props);
         this.controller = new Controller();
         this.controller.addAttribute(0, "alpha", new RawNumber(140));
-        this.controller.addAttribute(0, "two", new RawNumber(2));
-        delay(1000);
+        this.controller.addAttribute(0, "two", new RawNumber(1.3));
+
         let id_1 = this.controller.createElement(ElementType.RECTANGLE, "first");
-        this.controller.addAttribute(id_1, "x", new RawNumber(30 + 25));
-        this.controller.addAttribute(id_1, "y", new RawNumber(30 + 25));
-        delay(1000);
+        this.controller.addAttribute(id_1, "x", new RawNumber(230 + 25));
+        this.controller.addAttribute(id_1, "y", new RawNumber(230 + 25));
+
         let id_2 = this.controller.createElement(ElementType.RECTANGLE, "second");
         this.controller.addAttribute(id_2, "x", new RawNumber(0));
         this.controller.addAttribute(id_2, "y", new RawNumber(0));
-        /*
-        delay(1000);
-        let id_3 = this.controller.createElement(ElementType.RECTANGLE, "third");
-        this.controller.addAttribute(id_3, "x", new RawNumber(100 + 25));
-        this.controller.addAttribute(id_3, "y", new RawNumber(100 + 25));
-        */
+        
         let func_0 = new FuncTree(new OperatorNode(Operator.EQ), 1);
         let func_1 = new FuncTree(new OperatorNode(Operator.PLUS), 2);
-        /*
+        this.controller.addRelationship(func_0, [this.controller.getAttribute(id_1, "y")], this.controller.getAttribute(id_2, "y"));
+        this.controller.addRelationship(func_1, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha")], this.controller.getAttribute(id_2, "x"));
+
+        let id_3 = this.controller.createElement(ElementType.RECTANGLE, "third");
+        this.controller.addAttribute(id_3, "x", new RawNumber(0));
+        this.controller.addAttribute(id_3, "y", new RawNumber(0));
+
         let r = new OperatorNode(Operator.PLUS);
         let d = new OperatorNode(Operator.DEVIDED);
         r.rightNode = d;
         let func_2 = new FuncTree(r, 3);
-        */
-        this.controller.addRelationship(func_0, [this.controller.getAttribute(id_1, "y")], this.controller.getAttribute(id_2, "y"));
-        this.controller.addRelationship(func_1, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha")], this.controller.getAttribute(id_2, "x"));
-        // this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "y"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "y"));
-        // this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "x"));
-        // console.log(this.controller.getAttribute(id_2, "x").val);
 
-        // this.controller.estimate_next_prio()
+        this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "y"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "y"));
+        this.controller.addRelationship(func_2, [this.controller.getAttribute(id_1, "x"), this.controller.getAttribute(0, "alpha"), this.controller.getAttribute(0, "two")], this.controller.getAttribute(id_3, "x"));
+        console.log(this.controller.getAttribute(id_2, "x").val);
     }
 
     render() {
         console.log("render all");
         let elements = [];
-        for (let i of this.controller.elements) {
+        for (let i of this.controller.elements.values()) {
             switch (i.type) {
                 case ElementType.RECTANGLE:
                     let x_val = i.attributes.get("x")?.val.val;
@@ -84,8 +81,13 @@ class AllComponents extends React.Component {
         //         key={`invalid-${idx}`}
         //     />)
         // })
+        let drawed:Set<number> = new Set();
         console.log(this.controller.nextValid[0])
-        this.controller.nextValid.slice(0, 10).forEach((tp, idx)=>{
+        this.controller.nextValid.slice(0, 100).forEach((tp, idx)=>{
+            if(drawed.has(tp[0].val.val * 10000 + tp[1].val.val)){
+                return;
+            }
+            drawed.add(tp[0].val.val * 10000 + tp[1].val.val)
             elements.push(<Group key={`valid-${idx}`}>
                 <Rect
                     x={tp[0].val.val-2.5}
@@ -97,14 +99,19 @@ class AllComponents extends React.Component {
                 <Text
                     x={tp[0].val.val}
                     y={tp[1].val.val}
-                    text={`${idx}`}
-                    fontSize={5}
+                    text={`${drawed.size}`}
+                    fontSize={10}
                 />
             </Group>
             )
         })
 
-        this.controller.nextValidPost.slice(0, 10).forEach((tp, idx)=>{
+        let drawedPost:Set<number> = new Set();
+        this.controller.nextValidPost.slice(0, 100).forEach((tp, idx)=>{
+            if(drawedPost.has(tp[0].val.val * 10000 + tp[1].val.val)){
+                return;
+            }
+            drawedPost.add(tp[0].val.val * 10000 + tp[1].val.val)
             elements.push(<Group key={`valid-${idx}`}>
                 <Rect
                     x={tp[0].val.val-2.5}
@@ -116,8 +123,8 @@ class AllComponents extends React.Component {
                 <Text
                     x={tp[0].val.val}
                     y={tp[1].val.val}
-                    text={`${idx}`}
-                    fontSize={5}
+                    text={`${drawedPost.size}`}
+                    fontSize={10}
                 />
             </Group>
             )
@@ -167,6 +174,17 @@ class App extends Component {
         this.forceUpdate();
     }
 
+    moveToNextPost(){
+        this.allComponentsRef.current?.controller.moveToNextPost();
+        this.forceUpdate();
+    }
+
+    moveToNextPrio(){
+        this.allComponentsRef.current?.controller.moveToNextPrio();
+        this.forceUpdate();
+    }
+
+
     render() {
         return (
             <div>
@@ -185,8 +203,16 @@ class App extends Component {
                 >Next先验推测</Button>
                 <Button
                     type="primary"
+                    onClick={this.moveToNextPrio.bind(this)}
+                >移动到下一个先验结果</Button>
+                <Button
+                    type="primary"
                     onClick={this.onNextPost.bind(this)}
                 >Next后验推测</Button>
+                <Button
+                    type="primary"
+                    onClick={this.moveToNextPost.bind(this)}
+                >移动到下一个后验结果</Button>
             </div>
         );
     }

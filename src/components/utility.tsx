@@ -28,5 +28,10 @@ function count<T>(arr: Array<T>, cb: (item: T, idx: number, arr:T[]) => boolean)
     }
     return res;
 }
+let crtTs = 0;
+function getTs():number{
+    crtTs += 1000;
+    return crtTs;
+}
 
-export {getAllCase, count}
+export {getAllCase, count, getTs}
