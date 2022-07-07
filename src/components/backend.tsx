@@ -37,6 +37,25 @@ function OPString(op: Operator): string {
     }
 }
 
+function String2OP(opStr: string): Operator {
+    switch (opStr) {
+        case "+":
+            return Operator.PLUS;
+
+        case "-":
+            return Operator.MINUS;
+
+        case "*":
+            return Operator.MULTIPLY;
+
+        case "/":
+            return Operator.DEVIDED;
+
+        default:
+            throw new Error("unexpected operator");
+    }
+}
+
 function OPLevel(op: Operator): number {
     switch (op) {
         case Operator.PLUS:
@@ -1168,4 +1187,4 @@ class Controller {
     }
 }
 
-export { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller };
+export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller };

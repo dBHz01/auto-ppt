@@ -1,0 +1,51 @@
+[
+    {
+        "type": "element",
+        "name": "first",
+        "elementType": "RECTANGLE",
+        "x": 30,
+        "y": 30
+    },
+    {
+        "type": "element",
+        "name": "second",
+        "elementType": "RECTANGLE",
+        "x": 0,
+        "y": 0
+    },
+    {
+        "type": "element",
+        "name": "third",
+        "elementType": "RECTANGLE",
+        "x": 0,
+        "y": 0
+    },
+    {
+        "type": "attribute",
+        "element": 0,
+        "name": "alpha",
+        "val": 140
+    },
+    {
+        "type": "attribute",
+        "element": 0,
+        "name": "two",
+        "val": 1.7
+    },
+    {
+        "type": "relationship",
+        "func": "y_2 = y_1"
+    },
+    {
+        "type": "relationship",
+        "func": "x_2 = x_1 + alpha"
+    },
+    {
+        "type": "relationship",
+        "func": "y_3 = y_1 + alpha / two"
+    },
+    {
+        "type": "relationship",
+        "func": "x_3 = (x_1 + alpha / two)"
+    }
+]
