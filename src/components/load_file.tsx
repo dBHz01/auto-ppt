@@ -2,7 +2,7 @@ import { parse, SymbolNode, AssignmentNode, ParenthesisNode, OperatorNode as Mat
 import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP } from "./backend";
 
 function loadFile(controller: Controller, fileInput: any) {
-    console.log(fileInput);
+    // console.log(fileInput);
     for (let entry of fileInput) {
         if (entry.type == undefined) {
             continue;
@@ -75,34 +75,37 @@ function loadFile(controller: Controller, fileInput: any) {
                 let newFunc: FuncTree;
                 let rootNode: OperatorNode;
                 let argNum = 0;
+                let name2Attribute = function (name: string): Attribute {
+                    // from "y_1" to element[1].y
+                    let symbolName = name.split("_");
+                    let elementIdStr = symbolName.pop();
+                    let elementId: number;
+                    if (isNaN(Number(elementIdStr))) {
+                        symbolName.push(elementIdStr!);
+                        elementId = 0;
+                    } else {
+                        elementId = Number(elementIdStr);
+                    }
+                    let attributeName = symbolName.join("_");
+                    return controller.getAttribute(elementId, attributeName);
+                }
                 if (typeof (entry.func) == "string") {
                     let parsedFunc = parse(entry.func);
                     if (!(parsedFunc instanceof AssignmentNode)) {
                         throw Error("relationship func should be assignment");
                     }
-                    console.log(parsedFunc);
+                    // console.log(parsedFunc);
                     let newArgs = new Array<Attribute>();
                     let convertToFuncTree = function (node: MathOPNode<OperatorNodeOp, keyof OperatorNodeMap, MathNode[]> | ParenthesisNode<MathNode>): OperatorNode {
                         if (node instanceof ParenthesisNode) {
                             return convertToFuncTree(node.content);
                         } else if (node instanceof MathOPNode) {
-                            console.log(node.op);
                             let retNode = new OperatorNode(String2OP(node.op));
                             // process left child
                             let leftNode = node.args[0];
                             if (leftNode instanceof SymbolNode) {
                                 argNum += 1;
-                                let symbolName = leftNode.name.split("_");
-                                let elementIdStr = symbolName.pop();
-                                let elementId: number;
-                                if (isNaN(Number(elementIdStr))) {
-                                    symbolName.push(elementIdStr!);
-                                    elementId = 0;
-                                } else {
-                                    elementId = Number(elementIdStr);
-                                }
-                                let attributeName = symbolName.join("_");
-                                let newArg = controller.getAttribute(elementId, attributeName);
+                                let newArg = name2Attribute(leftNode.name);
                                 newArgs.push(newArg);
                                 retNode.leftNode = undefined;
                             } else {
@@ -112,17 +115,7 @@ function loadFile(controller: Controller, fileInput: any) {
                             let rightNode = node.args[1];
                             if (rightNode instanceof SymbolNode) {
                                 argNum += 1;
-                                let symbolName = rightNode.name.split("_");
-                                let elementIdStr = symbolName.pop();
-                                let elementId: number;
-                                if (isNaN(Number(elementIdStr))) {
-                                    symbolName.push(elementIdStr!);
-                                    elementId = 0;
-                                } else {
-                                    elementId = Number(elementIdStr);
-                                }
-                                let attributeName = symbolName.join("_");
-                                let newArg = controller.getAttribute(elementId, attributeName);
+                                let newArg = name2Attribute(rightNode.name);
                                 newArgs.push(newArg);
                                 retNode.rightNode = undefined;
                             } else {
@@ -136,17 +129,13 @@ function loadFile(controller: Controller, fileInput: any) {
                     if (parsedFunc.value instanceof MathOPNode || parsedFunc.value instanceof ParenthesisNode) {
                         rootNode = convertToFuncTree(parsedFunc.value);
                         newFunc = new FuncTree(rootNode, argNum);
-                        let symbolName = parsedFunc.object.name.split("_");
-                        let elementIdStr = symbolName.pop();
-                        let elementId: number;
-                        if (isNaN(Number(elementIdStr))) {
-                            symbolName.push(elementIdStr!);
-                            elementId = 0;
-                        } else {
-                            elementId = Number(elementIdStr);
-                        }
-                        let attributeName = symbolName.join("_");
-                        let newTarget = controller.getAttribute(elementId, attributeName);
+                        let newTarget = name2Attribute(parsedFunc.object.name);
+                        controller.addRelationship(newFunc, newArgs, newTarget);
+                    } else if (parsedFunc.value instanceof SymbolNode) {
+                        rootNode = new OperatorNode(Operator.EQ);
+                        newFunc = new FuncTree(rootNode, 1);
+                        newArgs = [name2Attribute(parsedFunc.value.name)];
+                        let newTarget = name2Attribute(parsedFunc.object.name);
                         controller.addRelationship(newFunc, newArgs, newTarget);
                     } else {
                         throw Error("unexpected type");
