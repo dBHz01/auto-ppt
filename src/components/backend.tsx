@@ -816,9 +816,13 @@ class Controller {
             console.log(`${tp[0].val.val}-${tp[0].type}-${tp[0].ref[0].element.name} ${tp[1].val.val}-${tp[1].type}-${tp[1].ref[0].element.name} ${tp[2]}`)
         }
 
-        this.nextValid = [];
-        this.nextInvalid = [];
+        let posSet:Set<number> = new Set();
         for(let tp of xysTuple){
+            let posId:number = tp[0].val.val * 10000 + tp[1].val.val;
+            if(posSet.has(posId)){
+                continue;
+            }
+            posSet.add(posId);
             let invalid:boolean = false;
             for(let ele of this.elements.values()){
                 if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
@@ -1014,7 +1018,15 @@ class Controller {
         })
 
         console.log(positionPool);
+        let posSet: Set<number> = new Set();
         for(let tp of positionPool){
+            let posId:number = tp[0].val.val * 10000 + tp[1].val.val;
+            if(posSet.has(posId)){
+                continue;
+            }
+
+            posSet.add(posId);
+
             let invalid:boolean = false;
             for(let ele of this.elements.values()){
                 if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
