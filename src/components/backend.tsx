@@ -215,7 +215,8 @@ class TmpConstAttribute extends Attribute {
 }
 
 enum ElementType {
-    CONST,
+    CONST, // can not be edited, like two
+    BASE, // can be edited, like alpha
     RECTANGLE,
     TMP
 }
@@ -249,7 +250,7 @@ class SingleElement {
     }
 
     isConflictWithPoint(x: number, y:number):boolean{
-        if(this.type === ElementType.CONST || this.type === ElementType.TMP){
+        if(this.type === ElementType.CONST || this.type === ElementType.TMP || this.type === ElementType.BASE){
             return false;
         }
         if(this.type === ElementType.RECTANGLE){
@@ -467,6 +468,12 @@ class Relationship {
         }
         return debugAtNode(this.func.root);
     }
+    calculate(): Value {
+        return this.func.calculate(this.args);
+    }
+    convertToVector(attrList: Attribute[]): number[] {
+        return this.func.convertToVector(this.args, attrList);
+    }
 }
 
 class OperatorNode {
@@ -521,6 +528,107 @@ class FuncTree {
             return leftValue.calculate(rootNode.op, rightValue);
         }
         return calSubTree(this.root);
+    }
+
+    convertToVector(args: Attribute[], attrList: Attribute[]): number[] {
+        // args = [x_1, x_2, y_1, y_2]...
+        // attrList = [x_1, y_1, x_2, y_2, alpha]... 返回向量的顺序
+        // return [1, 0, ...] len = len(attrList) + 1 最后一位是常数
+        // O(len(args) * len(attrList))
+        if (args.length < this.argNum) {
+            throw new Error("args not enough");
+        }
+        const retListLength = attrList.length + 1; // 增广矩阵
+        let pointer = 0;
+        let convertSubTree = function (rootNode: OperatorNode): number[] {
+            let leftArray: number[];
+            let rightArray: number[];
+            if (rootNode.leftNode == null) {
+                leftArray = new Array<number>(retListLength).fill(0);
+                let leftAttr = args[pointer];
+                if (leftAttr.element.type == ElementType.CONST) {
+                    leftArray[leftArray.length - 1] = leftAttr.val.val;
+                } else {
+                    let pos = attrList.indexOf(leftAttr);
+                    if (pos >= 0) {
+                        leftArray[pos] = 1;
+                    }
+                }
+                pointer++;
+            } else {
+                leftArray = convertSubTree(rootNode.leftNode as OperatorNode);
+            }
+            if (rootNode.rightNode == null) {
+                rightArray = new Array<number>(retListLength).fill(0);
+                let rightAttr = args[pointer];
+                if (rightAttr.element.type == ElementType.CONST) {
+                    rightArray[rightArray.length - 1] = rightAttr.val.val;
+                } else {
+                    let pos = attrList.indexOf(rightAttr);
+                    if (pos >= 0) {
+                        rightArray[pos] = 1;
+                    }
+                }
+                pointer++;
+            } else {
+                rightArray = convertSubTree(rootNode.rightNode as OperatorNode);
+            }
+            let containOther = false;
+            switch (rootNode.op) {
+                case Operator.PLUS:
+                    assert(leftArray.length == rightArray.length);
+                    for (let i in leftArray) {
+                        leftArray[i] += rightArray[i];
+                    }
+                    return leftArray;
+                    
+                case Operator.MINUS:
+                    assert(leftArray.length == rightArray.length);
+                    for (let i in leftArray) {
+                        leftArray[i] -= rightArray[i];
+                    }
+                    return leftArray;
+                    
+                case Operator.MULTIPLY:
+                    assert(leftArray.length == rightArray.length);
+                    // rightArray only contain const
+                    containOther = false;
+                    for (let i = 0; i < rightArray.length - 1; i++) {
+                        if (rightArray[i] != 0) {
+                            containOther = true;
+                            break;
+                        }
+                    }
+                    assert(!containOther);
+                    for (let i in leftArray) {
+                        leftArray[i] *= rightArray[rightArray.length - 1];
+                    }
+                    return leftArray;
+                    
+                case Operator.DEVIDED:
+                    assert(leftArray.length == rightArray.length);
+                    // rightArray only contain const
+                    containOther = false;
+                    for (let i = 0; i < rightArray.length - 1; i++) {
+                        if (rightArray[i] != 0) {
+                            containOther = true;
+                            break;
+                        }
+                    }
+                    assert(!containOther);
+                    for (let i in leftArray) {
+                        leftArray[i] /= rightArray[rightArray.length - 1];
+                    }
+                    return leftArray;
+
+                case Operator.EQ:
+                    return leftArray;
+
+                default:
+                    throw Error("should not reach here");
+            }
+        }
+        return convertSubTree(this.root);
     }
 
     static simpleEq(): FuncTree{
@@ -657,8 +765,10 @@ class Controller {
 
     constructor() {
         this.elements = new Map<number, SingleElement>();
-        let constElement = new SingleElement(0, ElementType.CONST, "const");
-        this.elements.set(0, constElement);
+        let constElement = new SingleElement(-2, ElementType.CONST, "const");
+        this.elements.set(-2, constElement);
+        let baseElement = new SingleElement(0, ElementType.BASE, "base");
+        this.elements.set(0, baseElement);
         this.idAllocator = 1;
         this.constAllocator = 0;
         this.nextValid = [];

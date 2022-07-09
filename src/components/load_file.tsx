@@ -82,7 +82,7 @@ function loadFile(controller: Controller, fileInput: any) {
                     let elementId: number;
                     if (isNaN(Number(elementIdStr))) {
                         symbolName.push(elementIdStr!);
-                        elementId = 0;
+                        elementId = -2;
                     } else {
                         elementId = Number(elementIdStr);
                     }

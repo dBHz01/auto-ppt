@@ -41,6 +41,19 @@ function testBackend() {
     const fileInput = require("./sample-input.json");
     // console.log(fileInput);
     loadFile(controller, fileInput);
+    // "x_2 = x_1 + alpha_0" return [1, 1, 0]
+    let testArray = [controller.getAttribute(1, "x"), controller.getAttribute(0, "alpha")]
+    console.log(controller.getAttribute(2, "x").fromRelationship?.debug());
+    console.log(controller.getAttribute(2, "x").fromRelationship?.convertToVector(testArray));
+    // "y_3 = y_1 + alpha_0 / two" return [1, 0.5, 0]
+    testArray = [controller.getAttribute(1, "y"), controller.getAttribute(0, "alpha")]
+    console.log(controller.getAttribute(3, "y").fromRelationship?.debug());
+    console.log(controller.getAttribute(3, "y").fromRelationship?.convertToVector(testArray));
+    // "x_3 = (x_1 + alpha_0) / two + two" return [0.5, 0.5, 2]
+    testArray = [controller.getAttribute(1, "x"), controller.getAttribute(0, "alpha")]
+    console.log(controller.getAttribute(3, "x").fromRelationship?.debug());
+    console.log(controller.getAttribute(3, "x").fromRelationship?.convertToVector(testArray));
+    
     console.log(controller);
 
 }
