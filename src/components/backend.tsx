@@ -1,3 +1,5 @@
+import axios from 'axios';
+import { number } from 'mathjs';
 import {getAllCase, count, getTs} from './utility'
 enum Operator {
     PLUS,
@@ -284,6 +286,7 @@ class Relationship {
         this.level = _level;
         this.timestamp = getTs();
     }
+
     transform(pos: number): [Relationship, Array<number>] {
         // change target with args[pos], recalculate the func and args, return a new Relationship and the sequence of args
         // attention: the args in the new Relationship are shallow copied
@@ -472,7 +475,53 @@ class Relationship {
         return this.func.calculate(this.args);
     }
     convertToVector(attrList: Attribute[]): number[] {
-        return this.func.convertToVector(this.args, attrList);
+        let res = this.func.convertToVector(this.args, attrList);
+        res[attrList.indexOf(this.target)] -= 1;
+        return res;
+    }
+
+    cal_arg_depth(pos: number): number{
+        if(pos < 0){
+            return 1;
+        }
+
+        let stack: [OperatorNode|undefined, number][] = [];
+        this._node_into_stack(this.func.root, stack, 0);
+        let max_depth = 0;
+        while(stack.length > 0){
+            let crt:[OperatorNode|undefined, number] = stack.pop()!
+            if(crt[0] == null){
+                if(pos === 0)
+                    return crt[1];
+                else{
+                    pos -= 1;
+                    if(crt[1] > max_depth){
+                        max_depth += 1;
+                    }
+                }
+            } else {
+                this._node_into_stack(crt[0].rightNode, stack, crt[1] + 1);
+            }
+        }
+
+        return max_depth + 1;
+
+    }
+
+    _node_into_stack(node: OperatorNode|number|undefined, stack: Array<[OperatorNode|undefined, number]>, init_depth: number){
+        while(node == null || node instanceof OperatorNode){
+            stack.push([node, init_depth]);
+            init_depth += 1
+            if(node == null){
+                break
+            }
+            node = node.leftNode;
+        }
+
+        if(node != null){
+            assert(false)
+        }
+
     }
 }
 
@@ -496,6 +545,7 @@ class FuncTree {
         this.root = _root;
         this.argNum = _argNum;
     }
+
     calculate(args: Attribute[]): Value {
         if (args.length < this.argNum) {
             throw new Error("args not enough");
@@ -561,15 +611,19 @@ class FuncTree {
             if (rootNode.rightNode == null) {
                 rightArray = new Array<number>(retListLength).fill(0);
                 let rightAttr = args[pointer];
-                if (rightAttr.element.type == ElementType.CONST) {
-                    rightArray[rightArray.length - 1] = rightAttr.val.val;
+                if(rightAttr == null){
+                    assert(rootNode.op === Operator.EQ)
                 } else {
-                    let pos = attrList.indexOf(rightAttr);
-                    if (pos >= 0) {
-                        rightArray[pos] = 1;
+                    if (rightAttr.element.type == ElementType.CONST) {
+                        rightArray[rightArray.length - 1] = rightAttr.val.val;
+                    } else {
+                        let pos = attrList.indexOf(rightAttr);
+                        if (pos >= 0) {
+                            rightArray[pos] = 1;
+                        }
                     }
+                    pointer++;
                 }
-                pointer++;
             } else {
                 rightArray = convertSubTree(rootNode.rightNode as OperatorNode);
             }
@@ -711,7 +765,7 @@ class PrioResultCandidate{
         return this.val.val < 0;
     }
 }
-
+const MAX_POST_DEPTH = 1
 class PostResultCandidate {
     oriRel:Relationship;
     newRel: Relationship;
@@ -1073,11 +1127,11 @@ class Controller {
             let nonConstArgsNumInY = count(pcX.newRel.args, (item)=>(item.element.id != 0));
             let avgArgTimeX = pcX.newRel.args.map((x)=>(x.timestamp)).reduce((pv, cv)=>(pv+cv)) / pcX.newRel.args.length;
             let avgXInXArgs = nonConstArgsNumInY === 0? 0:pcX.newRel.args
-                    .flatMap((attr)=>(attr.element.id === 0? []: [attr.element.getAttribute('x')!.val.val]))
+                    .flatMap((attr)=>(!attr.element.attributes.has('x')? []: [attr.element.getAttribute('x')!.val.val]))
                     .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
                 
             let avgYInXArgs = nonConstArgsNumInY === 0? 0:pcX.newRel.args
-                .flatMap((attr)=>(attr.element.id === 0? []: [attr.element.getAttribute('y')!.val.val]))
+                .flatMap((attr)=>(!attr.element.attributes.has('y')? []: [attr.element.getAttribute('y')!.val.val]))
                 .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
             
             for(let pcY of pcYs){
@@ -1095,11 +1149,11 @@ class Controller {
                 deltaRelT /= 1000;
 
                 let avgXInYArgs = nonConstArgsNumInY === 0? 0:pcY.newRel.args
-                    .flatMap((attr)=>(attr.element.id === 0? []: [attr.element.getAttribute('x')!.val.val]))
+                    .flatMap((attr)=>(!attr.element.attributes.has('x')? []: [attr.element.getAttribute('x')!.val.val]))
                     .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
                 
                 let avgYInYArgs = nonConstArgsNumInY === 0? 0:pcY.newRel.args
-                    .flatMap((attr)=>(attr.element.id === 0? []: [attr.element.getAttribute('y')!.val.val]))
+                    .flatMap((attr)=>(!attr.element.attributes.has('y')? []: [attr.element.getAttribute('y')!.val.val]))
                     .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
 
                 let dis = Math.sqrt((avgXInXArgs - pcX.val.val) ** 2 + (avgYInXArgs - pcY.val.val) ** 2) 
@@ -1209,7 +1263,10 @@ class Controller {
             for(let tgtPos of info[1]){
                 if(tgtPos == -1){
                     // 目标属性在等号的左侧
-                    let candidateArgs:Array<Attribute[]> = info[0].args.map((crtAttr)=>{
+                    let candidateArgs:Array<Attribute[]> = info[0].args.map((crtAttr, idx)=>{
+                        if(info[0].cal_arg_depth(idx) > MAX_POST_DEPTH){
+                            return [crtAttr] // 过于深的位置就不允许替换
+                        }
                         return this.getAllSameAttr(crtAttr);
                     })
 
@@ -1226,8 +1283,15 @@ class Controller {
                         }
                     }
                 } else {
+                    let depth = info[0].cal_arg_depth(tgtPos)
+                    if(depth > MAX_POST_DEPTH){
+                        continue
+                    }
                     let [newRel, indexMap] = info[0].transform(tgtPos);
-                    let candidateArgs:Array<Attribute[]> = newRel.args.map((crtAttr)=>{
+                    let candidateArgs:Array<Attribute[]> = newRel.args.map((crtAttr, idx)=>{
+                        if(newRel.cal_arg_depth(idx) > MAX_POST_DEPTH){
+                            return [crtAttr] // 过于深的位置不替换
+                        }
                         return this.getAllSameAttr(crtAttr);
                     });
                     let allArgSeq = getAllCase(candidateArgs);
@@ -1295,6 +1359,129 @@ class Controller {
         this.crtPostPos = (this.crtPostPos + 1) % 10;
         this.addElementByPost(this.nextValidPost[this.crtPostPos][0], this.nextValidPost[this.crtPostPos][1])
     }
+
+    get_all_attributes():Attribute[]{
+        let allAttrs: Attribute[] = [];
+        this.elements.forEach((ele, id)=>{
+            if(id < 0){ // const
+                return
+            }
+
+            for(let attr of ele.attributes.values()){
+                allAttrs.push(attr);
+            }
+        })
+
+        return allAttrs;
+    }
+
+    generate_relation_matrix(attrList: Attribute[], new_relations: Relationship[]){
+        // todo: 后续可能会增加新的rel
+        // 对于每一个元素的生成关系，转化为vector
+        let rel_matrix: number[][] = [];
+        let rel_val: number[] = [];
+
+        let modified_tgts = new_relations.map(x=>x.target);
+        for(let attr of attrList){
+            if(attr.fromRelationship == null){
+                console.log(`null from result for ${attr.element.name}.${attr.name}`)
+                continue;
+            }
+
+            if(modified_tgts.includes(attr)){
+                continue
+            }
+
+            let mat = attr.fromRelationship.convertToVector(attrList)
+
+            // todo：计算矩阵系数
+
+            rel_matrix.push(mat.slice(0, -1))
+            rel_val.push(- mat[mat.length - 1])
+        }
+
+        for(let newRel of new_relations){
+            let mat = newRel.convertToVector(attrList);
+            // 加权
+            mat = mat.map(x=>x * 10000);
+            rel_matrix.push(mat.slice(0, -1))
+            rel_val.push(- mat[mat.length - 1])
+        }
+
+        return [rel_matrix, rel_val]
+    }
+
+    generate_value_matrix(attrList: Attribute[], new_attr_values: Map<Attribute, number>|null): [number[][], number[]]{
+        let A: number[][] = []; // 系数
+        let B: number[] = []; // 值
+
+        for(let attr of attrList){
+            if(new_attr_values!.has(attr)){
+                let crtA = attrList.map((attr1)=>(attr === attr1? 1000000: 0));
+                A.push(crtA);
+                B.push(new_attr_values!.get(attr)! * 1000000)
+            } else {
+                let crtA = attrList.map((attr1)=>(attr === attr1? (attr.name.startsWith('alpha')? 100: 1):0));
+                A.push(crtA);
+                B.push(attr.val.val * (attr.name.startsWith('alpha')? 100: 1))
+            }
+        }
+        let A_weighted = A.map(x=>{
+            return x.map(xx=>xx*0.01);
+        });
+
+        let B_weighted = B.map(x=>x*0.01);
+        return [A_weighted, B_weighted];
+    }
+
+    async update_contents(new_attr_values: Map<Attribute, number>, new_relations: Relationship[]){
+        let attrList = this.get_all_attributes();
+        let rel_res = this.generate_relation_matrix(attrList, new_relations);
+        let val_res = this.generate_value_matrix(attrList, new_attr_values);
+
+        let all_involved_attrs = new_relations.flatMap((rel, idx)=>{
+            let res = [];
+            res.push(rel.target);
+            res.push(...rel.args);
+            return res;
+        })
+        
+        // 对于在new_relation中涉及的，降低其权重
+        attrList.forEach((attr, idx)=>{ // “交叉影响”
+            let factor = 1;
+            if(new_attr_values.has(attr)){
+                factor = 1;
+            } else{
+                factor = 1.0 / Math.pow(10, count(all_involved_attrs, (item)=>(item === attr)));
+            }
+            val_res[0][idx] = val_res[0][idx].map(x=>x*factor);
+            val_res[1][idx] = val_res[1][idx] * factor;
+        })
+
+        // 对于用户手动指定的，增加其权重
+        
+        let res = await axios.post('http://localhost:12345/solve', {
+            attr_number: attrList.length,
+            rel_coef: rel_res[0],
+            rel_res: rel_res[1],
+            val_coef: val_res[0],
+            val_res: val_res[1]
+        })
+        console.log(res.data)
+        let err = res.data['err'];
+        let newVals = res.data['res'];
+        // todo: 判断哪些关系发生了改变
+        // 暂时不涉及
+        
+        // 更新基础的取值
+        attrList.map((attr, idx)=>{
+            let newVal = newVals[idx];
+            attr.val.val = newVal;
+        })
+
+        // todo: 对整体的取值进行更新
+        
+    }
 }
 
-export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller };
+export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller, Relationship};

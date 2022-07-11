@@ -62,10 +62,10 @@
     },
     {
         "type": "relationship",
-        "func": "y_3 = y_1 + alpha_0 / two"
+        "func": "y_3 = y_1"
     },
     {
         "type": "relationship",
-        "func": "x_3 = x_1 + (x_2 - x_1) / two"
+        "func": "x_3 = (x_2 + x_1) / two"
     }
 ]

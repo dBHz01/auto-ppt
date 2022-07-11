@@ -1,12 +1,13 @@
 import React, { Component } from 'react';
 import { Stage, Layer, Rect, Text, Group, Circle } from "react-konva";
 import './App.css';
-import { Controller, ElementType, FuncTree, Operator, OperatorNode, RawNumber, SingleElement } from './components/backend';
+import { Attribute, Controller, ElementType, FuncTree, Operator, OperatorNode, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
-import { loadFile } from "./components/load_file";
+import { loadFile, parseNewRelation} from "./components/load_file";
 import { Button } from 'antd';
+import Konva from 'konva';
 
-const FILEINPUT = require("./components/sample-input.json");
+const FILEINPUT = require("./components/sample-input1.json");
 
 function delay(ms: number) {
     let crt = Date.now();
@@ -19,6 +20,25 @@ class AllComponents extends React.Component {
         super(props);
         this.controller = new Controller();
         loadFile(this.controller, FILEINPUT);
+
+        // this.controller.update_contents(new Map(), []);
+    }
+
+    create_drag_end_handler(ele: SingleElement){
+        return async (evt: Konva.KonvaEventObject<DragEvent>)=>{
+            console.log(evt)
+            console.log(ele)
+
+            let newX = evt.target.attrs['x'] + evt.target.attrs['width'] / 2;
+            let newY = evt.target.attrs['y'] + evt.target.attrs['height'] / 2; 
+
+            let newAttrs:Map<Attribute, number> = new Map();
+
+            newAttrs.set(ele.getAttribute('x')!, newX);
+            newAttrs.set(ele.getAttribute('y')!, newY);
+            await this.controller.update_contents(newAttrs, []);
+            this.forceUpdate()
+        }
     }
 
     render() {
@@ -39,9 +59,19 @@ class AllComponents extends React.Component {
                                 fill={"green"}
                                 shadowBlur={5}
                                 key={i.id}
-
+                                draggable={true}
+                                onDragEnd={this.create_drag_end_handler(i).bind(this)}
                             />
                         );
+
+                        elements.push(<Text
+                            x={x_val}
+                            y={y_val}
+                            key={`pos-${i.id}`}
+                            text={`${i.id}\n${Math.round(x_val)},${Math.round(y_val)}`}
+                            fontSize={10}
+                            listening={false}
+                        />)
                     }
                     break;
                 default:
@@ -116,11 +146,14 @@ class AllComponents extends React.Component {
 
 class App extends Component {
     allComponentsRef: React.RefObject<AllComponents>;
+    newRelRef: React.RefObject<HTMLInputElement>;
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         this.clickButton = this.clickButton.bind(this);
         testBackend();
+
+        this.newRelRef = React.createRef();
     }
     clickButton() {
         console.log(this.allComponentsRef);
@@ -160,11 +193,21 @@ class App extends Component {
         this.forceUpdate();
     }
 
+    async addNewRel(){
+        console.log(this.newRelRef.current?.value)
+        let expr = this.newRelRef.current!.value;
+        let newRelation = parseNewRelation(this.allComponentsRef.current!.controller, expr);
+        this.newRelRef.current!.value = "ok✅"
+        console.log(newRelation)
+        await this.allComponentsRef.current!.controller!
+            .update_contents(new Map(), [newRelation])
+        this.forceUpdate()
+    }
 
     render() {
         return (
             <div>
-                <Stage width={window.innerWidth} height={window.innerHeight}>
+                <Stage width={window.innerWidth} height={window.innerHeight - 100}>
                     <Layer>
                         <AllComponents ref={this.allComponentsRef}></AllComponents>
                     </Layer>
@@ -189,6 +232,12 @@ class App extends Component {
                     type="primary"
                     onClick={this.moveToNextPost.bind(this)}
                 >移动到下一个后验结果</Button>
+                <br/>
+                <input ref={this.newRelRef} type='text'/>
+                <Button
+                type="primary"
+                onClick={this.addNewRel.bind(this)}
+                >增加新关系</Button>
             </div>
         );
     }
