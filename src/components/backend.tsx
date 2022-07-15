@@ -817,6 +817,10 @@ class Controller {
     crtPostEle: SingleElement|undefined;
     crtPrioEle: SingleElement|undefined;
 
+    candidateValues: number[][];
+    crtCdtIdx: number;
+    attrList: Attribute[];
+
     constructor() {
         this.elements = new Map<number, SingleElement>();
         let constElement = new SingleElement(-2, ElementType.CONST, "const");
@@ -835,6 +839,10 @@ class Controller {
         this.crtPrioPos = -1;
         this.crtPostEle = undefined;
         this.crtPrioEle = undefined;
+
+        this.candidateValues = [[]];
+        this.crtCdtIdx = -1
+        this.attrList = []
     }
 
     getConstAttr(name: string): Attribute{
@@ -882,10 +890,12 @@ class Controller {
         }
         throw Error("error element");
     }
+    
     addAttribute(_id: number, _name: string, _val: Value) {
         let newAttribute = new Attribute(_name, _val, this.elements.get(_id)!);
         this.elements.get(_id)!.addAttribute(newAttribute);
     }
+
     getAttribute(_id: number, _name: string): Attribute {
         let attr = this.elements.get(_id)!.attributes.get(_name);
         if (attr != undefined) {
@@ -894,6 +904,15 @@ class Controller {
             throw Error("not this attribute");
         }
     }
+
+    getAttributeByStr(s:string): Attribute{
+        // x_2 
+        let splitRes = s.trim().split('_');
+        let _id = parseInt(splitRes[1]);
+        let _name = splitRes[0].trim();
+        return this.getAttribute(_id, _name);
+    }
+
     addRelationship(_func: FuncTree, _args: Attribute[], _target: Attribute) {
         let newRelationship = new Relationship(_func, _args, _target);
         _target.setFromRelationship(newRelationship);
@@ -1375,22 +1394,22 @@ class Controller {
         return allAttrs;
     }
 
-    generate_relation_matrix(attrList: Attribute[], new_relations: Relationship[]){
-        // todo: 后续可能会增加新的rel
-        // 对于每一个元素的生成关系，转化为vector
+    generate_relation_matrix(attrList: Attribute[], new_relations: Relationship[]):[number[][], number[], Relationship[]]{
+        // 仅仅对新关系进行了加权
         let rel_matrix: number[][] = [];
         let rel_val: number[] = [];
 
         let modified_tgts = new_relations.map(x=>x.target);
+        let relation_list: Relationship[] = [];
         for(let attr of attrList){
             if(attr.fromRelationship == null){
                 console.log(`null from result for ${attr.element.name}.${attr.name}`)
                 continue;
             }
 
-            if(modified_tgts.includes(attr)){
-                continue
-            }
+            // if(modified_tgts.includes(attr)){
+            //     continue
+            // }
 
             let mat = attr.fromRelationship.convertToVector(attrList)
 
@@ -1398,6 +1417,7 @@ class Controller {
 
             rel_matrix.push(mat.slice(0, -1))
             rel_val.push(- mat[mat.length - 1])
+            relation_list.push(attr.fromRelationship)
         }
 
         for(let newRel of new_relations){
@@ -1408,7 +1428,7 @@ class Controller {
             rel_val.push(- mat[mat.length - 1])
         }
 
-        return [rel_matrix, rel_val]
+        return [rel_matrix, rel_val, relation_list]
     }
 
     generate_value_matrix(attrList: Attribute[], new_attr_values: Map<Attribute, number>|null): [number[][], number[]]{
@@ -1421,44 +1441,116 @@ class Controller {
                 A.push(crtA);
                 B.push(new_attr_values!.get(attr)! * 1000000)
             } else {
-                let crtA = attrList.map((attr1)=>(attr === attr1? (attr.name.startsWith('alpha')? 100: 1):0));
+                let crtA = attrList.map((attr1)=>(attr === attr1? 1:0));
                 A.push(crtA);
-                B.push(attr.val.val * (attr.name.startsWith('alpha')? 100: 1))
+                B.push(attr.val.val)
             }
         }
-        let A_weighted = A.map(x=>{
-            return x.map(xx=>xx*0.01);
-        });
+        // let A_weighted = A.map(x=>{
+        //     return x.map(xx=>xx*0.01);
+        // });
 
-        let B_weighted = B.map(x=>x*0.01);
-        return [A_weighted, B_weighted];
+        // let B_weighted = B.map(x=>x*0.01);
+        // return [A_weighted, B_weighted];
+        return [A, B]
     }
 
-    async update_contents(new_attr_values: Map<Attribute, number>, new_relations: Relationship[]){
+    async update_contents(new_attr_values: Map<Attribute, number>, 
+        new_relations: Relationship[],
+        unchangedAttr: Attribute[], 
+        inferChangedAttr: Attribute[]){
+        
         let attrList = this.get_all_attributes();
         let rel_res = this.generate_relation_matrix(attrList, new_relations);
         let val_res = this.generate_value_matrix(attrList, new_attr_values);
 
-        let all_involved_attrs = new_relations.flatMap((rel, idx)=>{
-            let res = [];
-            res.push(rel.target);
-            res.push(...rel.args);
-            return res;
-        })
-        
-        // 对于在new_relation中涉及的，降低其权重
-        attrList.forEach((attr, idx)=>{ // “交叉影响”
-            let factor = 1;
-            if(new_attr_values.has(attr)){
-                factor = 1;
-            } else{
-                factor = 1.0 / Math.pow(10, count(all_involved_attrs, (item)=>(item === attr)));
+        let changedAttrs = new Set(inferChangedAttr);
+
+        let unchangedAttrs = new Set(unchangedAttr);
+
+        let inferUnchangedConst = new Set();
+
+        rel_res[2].forEach((rel, idx)=>{
+            let involved_attrs = [rel.target];
+            involved_attrs.push(... rel.args);
+
+
+            let involve_const = involved_attrs.filter((v)=>{
+                return v.element.id <= 0;
+            })
+
+            involved_attrs = involved_attrs.filter((v)=>{
+                return v.element.id > 0;
+            })
+            
+
+            let allChanged = true;
+            for(let attr of involved_attrs){
+                if(!changedAttrs.has(attr)){
+                    allChanged = false;
+                    break;
+                }
             }
-            val_res[0][idx] = val_res[0][idx].map(x=>x*factor);
-            val_res[1][idx] = val_res[1][idx] * factor;
+
+            if(allChanged && involved_attrs.length > 1){ 
+                // 简单的赋值关系、赋值常数不会被保留；
+                // 只有多属性之间的“关系”才会被保留
+                rel_res[0][idx] = rel_res[0][idx].map(x=>x * 100);
+                rel_res[1][idx] *= 100;
+                
+                involve_const.forEach((v)=>{
+                    inferUnchangedConst.add(v);
+                })
+
+                return;
+            }
+            // not all changed 
+            let allUnchanged = true;
+            for(let attr of involved_attrs){
+                if(!unchangedAttrs.has(attr)){
+                    allUnchanged = false;
+                    break;
+                }
+            }
+
+            if(allUnchanged  && involved_attrs.length > 1){
+                rel_res[0][idx] = rel_res[0][idx].map(x=>x * 100);
+                rel_res[1][idx] *= 100;
+                involve_const.forEach((v)=>{
+                    inferUnchangedConst.add(v);
+                })
+
+                return;
+            }
+
         })
 
-        // 对于用户手动指定的，增加其权重
+        attrList.forEach((attr, idx)=>{
+            if(new_attr_values.has(attr)){
+                return;
+            }
+
+            if(new_attr_values.has(attr)){
+                // 用户显式指定已经加权了
+                return;
+            }
+
+            if(unchangedAttr.includes(attr)){
+                val_res[0][idx] = val_res[0][idx].map(x=>x*10000);
+                val_res[1][idx] = val_res[1][idx] * 10000;
+            } else if(inferChangedAttr.includes(attr)){
+                val_res[0][idx] = val_res[0][idx].map(x=>x*0.01);
+                val_res[1][idx] = val_res[1][idx] * 0.01;
+            } else if(inferUnchangedConst.has(attr)){
+                // 如果我们倾向于保持关系，也要倾向于保持关系中出现的常量
+                val_res[0][idx] = val_res[0][idx].map(x=>x*100);
+                val_res[1][idx] = val_res[1][idx] * 100;
+            } else if (new_attr_values.size > 0){
+                val_res[0][idx] = val_res[0][idx].map(x=>x*0.01);
+                val_res[1][idx] = val_res[1][idx] * 0.01;
+            }
+        })
+
         
         let res = await axios.post('http://localhost:12345/solve', {
             attr_number: attrList.length,
@@ -1469,18 +1561,77 @@ class Controller {
         })
         console.log(res.data)
         let err = res.data['err'];
-        let newVals = res.data['res'];
-        // todo: 判断哪些关系发生了改变
-        // 暂时不涉及
+        let newVals: number[][] = res.data['res'];
+
+        // 对 newVals去重
+        this.candidateValues = []
+        let addedValues: Set<string> = new Set();
+        for(let oneGroup of newVals){
+            let eleAttrVals: number[] = [];
+            let element_to_pos:Map<SingleElement, [number, number]> = new Map();
+            attrList.forEach((attr, idx)=>{
+                if(attr.element.id > 0){
+                    eleAttrVals.push(oneGroup[idx]);
+                    if(!element_to_pos.has(attr.element)){
+                        element_to_pos.set(attr.element, [-1, -1]);
+                    }
+                    if(attr.name === 'x'){
+                        element_to_pos.get(attr.element)![0] = oneGroup[idx];
+                    }
+
+                    if(attr.name === 'y'){
+                        element_to_pos.get(attr.element)![1] = oneGroup[idx];
+                    }
+                }
+            })
+
+            let occupiedPos: Set<string> = new Set();
+            let noPosConflict = true;
+            for(let eleInfo of element_to_pos.entries()){
+                let pos = eleInfo[1];
+                let posId = pos.map(x=>x.toFixed(2)).join('-');
+                if(occupiedPos.has(posId)){
+                    noPosConflict = false;
+                    break;
+                }
+                occupiedPos.add(posId);
+            }
+
+            if(!noPosConflict){
+                continue;
+            }
+            
+
+            let valsId = eleAttrVals.map(v=>v.toFixed(2).toString()).join('-');
+            if(addedValues.has(valsId)){
+                continue;
+            }
+
+            addedValues.add(valsId);
+            this.candidateValues.push(oneGroup.slice())
+        }
+
+        this.attrList = attrList.slice()
+        this.crtCdtIdx = 0;
         
         // 更新基础的取值
-        attrList.map((attr, idx)=>{
+        this.update_attr()
+        // todo: 对整体的取值进行更新
+        
+    }
+
+    update_attr(){
+        // todo: 判断哪些关系发生了改变？？？
+        let newVals = this.candidateValues[this.crtCdtIdx]
+        this.attrList.forEach((attr, idx)=>{
             let newVal = newVals[idx];
             attr.val.val = newVal;
         })
+    }
 
-        // todo: 对整体的取值进行更新
-        
+    nextSolution(){
+        this.crtCdtIdx = (this.crtCdtIdx + 1) % this.candidateValues.length;
+        this.update_attr()
     }
 }
 

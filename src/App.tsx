@@ -36,7 +36,7 @@ class AllComponents extends React.Component {
 
             newAttrs.set(ele.getAttribute('x')!, newX);
             newAttrs.set(ele.getAttribute('y')!, newY);
-            await this.controller.update_contents(newAttrs, []);
+            await this.controller.update_contents(newAttrs, [], [], []);
             this.forceUpdate()
         }
     }
@@ -147,6 +147,10 @@ class AllComponents extends React.Component {
 class App extends Component {
     allComponentsRef: React.RefObject<AllComponents>;
     newRelRef: React.RefObject<HTMLInputElement>;
+    forceUnchangedRef: React.RefObject<HTMLInputElement>;
+    inferChangedRef: React.RefObject<HTMLInputElement>;
+    traces: Array<Array<[number, number]>>;
+    isDown: boolean;
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
@@ -154,6 +158,10 @@ class App extends Component {
         testBackend();
 
         this.newRelRef = React.createRef();
+        this.forceUnchangedRef = React.createRef();
+        this.inferChangedRef = React.createRef();
+        this.traces = [];
+        this.isDown = false;
     }
     clickButton() {
         console.log(this.allComponentsRef);
@@ -193,22 +201,74 @@ class App extends Component {
         this.forceUpdate();
     }
 
-    async addNewRel(){
-        console.log(this.newRelRef.current?.value)
-        let expr = this.newRelRef.current!.value;
-        let newRelation = parseNewRelation(this.allComponentsRef.current!.controller, expr);
-        this.newRelRef.current!.value = "ok✅"
-        console.log(newRelation)
-        await this.allComponentsRef.current!.controller!
-            .update_contents(new Map(), [newRelation])
-        this.forceUpdate()
+    nextSolution(){
+        this.allComponentsRef.current?.controller.nextSolution()
+        this.forceUpdate();
     }
+
+    async applyChange(){
+        let exprs:string = this.newRelRef.current?.value || "";
+        if(exprs.length == 0){
+            return;
+        }
+
+        let exprList = exprs.split(';');
+
+        let newRelation = exprList.map((expr)=>parseNewRelation(this.allComponentsRef.current!.controller, expr));
+        console.log(newRelation)
+        
+        let forceUnchange: string = this.forceUnchangedRef.current?.value || '';
+        let unchangedAttr: Attribute[] = forceUnchange.split(';')
+            .filter(s=>s.length > 0)
+            .map((s)=>this.allComponentsRef.current!.controller.getAttributeByStr(s));
+        
+        let inferChange: string = this.inferChangedRef.current?.value || '';
+        let inferChangedAttr: Attribute[] = inferChange.split(';')
+            .filter(s=>s.length > 0)
+            .map((s)=>this.allComponentsRef.current!.controller.getAttributeByStr(s));
+
+        await this.allComponentsRef.current!.controller!
+            .update_contents(new Map(), newRelation, unchangedAttr, inferChangedAttr)
+        this.forceUpdate()
+        this.newRelRef.current!.value = "ok✅"
+    }
+
+    handlePointerDown(event:Konva.KonvaEventObject<MouseEvent>){
+        this.isDown = true;
+        let crtTrace:Array<[number, number]> = [[event.evt.clientX, event.evt.clientY]];
+        this.traces.push(crtTrace);
+    }
+
+    handlePointerMove(event:Konva.KonvaEventObject<MouseEvent>){
+        if(!this.isDown){
+            return;
+        }
+        let crtTrace = this.traces[this.traces.length - 1];
+        crtTrace.push([event.evt.clientX, event.evt.clientY]);
+    }
+
+    handlePointerUp(event:Konva.KonvaEventObject<MouseEvent>){
+        if(!this.isDown){
+            return;
+        }
+        let crtTrace = this.traces[this.traces.length - 1];
+        crtTrace.push([event.evt.clientX, event.evt.clientY]);
+        this.isDown = false;
+        console.log(crtTrace)
+    }
+
+
 
     render() {
         return (
             <div>
-                <Stage width={window.innerWidth} height={window.innerHeight - 100}>
-                    <Layer>
+                <Stage width={window.innerWidth} height={window.innerHeight - 100}
+                    onMouseDown={this.handlePointerDown.bind(this)}
+                    onMouseMove={this.handlePointerMove.bind(this)}
+                    onMouseUp={this.handlePointerUp.bind(this)}
+                    listening={true}
+                >
+                    <Layer >
                         <AllComponents ref={this.allComponentsRef}></AllComponents>
                     </Layer>
                 </Stage>
@@ -233,11 +293,19 @@ class App extends Component {
                     onClick={this.moveToNextPost.bind(this)}
                 >移动到下一个后验结果</Button>
                 <br/>
-                <input ref={this.newRelRef} type='text'/>
+                新关系（;分隔）：<input ref={this.newRelRef} type='text'/>
+                推测发生变化（;分隔）：<input ref={this.inferChangedRef} type='text'/>
+                强制保持不变（;分隔）：<input ref={this.forceUnchangedRef} type='text'/>
+                
                 <Button
                 type="primary"
-                onClick={this.addNewRel.bind(this)}
-                >增加新关系</Button>
+                onClick={this.applyChange.bind(this)}
+                >确定修改</Button>
+
+                <Button
+                type="primary"
+                onClick={this.nextSolution.bind(this)}
+                >下一个解</Button>
             </div>
         );
     }
