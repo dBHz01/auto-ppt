@@ -151,17 +151,25 @@ class App extends Component {
     inferChangedRef: React.RefObject<HTMLInputElement>;
     traces: Array<Array<[number, number]>>;
     isDown: boolean;
+
+    traceRelationRef: React.RefObject<HTMLInputElement>;
+
+    static colors:string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         this.clickButton = this.clickButton.bind(this);
         testBackend();
+        this.traces = [];
+        this.isDown = false;
 
         this.newRelRef = React.createRef();
         this.forceUnchangedRef = React.createRef();
         this.inferChangedRef = React.createRef();
-        this.traces = [];
-        this.isDown = false;
+
+        // new stage
+        this.traceRelationRef = React.createRef(); 
+
     }
     clickButton() {
         console.log(this.allComponentsRef);
@@ -255,9 +263,16 @@ class App extends Component {
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
         this.isDown = false;
         console.log(crtTrace)
+        this.forceUpdate()
     }
 
+    applyCmd(){
+        let traceEleRelationStr = this.traceRelationRef.current!.value;
+        this.allComponentsRef.current!.controller.handleUserCommand(this.traces, traceEleRelationStr);
 
+        this.traces = [];
+        this.forceUpdate();
+    }
 
     render() {
         return (
@@ -270,8 +285,25 @@ class App extends Component {
                 >
                     <Layer >
                         <AllComponents ref={this.allComponentsRef}></AllComponents>
+                        {this.traces.flatMap((points, traceId)=>{
+                            return points.map((p, pid)=>{
+                                return <Circle
+                                    key={`${traceId}-${pid}`}
+                                    x={p[0]}
+                                    y={p[1]}
+                                    width={5}
+                                    height={5}
+                                    fill={App.colors[traceId % App.colors.length]}
+                                />
+                            })
+                        })}
                     </Layer>
                 </Stage>
+                <hr/>
+                路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
+
+                <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
+                <hr/>
                 <Button
                     type="primary"
                     onClick={this.clickButton}

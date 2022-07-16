@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { number } from 'mathjs';
+import {parseNewRelation} from './load_file'
 import {getAllCase, count, getTs} from './utility'
 enum Operator {
     PLUS,
@@ -271,6 +271,31 @@ const TMP = new SingleElement(-1, ElementType.TMP);
 enum RelationshipType {
 }
 
+enum AssignOp {
+    eq,
+    gt,
+    lt,
+    ge,
+    le
+}
+
+function assignOpToStr(op: AssignOp): string{
+    switch(op){
+        case AssignOp.eq:
+            return "=";
+        case AssignOp.ge:
+            return ">=";
+        case AssignOp.le:
+            return "<=";
+        case AssignOp.gt:
+            return ">";
+        case AssignOp.lt:
+            return "<"
+    }
+
+    return "??";
+}
+
 class Relationship {
     func: FuncTree;
     args: Attribute[];
@@ -278,6 +303,8 @@ class Relationship {
     type?: RelationshipType;
     level?: number;
     timestamp: number;
+
+    assignOp: AssignOp;
     constructor(_func: FuncTree, _args: Attribute[], _target: Attribute, _type?: RelationshipType, _level?: number) {
         this.func = _func;
         this.args = _args;
@@ -285,6 +312,7 @@ class Relationship {
         this.type = _type;
         this.level = _level;
         this.timestamp = getTs();
+        this.assignOp = AssignOp.eq;
     }
 
     transform(pos: number): [Relationship, Array<number>] {
@@ -469,8 +497,10 @@ class Relationship {
                 return leftout + " " + OPString(node.op) + " " + rightout;
             }
         }
-        return debugAtNode(this.func.root);
+
+        return `${this.target.name}_${this.target.element.id} ` + assignOpToStr(this.assignOp) + debugAtNode(this.func.root);
     }
+
     calculate(): Value {
         return this.func.calculate(this.args);
     }
@@ -522,6 +552,10 @@ class Relationship {
             assert(false)
         }
 
+    }
+
+    isAmbiguous(){
+        return this.assignOp != AssignOp.eq;
     }
 }
 
@@ -1141,6 +1175,36 @@ class Controller {
         let pcXs = this.genPostCandidate(nextElement.getAttribute('x')!);
         let pcYs = this.genPostCandidate(nextElement.getAttribute('y')!);
 
+        let positionPool = this.generateBestPostComb(nextElement, pcXs, pcYs);
+
+        console.log(positionPool);
+        let posSet: Set<number> = new Set();
+        for(let tp of positionPool){
+            let posId:number = tp[0].val.val * 10000 + tp[1].val.val;
+            if(posSet.has(posId)){
+                continue;
+            }
+
+            posSet.add(posId);
+
+            let invalid:boolean = false;
+            for(let ele of this.elements.values()){
+                if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
+                    this.nextInvalidPost.push(tp);
+                    invalid = true;
+                    break;
+                }
+            }
+            if(!invalid){
+                this.nextValidPost.push(tp);
+            }
+        }
+
+        this.crtPostPos = 0;
+        this.addElementByPost(this.nextValidPost[0][0], this.nextValidPost[0][1]);
+    }
+
+    generateBestPostComb(nextElement: SingleElement, pcXs: PostResultCandidate[], pcYs: PostResultCandidate[]){
         let positionPool: Array<[PostResultCandidate, PostResultCandidate, number, number, number, number, number, number]> = [];
         for(let pcX of pcXs){
             let nonConstArgsNumInY = count(pcX.newRel.args, (item)=>(item.element.id != 0));
@@ -1219,31 +1283,7 @@ class Controller {
             return 1;
         })
 
-        console.log(positionPool);
-        let posSet: Set<number> = new Set();
-        for(let tp of positionPool){
-            let posId:number = tp[0].val.val * 10000 + tp[1].val.val;
-            if(posSet.has(posId)){
-                continue;
-            }
-
-            posSet.add(posId);
-
-            let invalid:boolean = false;
-            for(let ele of this.elements.values()){
-                if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
-                    this.nextInvalidPost.push(tp);
-                    invalid = true;
-                    break;
-                }
-            }
-            if(!invalid){
-                this.nextValidPost.push(tp);
-            }
-        }
-
-        this.crtPostPos = 0;
-        this.addElementByPost(this.nextValidPost[0][0], this.nextValidPost[0][1]);
+        return positionPool;
     }
 
     addElementByPost(xpc: PostResultCandidate, ypc: PostResultCandidate){
@@ -1375,7 +1415,7 @@ class Controller {
         if(!this.deleteElement(this.crtPostEle.id)){
             return;
         }
-        this.crtPostPos = (this.crtPostPos + 1) % 10;
+        this.crtPostPos = (this.crtPostPos + 1) % Math.min(10, this.nextValidPost.length);
         this.addElementByPost(this.nextValidPost[this.crtPostPos][0], this.nextValidPost[this.crtPostPos][1])
     }
 
@@ -1633,6 +1673,129 @@ class Controller {
         this.crtCdtIdx = (this.crtCdtIdx + 1) % this.candidateValues.length;
         this.update_attr()
     }
+
+    handleUserCommand(trace: Array<Array<[number, number]>>, traceEleRelation: string){
+        if(traceEleRelation.includes('new')){
+            this.handleUserAdd(trace, traceEleRelation);
+        }
+    }
+
+    handleUserAdd(RawTraces: Array<Array<[number, number]>>, traceEleRelation: string, newEleRel?: string){
+        let nextElement = new SingleElement(-1, ElementType.RECTANGLE);
+
+        nextElement.attributes.set('x', new Attribute('x', new RawNumber(0), nextElement));
+        nextElement.attributes.set('y', new Attribute('y', new RawNumber(0), nextElement));
+        
+        let xAttr = nextElement.getAttribute('x')!;
+        let yAttr = nextElement.getAttribute('y')!;
+        
+        let strAttrMapping = new Map();
+        strAttrMapping.set('new_x', xAttr);
+        strAttrMapping.set('new_y', yAttr)
+
+        // 判断哪个属性是需要进行推测的，也就是找到用户已经实际给出的内容
+        // 暂时先仅考虑后验概率
+        let pcXs: PostResultCandidate[] = [];
+        let pcYs: PostResultCandidate[] = [];
+
+        if(false){
+            // 如果存在一个以x为目标的关系
+        } else {
+            pcXs = this.genPostCandidate(nextElement.getAttribute('x')!);
+        }
+
+        if(false){
+            // 如果存在一个以y为目标的关系
+            // todo：如果有x和y相互依赖的关系怎么办？
+        } else {
+            pcYs = this.genPostCandidate(nextElement.getAttribute('y')!);
+        }
+
+        let positionPool = this.generateBestPostComb(nextElement, pcXs, pcYs);
+        
+        // 根据模糊的条件来检测最佳的位置
+        
+        // trace大概有三种形态：点、形状、线。
+        
+        // new_x = trace0
+        let traces = RawTraces.map(rt=>new Trace(rt));
+
+        // 根据预测位置和trace的距离来对距离进行重新加权
+        // loss *= (1 + dis)，单次只考虑一个坐标
+        for(let oneTraceRel of traceEleRelation.split(';')){
+            oneTraceRel = oneTraceRel.trim();
+            let splitRes = oneTraceRel.split('='); // 目前先仅考虑通过trace给定位置的
+            if(splitRes.length !== 2){
+                console.log('不合法的表达 ' + oneTraceRel);
+                continue;
+            }
+
+            if(!['new_x', 'new_y'].includes(splitRes[0].trim())){
+                console.log('不合法的左侧 ' + oneTraceRel);
+                continue;
+            }
+
+            let tgtAttrIdx = (splitRes[0].trim() === 'new_x')? 0:1;
+
+            let traceIdx = Number(splitRes[1].trim().split('_')[1]);
+            if(traceIdx !== traceIdx){
+                console.log('不合法的右侧 ' + oneTraceRel);
+                continue;
+            }
+
+            let trace = traces[traceIdx];
+            for(let onePosCandidate of positionPool){
+                onePosCandidate[2] *= (1 + Math.abs(trace.center[tgtAttrIdx] - onePosCandidate[tgtAttrIdx === 0? 0:1].val.val));
+            }
+        }
+
+        positionPool = positionPool.sort((a, b)=>{
+            if(a[2] < b[2]){
+                return -1;
+            } else if(a[2] === b[2]){
+                return 0;
+            }
+            return 1;
+        })
+
+        // 增加，整体上代码逻辑沿用了之前的内容
+        let posSet: Set<number> = new Set();
+        for(let tp of positionPool){
+            let posId:number = tp[0].val.val * 10000 + tp[1].val.val;
+            if(posSet.has(posId)){
+                continue;
+            }
+
+            posSet.add(posId);
+
+            let invalid:boolean = false;
+            for(let ele of this.elements.values()){
+                if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
+                    this.nextInvalidPost.push(tp);
+                    invalid = true;
+                    break;
+                }
+            }
+            if(!invalid){
+                this.nextValidPost.push(tp);
+            }
+        }
+
+        this.crtPostPos = 0;
+        this.addElementByPost(this.nextValidPost[0][0], this.nextValidPost[0][1]);
+    }
 }
 
-export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller, Relationship};
+class Trace{
+    rawTrace: Array<[number, number]>;
+    center: [number, number];
+    constructor(trace: Array<[number, number]>){
+        this.rawTrace = trace.map(x=>[x[0], x[1]]);
+        this.center = [
+            trace.map(x=>x[0]).reduce((p, c)=>(p+c), 0) / trace.length,
+            trace.map(x=>x[1]).reduce((p, c)=>(p+c), 0) / trace.length
+        ];
+    }
+}
+
+export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller, Relationship, AssignOp};

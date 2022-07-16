@@ -1,5 +1,5 @@
-import { parse, SymbolNode, AssignmentNode, ParenthesisNode, OperatorNode as MathOPNode, MathNode, OperatorNodeOp, OperatorNodeMap } from "mathjs";
-import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, Relationship } from "./backend";
+import { parse, SymbolNode, AssignmentNode, ParenthesisNode, OperatorNode as MathOPNode, MathNode, OperatorNodeOp, OperatorNodeMap, string } from "mathjs";
+import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, Relationship, AssignOp } from "./backend";
 
 function loadFile(controller: Controller, fileInput: any) {
     // console.log(fileInput);
@@ -151,11 +151,28 @@ function loadFile(controller: Controller, fileInput: any) {
     }
 }
 
-function parseNewRelation(controller: Controller, expr: string):Relationship{
+function parseNewRelation(controller: Controller, expr: string, str2Attr?: Map<string, Attribute>):Relationship{
+    if(str2Attr == null){
+        str2Attr = new Map();
+    }
+
+    let ops = ['>', '<', '>=', '<=']
+    let opsAssign = [AssignOp.gt, AssignOp.lt, AssignOp.ge, AssignOp.le]
+    let assignOp = AssignOp.eq;
+    ops.forEach((op, idx)=>{
+        if(expr.includes(op)){
+            expr.replace(op, '=');
+            assignOp = opsAssign[idx];
+        }
+    })
+
     let newFunc: FuncTree;
     let rootNode: OperatorNode;
     let argNum = 0;
     let name2Attribute = function (name: string): Attribute {
+        if(str2Attr?.has(name)){
+            return str2Attr.get(name)!;
+        }
         // from "y_1" to element[1].y
         let symbolName = name.split("_");
         let elementIdStr = symbolName.pop();
@@ -211,14 +228,18 @@ function parseNewRelation(controller: Controller, expr: string):Relationship{
         newFunc = new FuncTree(rootNode, argNum);
         let newTarget = name2Attribute(parsedFunc.object.name);
         // controller.addRelationship(newFunc, newArgs, newTarget);
-        return new Relationship(newFunc, newArgs, newTarget);
+        let toReturn = new Relationship(newFunc, newArgs, newTarget);
+        toReturn.assignOp = assignOp;
+        return toReturn;
     } else if (parsedFunc.value instanceof SymbolNode) {
         rootNode = new OperatorNode(Operator.EQ);
         newFunc = new FuncTree(rootNode, 1);
         newArgs = [name2Attribute(parsedFunc.value.name)];
         let newTarget = name2Attribute(parsedFunc.object.name);
         // controller.addRelationship(newFunc, newArgs, newTarget);
-        return new Relationship(newFunc, newArgs, newTarget);
+        let toReturn = new Relationship(newFunc, newArgs, newTarget);
+        toReturn.assignOp = assignOp;
+        return toReturn;
     } else {
         throw Error("unexpected type");
     }
