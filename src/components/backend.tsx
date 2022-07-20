@@ -303,7 +303,6 @@ class Relationship {
     type?: RelationshipType;
     level?: number;
     timestamp: number;
-
     assignOp: AssignOp;
     constructor(_func: FuncTree, _args: Attribute[], _target: Attribute, _type?: RelationshipType, _level?: number) {
         this.func = _func;
@@ -554,6 +553,150 @@ class Relationship {
 
     }
 
+    isAmbiguous(){
+        return this.assignOp != AssignOp.eq;
+    }
+}
+
+class Equation {
+    leftFunc: FuncTree;
+    rightFunc: FuncTree;
+    leftArgs: Attribute[];
+    rightArgs: Attribute[];
+    assignOp: AssignOp;
+    constructor(_leftFunc: FuncTree, _rightFunc: FuncTree, _leftArgs: Attribute[], _rightArgs: Attribute[]) {
+        this.leftFunc = _leftFunc;
+        this.rightFunc = _rightFunc;
+        this.leftArgs = _leftArgs;
+        this.rightArgs = _rightArgs;
+        this.assignOp = AssignOp.eq;
+    }
+    // TODO
+    judgeEquality() {
+    }
+    transform(pos: number, target: Attribute): Equation {
+        // replace args[pos] with target and return a new Equation
+        assert(pos < this.leftArgs.length + this.rightArgs.length);
+        // copy args
+        let newleftArgs = new Array<Attribute>();
+        let newrightArgs = new Array<Attribute>();
+        for (let i of this.leftArgs) {
+            newleftArgs.push(i)
+        }
+        for (let i of this.rightArgs) {
+            newrightArgs.push(i)
+        }
+        // choose one side to replace
+        let chooseLeftArgs = true;
+        if (pos >= this.leftArgs.length) {
+            pos -= this.leftArgs.length;
+            chooseLeftArgs = false;
+        }
+        // replace
+        let args = chooseLeftArgs ? newleftArgs : newrightArgs;
+        args[pos] = target;
+        return new Equation(this.leftFunc.deepCopy(), this.rightFunc.deepCopy(), newleftArgs, newrightArgs);
+    }
+    debug(): string {
+        let debugAtFunc = (func: FuncTree, args: Attribute[]): string => {
+            let pointer = 0;
+            let debugAtNode = (node: OperatorNode): string => {
+                let leftout = "";
+                let rightout = "";
+                if (node.leftNode == null || typeof node.leftNode === "number") {
+                    if (args[pointer].element.name != null) {
+                        leftout = args[pointer].element.name + "." + args[pointer].name;
+                    } else {
+                        leftout = args[pointer].name;
+                    }
+                    pointer++;
+                } else {
+                    leftout = debugAtNode(node.leftNode);
+                    if (OPLevel(node.op) > OPLevel(node.leftNode.op)) {
+                        leftout = "(" + leftout + ")";
+                    }
+                }
+                if (node.rightNode == null || typeof node.rightNode === "number") {
+                    if(args[pointer] == null){
+                        rightout = ""
+                    } else if (args[pointer].element.name != null) {
+                        rightout = args[pointer].element.name + "." + args[pointer].name;
+                    } else {
+                        rightout = args[pointer].name;
+                    }
+                    pointer++;
+                } else {
+                    rightout = debugAtNode(node.rightNode);
+                    if (OPLevel(node.op) > OPLevel(node.rightNode.op)) {
+                        rightout = "(" + rightout + ")";
+                    }
+                }
+                if (node.op == Operator.REVERSED_DEVIDED || node.op == Operator.REVERSED_MINUS) {
+                    return rightout + " " + OPString(node.op) + " " + leftout;
+                } else {
+                    return leftout + " " + OPString(node.op) + " " + rightout;
+                }
+            }
+            return debugAtNode(func.root);
+        }
+
+        return debugAtFunc(this.leftFunc, this.leftArgs) + assignOpToStr(this.assignOp) + debugAtFunc(this.rightFunc, this.rightArgs);
+    }
+    convertToVector(attrList: Attribute[]): number[] {
+        let leftRes = this.leftFunc.convertToVector(this.leftArgs, attrList);
+        let rightRes = this.rightFunc.convertToVector(this.rightArgs, attrList);
+        for (let i in leftRes) {
+            leftRes[i] -= rightRes[i];
+        }
+        return leftRes;
+    }
+    cal_arg_depth(pos: number, side: string): number{
+        if(pos < 0){
+            return 1;
+        }
+        let func: FuncTree;
+        if (side == "left") {
+            func = this.leftFunc;
+        } else if (side == "right") {
+            func = this.rightFunc;
+        } else {
+            throw Error("error side");
+        }
+        let stack: [OperatorNode|undefined, number][] = [];
+        this._node_into_stack(func.root, stack, 0);
+        let max_depth = 0;
+        while(stack.length > 0){
+            let crt:[OperatorNode|undefined, number] = stack.pop()!
+            if(crt[0] == null){
+                if(pos === 0)
+                    return crt[1];
+                else{
+                    pos -= 1;
+                    if(crt[1] > max_depth){
+                        max_depth += 1;
+                    }
+                }
+            } else {
+                this._node_into_stack(crt[0].rightNode, stack, crt[1] + 1);
+            }
+        }
+
+        return max_depth + 1;
+
+    }
+    _node_into_stack(node: OperatorNode|number|undefined, stack: Array<[OperatorNode|undefined, number]>, init_depth: number){
+        while(node == null || node instanceof OperatorNode){
+            stack.push([node, init_depth]);
+            init_depth += 1
+            if(node == null){
+                break
+            }
+            node = node.leftNode;
+        }
+        if(node != null){
+            assert(false)
+        }
+    }
     isAmbiguous(){
         return this.assignOp != AssignOp.eq;
     }
