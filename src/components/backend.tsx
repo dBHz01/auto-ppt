@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { e } from 'mathjs';
 import {parseNewRelation} from './load_file'
 import {getAllCase, count, getTs} from './utility'
 enum Operator {
@@ -505,9 +506,11 @@ class Relationship {
         return this.func.calculate(this.args);
     }
     convertToVector(attrList: Attribute[]): number[] {
-        let res = this.func.convertToVector(this.args, attrList);
-        res[attrList.indexOf(this.target)] -= 1;
-        return res;
+        let mat = this.func.convertToVector(this.args, attrList);
+        mat[attrList.indexOf(this.target)] -= 1;
+        let coefLength = Math.sqrt(mat.reduce((pv, cv)=>(pv + cv * cv), 0));
+        mat = mat.map(x=>x/coefLength);
+        return mat;
     }
 
     cal_arg_depth(pos: number): number{
@@ -832,6 +835,36 @@ class PostResultCandidate {
 
     isInvalid():boolean {
         return this.val.val < 0;
+    }
+
+    calDis(){
+        // 与之前联合考虑的误差不同，仅仅考虑单属性的误差
+        // 缺少交叉项的误差
+        let avgArgTimeY = this.newRel.args.map((x)=>(x.timestamp)).reduce((pv, cv)=>(pv+cv)) / this.newRel.args.length;
+        let deltaT = Math.abs(this.newRel.target.timestamp - avgArgTimeY);
+        deltaT /= 1000;
+
+        let deltaRelT = Math.abs(this.oriRel.timestamp - this.newRel.target.timestamp);
+        deltaRelT /= 1000;
+        
+        let nonConstArgsNum = count(this.newRel.args, (item)=>(item.element.id != 0));
+        let tgtAttrName = this.newRel.target.name;
+        let avgAttrInArgs = nonConstArgsNum === 0? 0:this.newRel.args
+                    .flatMap((attr)=>(!attr.element.attributes.has(tgtAttrName)? []: [attr.element.getAttribute(tgtAttrName)!.val.val]))
+                    .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNum;
+        
+        let dis = Math.abs(avgAttrInArgs - this.val.val) / 100;
+
+        // 没有拓扑距离
+
+        let factor = 1; // 没有多元素关系应用到同一个元素带来的惩罚
+
+        // 仍有前后使用元素数量带来的误差
+        let oriRelEle:Set<SingleElement> = new Set(this.oriRel.args.map(x=>x.element));
+        let newRelEle: Set<SingleElement> = new Set(this.newRel.args.map(x=>x.element));
+        factor *= (1 + Math.abs(oriRelEle.size - newRelEle.size) / Math.min(oriRelEle.size, newRelEle.size))
+
+        return factor * (deltaT + deltaRelT + dis);
     }
 }
 
@@ -1207,15 +1240,15 @@ class Controller {
     generateBestPostComb(nextElement: SingleElement, pcXs: PostResultCandidate[], pcYs: PostResultCandidate[]){
         let positionPool: Array<[PostResultCandidate, PostResultCandidate, number, number, number, number, number, number]> = [];
         for(let pcX of pcXs){
-            let nonConstArgsNumInY = count(pcX.newRel.args, (item)=>(item.element.id != 0));
+            let nonConstArgsNumInX = count(pcX.newRel.args, (item)=>(item.element.id != 0));
             let avgArgTimeX = pcX.newRel.args.map((x)=>(x.timestamp)).reduce((pv, cv)=>(pv+cv)) / pcX.newRel.args.length;
-            let avgXInXArgs = nonConstArgsNumInY === 0? 0:pcX.newRel.args
+            let avgXInXArgs = nonConstArgsNumInX === 0? 0:pcX.newRel.args
                     .flatMap((attr)=>(!attr.element.attributes.has('x')? []: [attr.element.getAttribute('x')!.val.val]))
-                    .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
+                    .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInX;
                 
-            let avgYInXArgs = nonConstArgsNumInY === 0? 0:pcX.newRel.args
+            let avgYInXArgs = nonConstArgsNumInX === 0? 0:pcX.newRel.args
                 .flatMap((attr)=>(!attr.element.attributes.has('y')? []: [attr.element.getAttribute('y')!.val.val]))
-                .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInY;
+                .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNumInX;
             
             for(let pcY of pcYs){
                 // 计算当前的分数
@@ -1326,7 +1359,7 @@ class Controller {
                         if(info[0].cal_arg_depth(idx) > MAX_POST_DEPTH){
                             return [crtAttr] // 过于深的位置就不允许替换
                         }
-                        return this.getAllSameAttr(crtAttr);
+                        return this.getAllSameAttr(crtAttr, [tgtAttr]);
                     })
 
                     let allArgSeq = getAllCase(candidateArgs);
@@ -1351,7 +1384,7 @@ class Controller {
                         if(newRel.cal_arg_depth(idx) > MAX_POST_DEPTH){
                             return [crtAttr] // 过于深的位置不替换
                         }
-                        return this.getAllSameAttr(crtAttr);
+                        return this.getAllSameAttr(crtAttr, [tgtAttr]);
                     });
                     let allArgSeq = getAllCase(candidateArgs);
                     for(let argList of allArgSeq){
@@ -1366,7 +1399,29 @@ class Controller {
             }
         }
 
-        return genRes;
+        genRes = genRes.sort((pc1, pc2)=>{
+            let dis1 = pc1.calDis();
+            let dis2 = pc2.calDis();
+            if(dis1 < dis1){
+                return -1;
+            } else if(dis1 === dis2){
+                return 0;
+            }
+            return -1;
+        })
+
+        let addedValues: Set<number> = new Set();
+        let uniqueRes: PostResultCandidate[] = [];
+        genRes.forEach(pc=>{
+            if(addedValues.has(pc.val.val)){
+                return;
+            }
+
+            uniqueRes.push(pc);
+            addedValues.add(pc.val.val);
+        })
+
+        return uniqueRes;
     }
 
     getAllRelations():Array<Relationship>{
@@ -1384,11 +1439,11 @@ class Controller {
         return result;
     }
 
-    getAllSameAttr(tgtAttr: Attribute):Attribute[]{
+    getAllSameAttr(tgtAttr: Attribute, exceptAttrs: Attribute[]):Attribute[]{
         let res:Attribute[] = [];
         for(let ele of this.elements.values()){ // const 相关也要处理
             ele.attributes.forEach((attr, _name)=>{
-                if(tgtAttr.isSameAttribute(attr)){
+                if(tgtAttr.isSameAttribute(attr) && !exceptAttrs.includes(attr)){
                     res.push(attr);
                 }
             })
@@ -1443,7 +1498,7 @@ class Controller {
         let relation_list: Relationship[] = [];
         for(let attr of attrList){
             if(attr.fromRelationship == null){
-                console.log(`null from result for ${attr.element.name}.${attr.name}`)
+                // console.log(`null from result for ${attr.element.name}.${attr.name}`)
                 continue;
             }
 
@@ -1481,9 +1536,12 @@ class Controller {
                 A.push(crtA);
                 B.push(new_attr_values!.get(attr)! * 1000000)
             } else {
-                let crtA = attrList.map((attr1)=>(attr === attr1? 1:0));
+                // let l = Math.sqrt(1 + attr.val.val ** 2)
+                let l = 1;
+                let crtA = attrList.map((attr1)=>(attr === attr1? 1 / l:0));
+                
                 A.push(crtA);
-                B.push(attr.val.val)
+                B.push(attr.val.val / l)
             }
         }
         // let A_weighted = A.map(x=>{
@@ -1495,11 +1553,11 @@ class Controller {
         return [A, B]
     }
 
-    async update_contents(new_attr_values: Map<Attribute, number>, 
+    async cal_contents(new_attr_values: Map<Attribute, number>, 
         new_relations: Relationship[],
         unchangedAttr: Attribute[], 
-        inferChangedAttr: Attribute[]){
-        
+        inferChangedAttr: Attribute[]): Promise<[Attribute[], number[][], number[]]>{
+
         let attrList = this.get_all_attributes();
         let rel_res = this.generate_relation_matrix(attrList, new_relations);
         let val_res = this.generate_value_matrix(attrList, new_attr_values);
@@ -1579,8 +1637,8 @@ class Controller {
                 val_res[0][idx] = val_res[0][idx].map(x=>x*10000);
                 val_res[1][idx] = val_res[1][idx] * 10000;
             } else if(inferChangedAttr.includes(attr)){
-                val_res[0][idx] = val_res[0][idx].map(x=>x*0.01);
-                val_res[1][idx] = val_res[1][idx] * 0.01;
+                val_res[0][idx] = val_res[0][idx].map(x=>x*0.00001);
+                val_res[1][idx] = val_res[1][idx] * 0.00001;
             } else if(inferUnchangedConst.has(attr)){
                 // 如果我们倾向于保持关系，也要倾向于保持关系中出现的常量
                 val_res[0][idx] = val_res[0][idx].map(x=>x*100);
@@ -1600,13 +1658,16 @@ class Controller {
             val_res: val_res[1]
         })
         console.log(res.data)
-        let err = res.data['err'];
+        let err: number[] = res.data['err'];
         let newVals: number[][] = res.data['res'];
 
         // 对 newVals去重
-        this.candidateValues = []
+        let candidateValues = [];
+        let candidateErrors = [];
         let addedValues: Set<string> = new Set();
-        for(let oneGroup of newVals){
+        for(let i = 0; i < newVals.length; ++ i){
+            let oneGroup = newVals[i];
+            let crtErr = err[i];
             let eleAttrVals: number[] = [];
             let element_to_pos:Map<SingleElement, [number, number]> = new Map();
             attrList.forEach((attr, idx)=>{
@@ -1629,7 +1690,7 @@ class Controller {
             let noPosConflict = true;
             for(let eleInfo of element_to_pos.entries()){
                 let pos = eleInfo[1];
-                let posId = pos.map(x=>x.toFixed(2)).join('-');
+                let posId = pos.map(x=>x.toFixed(0)).join('-');
                 if(occupiedPos.has(posId)){
                     noPosConflict = false;
                     break;
@@ -1642,16 +1703,27 @@ class Controller {
             }
             
 
-            let valsId = eleAttrVals.map(v=>v.toFixed(2).toString()).join('-');
+            let valsId = eleAttrVals.map(v=>v.toFixed(0).toString()).join('-');
             if(addedValues.has(valsId)){
                 continue;
             }
 
             addedValues.add(valsId);
-            this.candidateValues.push(oneGroup.slice())
+            candidateValues.push(oneGroup.slice());
+            candidateErrors.push(crtErr);
         }
+        
+        return [attrList, candidateValues, candidateErrors];
+    }
 
-        this.attrList = attrList.slice()
+    async update_contents(new_attr_values: Map<Attribute, number>, 
+        new_relations: Relationship[],
+        unchangedAttr: Attribute[], 
+        inferChangedAttr: Attribute[]){
+        
+        let res = await this.cal_contents(new_attr_values, new_relations, unchangedAttr, inferChangedAttr);
+        this.attrList = res[0].slice()
+        this.candidateValues = res[1].slice();
         this.crtCdtIdx = 0;
         
         // 更新基础的取值
@@ -1674,50 +1746,98 @@ class Controller {
         this.update_attr()
     }
 
-    handleUserCommand(trace: Array<Array<[number, number]>>, traceEleRelation: string){
-        if(traceEleRelation.includes('new')){
-            this.handleUserAdd(trace, traceEleRelation);
+    async handleUserCommand(trace: Array<Array<[number, number]>>, traceEleRelation: string, newEleRel: string){
+        if(traceEleRelation.includes('new') || newEleRel.includes('new')){
+            await this.handleUserAdd(trace, traceEleRelation, newEleRel);
         }
     }
 
-    handleUserAdd(RawTraces: Array<Array<[number, number]>>, traceEleRelation: string, newEleRel?: string){
-        let nextElement = new SingleElement(-1, ElementType.RECTANGLE);
-
-        nextElement.attributes.set('x', new Attribute('x', new RawNumber(0), nextElement));
-        nextElement.attributes.set('y', new Attribute('y', new RawNumber(0), nextElement));
+    async handleUserAdd(RawTraces: Array<Array<[number, number]>>, traceEleRelation: string, newEleRel?: string){
+        if(newEleRel == null){
+            newEleRel = "";
+        }
         
+        let nextElementId = this.createElement(ElementType.RECTANGLE);
+        this.addAttribute(nextElementId, 'x', new RawNumber(0));
+        this.addAttribute(nextElementId, 'y', new RawNumber(0));
+        
+        let nextElement = this.getElement(nextElementId);
         let xAttr = nextElement.getAttribute('x')!;
         let yAttr = nextElement.getAttribute('y')!;
         
-        let strAttrMapping = new Map();
-        strAttrMapping.set('new_x', xAttr);
-        strAttrMapping.set('new_y', yAttr)
+        newEleRel = newEleRel.replaceAll('new', `${nextElementId}`)
+
+        let newRelInExpr = newEleRel.length === 0? []: newEleRel.split(';').map((oneExprStr)=>{
+            return parseNewRelation(this, oneExprStr);
+        })
 
         // 判断哪个属性是需要进行推测的，也就是找到用户已经实际给出的内容
         // 暂时先仅考虑后验概率
-        let pcXs: PostResultCandidate[] = [];
-        let pcYs: PostResultCandidate[] = [];
+        let pcXs: Array<PostResultCandidate|undefined> = [];
+        let pcYs: Array<PostResultCandidate|undefined> = [];
 
-        if(false){
-            // 如果存在一个以x为目标的关系
-        } else {
+        if(traceEleRelation.includes('x_new')){
             pcXs = this.genPostCandidate(nextElement.getAttribute('x')!);
-        }
-
-        if(false){
-            // 如果存在一个以y为目标的关系
-            // todo：如果有x和y相互依赖的关系怎么办？
         } else {
-            pcYs = this.genPostCandidate(nextElement.getAttribute('y')!);
+            pcXs = [undefined];
         }
 
-        let positionPool = this.generateBestPostComb(nextElement, pcXs, pcYs);
+        if(traceEleRelation.includes('y_new')) {
+            pcYs = this.genPostCandidate(nextElement.getAttribute('y')!);
+        } else {
+            pcYs = [undefined];
+        }
+
+
+        let combCandidate: Array<[Attribute[], number[], number]> = []; // 属性列表、属性取值、误差
+
+        for(let pcX of pcXs){
+            for(let pcY of pcYs){
+                let new_attr_values: Map<Attribute, number> = new Map();
+                let new_relations: Relationship[] = [];
+                let unchangedAttr: Attribute[] = [];
+                let inferChangedAttr: Attribute[] = [xAttr, yAttr]; // 
+                if(pcX != null){
+                    new_relations.push(pcX.newRel);
+                }
+
+                if(pcY != null){
+                    new_relations.push(pcY.newRel);
+                }
+
+                new_relations.push(...newRelInExpr);
+                // calculate
+                let cal_res = await this.cal_contents(new_attr_values, new_relations, unchangedAttr, inferChangedAttr);
+                let attrList = cal_res[0];
+                let attrValues = cal_res[1];
+                let errors = cal_res[2];
+                // todo: 进一步调整errors，根据pc的dis
+                // 很有可能在这里增加一些交叉项
+                errors = errors.map((e)=>{
+                    if(pcX != null){
+                        e += pcX.calDis();
+                    }
+
+                    if(pcY != null){
+                        e += pcY.calDis();
+                    }
+                    return e;
+                })
+
+                assert(attrValues.length === errors.length);
+                for(let i = 0; i < attrValues.length; i ++){
+                    combCandidate.push([attrList, attrValues[i], errors[i]]);
+                }
+            }
+        }
+
+        // let positionPool = this.generateBestPostComb(nextElement, pcXs, pcYs);
         
         // 根据模糊的条件来检测最佳的位置
         
         // trace大概有三种形态：点、形状、线。
         
-        // new_x = trace0
+        // x_new = trace0
         let traces = RawTraces.map(rt=>new Trace(rt));
 
         // 根据预测位置和trace的距离来对距离进行重新加权
@@ -1730,12 +1850,13 @@ class Controller {
                 continue;
             }
 
-            if(!['new_x', 'new_y'].includes(splitRes[0].trim())){
+            if(!['x_new', 'y_new'].includes(splitRes[0].trim())){
                 console.log('不合法的左侧 ' + oneTraceRel);
                 continue;
             }
 
-            let tgtAttrIdx = (splitRes[0].trim() === 'new_x')? 0:1;
+            let tgtAttrIdx = (splitRes[0].trim() === 'x_new')? 0:1;
+            let tgtAttr = (splitRes[0].trim() === 'x_new')? xAttr: yAttr;
 
             let traceIdx = Number(splitRes[1].trim().split('_')[1]);
             if(traceIdx !== traceIdx){
@@ -1744,12 +1865,15 @@ class Controller {
             }
 
             let trace = traces[traceIdx];
-            for(let onePosCandidate of positionPool){
-                onePosCandidate[2] *= (1 + Math.abs(trace.center[tgtAttrIdx] - onePosCandidate[tgtAttrIdx === 0? 0:1].val.val));
+            for(let onePosCandidate of combCandidate){
+                let attrList = onePosCandidate[0];
+                let attrV = onePosCandidate[1];
+                // let error = onePosCandidate[2];
+                onePosCandidate[2] *= (1 + Math.abs(trace.center[tgtAttrIdx] - attrV[attrList.indexOf(tgtAttr)]));
             }
         }
 
-        positionPool = positionPool.sort((a, b)=>{
+        combCandidate = combCandidate.sort((a, b)=>{
             if(a[2] < b[2]){
                 return -1;
             } else if(a[2] === b[2]){
@@ -1758,31 +1882,14 @@ class Controller {
             return 1;
         })
 
-        // 增加，整体上代码逻辑沿用了之前的内容
-        let posSet: Set<number> = new Set();
-        for(let tp of positionPool){
-            let posId:number = tp[0].val.val * 10000 + tp[1].val.val;
-            if(posSet.has(posId)){
-                continue;
-            }
-
-            posSet.add(posId);
-
-            let invalid:boolean = false;
-            for(let ele of this.elements.values()){
-                if(ele.isConflictWithPoint(tp[0].val.val, tp[1].val.val)){
-                    this.nextInvalidPost.push(tp);
-                    invalid = true;
-                    break;
-                }
-            }
-            if(!invalid){
-                this.nextValidPost.push(tp);
-            }
-        }
-
-        this.crtPostPos = 0;
-        this.addElementByPost(this.nextValidPost[0][0], this.nextValidPost[0][1]);
+        
+        this.attrList = combCandidate[0][0];
+        this.candidateValues = combCandidate.map(x=>x[1]);
+        this.crtCdtIdx = 0;
+        
+        // 更新基础的取值
+        this.update_attr()
+        // todo: 对整体的取值进行更新
     }
 }
 

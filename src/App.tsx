@@ -153,6 +153,7 @@ class App extends Component {
     isDown: boolean;
 
     traceRelationRef: React.RefObject<HTMLInputElement>;
+    elemRelationRef: React.RefObject<HTMLInputElement>;
 
     static colors:string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
     constructor(props: any) {
@@ -169,6 +170,7 @@ class App extends Component {
 
         // new stage
         this.traceRelationRef = React.createRef(); 
+        this.elemRelationRef = React.createRef();
 
     }
     clickButton() {
@@ -266,9 +268,10 @@ class App extends Component {
         this.forceUpdate()
     }
 
-    applyCmd(){
+    async applyCmd(){
         let traceEleRelationStr = this.traceRelationRef.current!.value;
-        this.allComponentsRef.current!.controller.handleUserCommand(this.traces, traceEleRelationStr);
+        let elemRelStr = this.elemRelationRef.current!.value;
+        await this.allComponentsRef.current!.controller.handleUserCommand(this.traces, traceEleRelationStr, elemRelStr);
 
         this.traces = [];
         this.forceUpdate();
@@ -301,6 +304,7 @@ class App extends Component {
                 </Stage>
                 <hr/>
                 路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
+                元素之间的关系：<input type="text" ref={this.elemRelationRef}/>
 
                 <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
                 <hr/>
