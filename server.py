@@ -65,23 +65,23 @@ def solve2():
         crtA, crtB, crtID = q.get()
         if convert_to_str(crtID) in visited:
             continue
+        if crtA.shape[0] < crtA.shape[1]:
+            continue
         visited.add(convert_to_str(crtID))
         
         x = np.linalg.lstsq(crtA, crtB, rcond=None)
 
         res = x[0].tolist()
-        error = 0
-        if len(x[1].tolist()) > 0:
-            error = x[1].tolist()[0]
+        errors = np.abs(np.matmul(crtA, x[0]) - crtB)
+        error = np.sqrt(np.sum(errors ** 2))
 
         # if error == 0:
         if error < 1e-5:
-            overall_error = np.sum((np.matmul(A, x[0]) - B) ** 2).item()
-            result.append((crtA, crtB, res, error, overall_error))
+            overall_error = np.sum(np.abs(np.matmul(A, x[0]) - B)).item()
+            result.append((crtA, crtB, res, error, overall_error, crtID))
             continue
         
-        errors = (np.abs(np.matmul(crtA, x[0]) - crtB))
-        candidateIdx = np.argpartition(errors, -4)[-4:].tolist()
+        candidateIdx = np.argpartition(errors, -4)[-4:].tolist() # 优先不考虑error小的
         for max_error_idx in candidateIdx:
             idx = list(range(crtA.shape[0]))
             del idx[max_error_idx]
@@ -91,12 +91,13 @@ def solve2():
             nextID = crtID[idx, ]
             q.put((nextA, nextB, nextID))
 
-    result.sort(key=lambda x: x[-1])
+    result.sort(key=lambda x: x[4])
     # res = result[0][2]
     # error = result[0][-1]
     return jsonify({
         'res': [x[2] for x in result],
-        'err': [x[-1] for x in result]
+        'err': [x[-2] for x in result],
+        'ids': [x[-1].tolist() for x in result]
     })
 
 if __name__ == '__main__':
