@@ -980,6 +980,7 @@ class PostResultCandidate {
 
 class Controller {
     elements: Map<number, SingleElement>;
+    euqations: Array<Equation>;
     idAllocator: number;
     constAllocator: number;
 
@@ -1000,6 +1001,7 @@ class Controller {
 
     constructor() {
         this.elements = new Map<number, SingleElement>();
+        this.euqations = new Array<Equation>;
         let constElement = new SingleElement(-2, ElementType.CONST, "const");
         this.elements.set(-2, constElement);
         let baseElement = new SingleElement(0, ElementType.BASE, "base");
@@ -1096,6 +1098,10 @@ class Controller {
         for (let i of _args) {
             i.addToRelationship(newRelationship);
         }
+    }
+
+    addEquation(_equation: Equation) {
+        this.euqations.push(_equation);
     }
 
     estimate_next_prio(){
@@ -1941,4 +1947,4 @@ class Trace{
     }
 }
 
-export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller, Relationship, AssignOp};
+export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller, Relationship, AssignOp, Equation};

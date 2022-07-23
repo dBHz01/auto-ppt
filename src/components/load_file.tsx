@@ -1,5 +1,61 @@
 import { parse, SymbolNode, AssignmentNode, ParenthesisNode, OperatorNode as MathOPNode, MathNode, OperatorNodeOp, OperatorNodeMap, string } from "mathjs";
-import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, Relationship, AssignOp } from "./backend";
+import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, Relationship, AssignOp, Equation } from "./backend";
+
+function name2Attribute(controller: Controller, name: string): Attribute {
+    // if (str2Attr?.has(name)) {
+    //     return str2Attr.get(name)!;
+    // }
+    // from "y_1" to element[1].y
+    let symbolName = name.split("_");
+    let elementIdStr = symbolName.pop();
+    let elementId: number;
+    if (isNaN(Number(elementIdStr))) {
+        symbolName.push(elementIdStr!);
+        elementId = -2;
+    } else {
+        elementId = Number(elementIdStr);
+    }
+    let attributeName = symbolName.join("_");
+    return controller.getAttribute(elementId, attributeName);
+}
+
+function convertToOperatorNode(controller: Controller, node: MathOPNode<OperatorNodeOp, keyof OperatorNodeMap, MathNode[]> | ParenthesisNode<MathNode>): [OperatorNode, Array<Attribute>] {
+    let newArgs = new Array<Attribute>();
+    if (node instanceof ParenthesisNode) {
+        return convertToOperatorNode(controller, node.content);
+    } else if (node instanceof MathOPNode) {
+        let retNode = new OperatorNode(String2OP(node.op));
+        // process left child
+        let leftNode = node.args[0];
+        if (leftNode instanceof SymbolNode) {
+            let newArg = name2Attribute(controller, leftNode.name);
+            newArgs.push(newArg);
+            retNode.leftNode = undefined;
+        } else {
+            let ans = convertToOperatorNode(controller, leftNode);
+            retNode.leftNode = ans[0];
+            for (let i of ans[1]) {
+                newArgs.push(i);
+            }
+        }
+        // process right child
+        let rightNode = node.args[1];
+        if (rightNode instanceof SymbolNode) {
+            let newArg = name2Attribute(controller, rightNode.name);
+            newArgs.push(newArg);
+            retNode.rightNode = undefined;
+        } else {
+            let ans = convertToOperatorNode(controller, rightNode)
+            retNode.rightNode = ans[0];
+            for (let i of ans[1]) {
+                newArgs.push(i);
+            }
+        }
+        return [retNode, newArgs];
+    } else {
+        throw Error("error type");
+    }
+}
 
 function loadFile(controller: Controller, fileInput: any) {
     // console.log(fileInput);
@@ -145,22 +201,26 @@ function loadFile(controller: Controller, fileInput: any) {
                 }
                 break;
 
+            case "equation":
+                let newEquation = parseNewEquation(controller, entry.equation);
+                controller.addEquation(newEquation);
+                break;
             default:
                 throw Error("error type in loading file");
         }
     }
 }
 
-function parseNewRelation(controller: Controller, expr: string, str2Attr?: Map<string, Attribute>):Relationship{
-    if(str2Attr == null){
+function parseNewRelation(controller: Controller, expr: string, str2Attr?: Map<string, Attribute>): Relationship {
+    if (str2Attr == null) {
         str2Attr = new Map();
     }
 
     let ops = ['>', '<', '>=', '<=']
     let opsAssign = [AssignOp.gt, AssignOp.lt, AssignOp.ge, AssignOp.le]
     let assignOp = AssignOp.eq;
-    ops.forEach((op, idx)=>{
-        if(expr.includes(op)){
+    ops.forEach((op, idx) => {
+        if (expr.includes(op)) {
             expr.replace(op, '=');
             assignOp = opsAssign[idx];
         }
@@ -170,7 +230,7 @@ function parseNewRelation(controller: Controller, expr: string, str2Attr?: Map<s
     let rootNode: OperatorNode;
     let argNum = 0;
     let name2Attribute = function (name: string): Attribute {
-        if(str2Attr?.has(name)){
+        if (str2Attr?.has(name)) {
             return str2Attr.get(name)!;
         }
         // from "y_1" to element[1].y
@@ -245,4 +305,53 @@ function parseNewRelation(controller: Controller, expr: string, str2Attr?: Map<s
     }
 }
 
-export { loadFile, parseNewRelation};
+function parseNewEquation(controller: Controller, expr: string): Equation {
+
+    // 需要保证表达式内仅有一个符号
+    let ops = ['>=', '<=', '>', '<']
+    let opsAssign = [AssignOp.gt, AssignOp.lt, AssignOp.ge, AssignOp.le]
+    let assignOp = AssignOp.eq;
+    ops.forEach((op, idx) => {
+        if (expr.includes(op)) {
+            expr.replace(op, '=');
+            assignOp = opsAssign[idx];
+        }
+    })
+
+    let exprs = expr.split("=");
+    console.log(exprs);
+    let leftExpr: string = exprs[0];
+    let rightExpr: string = exprs[1];
+
+    let leftParsedFunc = parse(leftExpr);
+    let rightParsedFunc = parse(rightExpr);
+
+    // if (!(parsedFunc instanceof AssignmentNode)) {
+    //     throw Error("relationship func should be assignment");
+    // }
+    console.log(leftParsedFunc, rightParsedFunc);
+
+    let MathNode2FuncTreeAndArgs = function(parsedFunc: MathNode): [FuncTree, Array<Attribute>] {
+        let rootNode: OperatorNode;
+        let newArgs: Array<Attribute>;
+        if (parsedFunc instanceof MathOPNode || parsedFunc instanceof ParenthesisNode) {
+            [rootNode, newArgs] = convertToOperatorNode(controller, parsedFunc);
+            return [new FuncTree(rootNode, newArgs.length), newArgs];
+        } else if (parsedFunc instanceof SymbolNode) {
+            rootNode = new OperatorNode(Operator.EQ);
+            let newFunc = new FuncTree(rootNode, 1);
+            newArgs = [name2Attribute(controller, parsedFunc.name)];
+            // controller.addRelationship(newFunc, newArgs, newTarget);
+            return [newFunc, newArgs];
+        } else {
+            throw Error("unexpected type");
+        }
+    }
+    let [newLeftFunc, newLeftArgs] = MathNode2FuncTreeAndArgs(leftParsedFunc);
+    let [newRightFunc, newRightArgs] = MathNode2FuncTreeAndArgs(rightParsedFunc);
+    let toReturn = new Equation(newLeftFunc, newRightFunc, newLeftArgs, newRightArgs);
+    toReturn.assignOp = assignOp;
+    return toReturn;
+}
+
+export { loadFile, parseNewRelation };
