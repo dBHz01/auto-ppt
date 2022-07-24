@@ -5,7 +5,7 @@ function getAllCase<T>(inputs: Array<T[]>): Array<T[]> {
     while(q.length > 0){
         let crt = q[0];
         q = q.slice(1);
-        if(crt.length == inputs.length){
+        if(crt.length === inputs.length){
             results.push(crt);
         } else {
             for(let nextEle of inputs[crt.length]){

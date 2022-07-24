@@ -67,5 +67,9 @@
     {
         "type": "relationship",
         "func": "x_3 = x_1 + (x_2 - x_1) / two"
+    },
+    {
+        "type": "equation",
+        "equation": "x_3 = x_1 + (x_2 - x_1) / two"
     }
 ]

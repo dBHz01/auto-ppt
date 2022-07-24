@@ -141,7 +141,7 @@ class Attribute {
     }
     
     isSameAttribute(o:Attribute|undefined):boolean{
-        return this.name == o?.name
+        return this.name === o?.name
     }
 }
 
@@ -300,7 +300,7 @@ class Equation {
                         rightout = "(" + rightout + ")";
                     }
                 }
-                if (node.op == Operator.REVERSED_DEVIDED || node.op == Operator.REVERSED_MINUS) {
+                if (node.op === Operator.REVERSED_DEVIDED || node.op === Operator.REVERSED_MINUS) {
                     return rightout + " " + OPString(node.op) + " " + leftout;
                 } else {
                     return leftout + " " + OPString(node.op) + " " + rightout;
@@ -668,6 +668,7 @@ class Controller {
 
     constructor() {
         this.elements = new Map<number, SingleElement>();
+        this.equations = [];
         let constElement = new SingleElement(-2, ElementType.CONST, "const");
         this.elements.set(-2, constElement);
         let baseElement = new SingleElement(0, ElementType.BASE, "base");
@@ -729,11 +730,11 @@ class Controller {
             throw Error("not this attribute");
         }
     }
-
-    addEquation(leftFunc: FuncTree, rightFunc: FuncTree, leftArgs: Attribute[], rightArgs: Attribute[]){
-        let newEquation = new Equation(leftFunc, rightFunc, leftArgs, rightArgs);
-        this.equations.push(newEquation);
+    
+    addEquation(_eq: Equation){
+        this.equations.push(_eq);
     }
+    
 
     genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[]):PostResultCandidate[]{
         let genRes:PostResultCandidate[] = [];

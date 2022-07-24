@@ -45,27 +45,27 @@
         "val": 2
     },
     {
-        "type": "relationship",
-        "func": "x_1 = initAlphaX_0"
+        "type": "equation",
+        "equation": "x_1 = initAlphaX_0"
     },
     {
-        "type": "relationship",
-        "func": "y_1 = initAlphaY_0"
+        "type": "equation",
+        "equation": "y_1 = initAlphaY_0"
     },
     {
-        "type": "relationship",
-        "func": "y_2 = y_1"
+        "type": "equation",
+        "equation": "y_2 = y_1"
     },
     {
-        "type": "relationship",
-        "func": "x_2 = x_1 + alpha_0"
+        "type": "equation",
+        "equation": "x_2 = x_1 + alpha_0"
     },
     {
-        "type": "relationship",
-        "func": "y_3 = y_1"
+        "type": "equation",
+        "equation": "y_3 = y_1"
     },
     {
-        "type": "relationship",
-        "func": "x_3 = (x_2 + x_1) / two"
+        "type": "equation",
+        "equation": "x_3 = (x_2 + x_1) / two"
     }
 ]
