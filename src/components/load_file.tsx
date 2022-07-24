@@ -1,5 +1,5 @@
 import { parse, SymbolNode, AssignmentNode, ParenthesisNode, OperatorNode as MathOPNode, MathNode, OperatorNodeOp, OperatorNodeMap, string } from "mathjs";
-import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, Relationship, AssignOp } from "./backend";
+import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, Equation, AssignOp } from "./backend";
 
 function loadFile(controller: Controller, fileInput: any) {
     // console.log(fileInput);
@@ -245,4 +245,9 @@ function parseNewRelation(controller: Controller, expr: string, str2Attr?: Map<s
     }
 }
 
-export { loadFile, parseNewRelation};
+
+function parseNewEquation(controller: Controller, expr: string, str2Attr?: Map<string, Attribute>):Equation{
+    // todo hz
+    return new Equation();
+}
+export { loadFile, parseNewEquation};

@@ -34,4 +34,9 @@ function getTs():number{
     return crtTs;
 }
 
-export {getAllCase, count, getTs}
+let EPSINON = 0.00001
+function floatEq(f1: number, f2: number){
+    return Math.abs(f1 - f2) <  EPSINON
+}
+
+export {getAllCase, count, getTs, floatEq}

@@ -1,9 +1,12 @@
+from crypt import methods
 import queue
 from unittest import result
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import numpy as np
 import math
+
+from GE import RowReduce
 app = Flask(__name__)
 CORS(app)
 
@@ -98,6 +101,15 @@ def solve2():
         'res': [x[2] for x in result],
         'err': [x[-2] for x in result],
         'ids': [x[-1].tolist() for x in result]
+    })
+
+@app.route('/row_reduction', methods=['POST'])
+def row_reduction():
+    coef = request.json.get('coef')
+    mat = np.array(coef, dtype=np.longdouble)
+    reduced_mat = RowReduce(mat)
+    return jsonify({
+        'res': reduced_mat.tolist()
     })
 
 if __name__ == '__main__':

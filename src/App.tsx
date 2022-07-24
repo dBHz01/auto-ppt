@@ -3,7 +3,7 @@ import { Stage, Layer, Rect, Text, Group, Circle } from "react-konva";
 import './App.css';
 import { Attribute, Controller, ElementType, FuncTree, Operator, OperatorNode, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
-import { loadFile, parseNewRelation} from "./components/load_file";
+import { loadFile, parseNewEquation} from "./components/load_file";
 import { Button } from 'antd';
 import Konva from 'konva';
 
@@ -78,63 +78,6 @@ class AllComponents extends React.Component {
                     break;
             }
         }
-        // this.controller.nextInvalid.forEach((tp, idx)=>{
-        //     elements.push(<Circle
-        //         x={tp[0].val.val}
-        //         y={tp[1].val.val}
-        //         width={5}
-        //         height={5}
-        //         key={`invalid-${idx}`}
-        //     />)
-        // })
-        let drawed:Set<number> = new Set();
-        console.log(this.controller.nextValid[0])
-        this.controller.nextValid.slice(0, 100).forEach((tp, idx)=>{
-            if(drawed.has(tp[0].val.val * 10000 + tp[1].val.val)){
-                return;
-            }
-            drawed.add(tp[0].val.val * 10000 + tp[1].val.val)
-            elements.push(<Group key={`valid-${idx}`}>
-                <Rect
-                    x={tp[0].val.val - 2.5}
-                    y={tp[1].val.val - 2.5}
-                    width={5}
-                    height={5}
-                    fill={"red"}
-                />
-                <Text
-                    x={tp[0].val.val}
-                    y={tp[1].val.val}
-                    text={`${drawed.size}`}
-                    fontSize={10}
-                />
-            </Group>
-            )
-        })
-
-        let drawedPost:Set<number> = new Set();
-        this.controller.nextValidPost.slice(0, 100).forEach((tp, idx)=>{
-            if(drawedPost.has(tp[0].val.val * 10000 + tp[1].val.val)){
-                return;
-            }
-            drawedPost.add(tp[0].val.val * 10000 + tp[1].val.val)
-            elements.push(<Group key={`valid-${idx}`}>
-                <Rect
-                    x={tp[0].val.val - 2.5}
-                    y={tp[1].val.val - 2.5}
-                    width={5}
-                    height={5}
-                    fill={"blue"}
-                />
-                <Text
-                    x={tp[0].val.val}
-                    y={tp[1].val.val}
-                    text={`${drawedPost.size}`}
-                    fontSize={10}
-                />
-            </Group>
-            )
-        })
 
         return (
             <Group>
@@ -159,7 +102,6 @@ class App extends Component {
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
-        this.clickButton = this.clickButton.bind(this);
         testBackend();
         this.traces = [];
         this.isDown = false;
@@ -172,43 +114,6 @@ class App extends Component {
         this.traceRelationRef = React.createRef(); 
         this.elemRelationRef = React.createRef();
 
-    }
-    clickButton() {
-        console.log(this.allComponentsRef);
-        let alpha = this.allComponentsRef.current?.controller.getAttribute(0, "alpha");
-        if (alpha != undefined) {
-            alpha.val.val = alpha.val.val * 2;
-            for (let i of alpha.toRelationships!) {
-                i.target.val = i.func.calculate(i.args);
-            }
-        }
-        this.forceUpdate();
-        // this.allComponentsRef.current?.controller.update();
-        // this.allComponents.controller.getElement(0).attributes.set("alpha", alpha * 2);
-        console.log(this.allComponentsRef.current?.controller.getElement(0))
-        console.log(this.allComponentsRef.current?.controller.getElement(1))
-        console.log(this.allComponentsRef.current?.controller.getElement(2))
-        console.log(this.allComponentsRef.current?.controller.getElement(3))
-    }
-
-    onNextPrio() {
-        this.allComponentsRef.current?.controller.estimate_next_prio();
-        this.forceUpdate();
-    }
-
-    onNextPost() {
-        this.allComponentsRef.current?.controller.estimate_next_post();
-        this.forceUpdate();
-    }
-
-    moveToNextPost(){
-        this.allComponentsRef.current?.controller.moveToNextPost();
-        this.forceUpdate();
-    }
-
-    moveToNextPrio(){
-        this.allComponentsRef.current?.controller.moveToNextPrio();
-        this.forceUpdate();
     }
 
     nextSolution(){
@@ -224,8 +129,8 @@ class App extends Component {
 
         let exprList = exprs.split(';');
 
-        let newRelation = exprList.map((expr)=>parseNewRelation(this.allComponentsRef.current!.controller, expr));
-        console.log(newRelation)
+        let newEquation = exprList.map((expr)=>parseNewEquation(this.allComponentsRef.current!.controller, expr));
+        console.log(newEquation)
         
         let forceUnchange: string = this.forceUnchangedRef.current?.value || '';
         let unchangedAttr: Attribute[] = forceUnchange.split(';')
@@ -238,7 +143,7 @@ class App extends Component {
             .map((s)=>this.allComponentsRef.current!.controller.getAttributeByStr(s));
 
         await this.allComponentsRef.current!.controller!
-            .update_contents(new Map(), newRelation, unchangedAttr, inferChangedAttr)
+            .update_contents(new Map(), newEquation, unchangedAttr, inferChangedAttr)
         this.forceUpdate()
         this.newRelRef.current!.value = "ok✅"
     }
@@ -308,27 +213,6 @@ class App extends Component {
 
                 <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
                 <hr/>
-                <Button
-                    type="primary"
-                    onClick={this.clickButton}
-                >click</Button>
-                <Button
-                    type="primary"
-                    onClick={this.onNextPrio.bind(this)}
-                >Next先验推测</Button>
-                <Button
-                    type="primary"
-                    onClick={this.moveToNextPrio.bind(this)}
-                >移动到下一个先验结果</Button>
-                <Button
-                    type="primary"
-                    onClick={this.onNextPost.bind(this)}
-                >Next后验推测</Button>
-                <Button
-                    type="primary"
-                    onClick={this.moveToNextPost.bind(this)}
-                >移动到下一个后验结果</Button>
-                <br/>
                 新关系（;分隔）：<input ref={this.newRelRef} type='text'/>
                 推测发生变化（;分隔）：<input ref={this.inferChangedRef} type='text'/>
                 强制保持不变（;分隔）：<input ref={this.forceUnchangedRef} type='text'/>
