@@ -1,4 +1,7 @@
 function getAllCase<T>(inputs: Array<T[]>): Array<T[]> {
+    if(inputs.length === 0){
+        return [];
+    }
     let results:Array<T[]> = []
     let q: Array<T[]> = inputs[0].map((x)=>[x]);
 

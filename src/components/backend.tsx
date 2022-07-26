@@ -266,6 +266,7 @@ class Equation {
         args[pos] = target;
         return new Equation(this.leftFunc.deepCopy(), this.rightFunc.deepCopy(), newleftArgs, newrightArgs);
     }
+
     debug(): string {
         let debugAtFunc = (func: FuncTree, args: Attribute[]): string => {
             let pointer = 0;
@@ -317,7 +318,7 @@ class Equation {
         for (let i in leftRes) {
             leftRes[i] -= rightRes[i];
         }
-        return leftRes;
+        return leftRes.slice(0, -1);
     }
     cal_arg_depth(pos: number, side: string): number{
         if(pos < 0){
@@ -734,6 +735,39 @@ class Controller {
     addEquation(_eq: Equation){
         this.equations.push(_eq);
     }
+
+    async updateValsByEquations(){
+        let attrList = this.get_all_attributes()
+        let eq_mat = this.generate_equation_matrix(attrList, []);
+        let eq_coef = eq_mat[0];
+        let eq_v = eq_mat[1];
+        let baseAttrs = attrList.filter((x)=>(x.element.id <= 0));
+        let v_coef: number[][] = [];
+        let v_v: number[] = [];
+        for(let baseAttr of baseAttrs){
+            v_coef.push(attrList.map((attr)=>{
+                return attr === baseAttr? 1: 0;
+            }))
+            v_v.push(baseAttr.val.val);
+        }
+
+        let res = await axios.post("http://localhost:12345/solve", {
+            attr_number: attrList.length,
+            rel_coef: eq_coef,
+            rel_res: eq_v,
+            val_coef: v_coef,
+            val_res: v_v
+        })
+
+        if(res.data['res'].length > 1){
+            console.warn('错误！方程应该可以直接求解')
+        }
+
+        let attrValues: number[] = res.data['res'][0];
+        attrList.forEach((attr, idx)=>{
+            attr.val.val = attrValues[idx];
+        })
+    }
     
 
     genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[]):PostResultCandidate[]{
@@ -858,6 +892,22 @@ class Controller {
         return allAttrs;
     }
 
+
+    get_all_val_const_attr():Attribute[] {
+        let allAttrs: Attribute[] = [];
+        this.elements.forEach((ele, id)=>{
+            if(id >= 0){ // const
+                return
+            }
+
+            for(let attr of ele.attributes.values()){
+                allAttrs.push(attr);
+            }
+        })
+
+        return allAttrs;
+    }
+
     generate_equation_matrix(attrList: Attribute[], new_equations: Equation[])
     :[number[][], number[], Equation[]]{
         
@@ -874,7 +924,7 @@ class Controller {
             let mat = newEq.convertToVector(attrList);
             // 加权
             mat = mat.map(x=>x * 10000);
-            eq_matrix.push(mat.slice(0, -1))
+            eq_matrix.push(mat)
             eq_val.push(0)
         }
 
@@ -882,8 +932,13 @@ class Controller {
     }
 
     generate_value_matrix(attrList: Attribute[], 
-        new_attr_values: Map<Attribute, number>|null): [number[][], number[]]{
-        // 仅对显式给定取值的进行加权
+        new_attr_values: Map<Attribute, number>|null,
+        inferChangedAttr: Attribute[]|null): [number[][], number[]]{
+        if(inferChangedAttr == null){
+            inferChangedAttr = [];
+        }
+        
+            // 仅对显式给定取值的进行加权
         let A: number[][] = []; // 系数
         let B: number[] = []; // 值
 
@@ -893,6 +948,9 @@ class Controller {
                 A.push(crtA);
                 B.push(new_attr_values!.get(attr)! * 1000000)
             } else {
+                if(inferChangedAttr.includes(attr)){
+                    continue;
+                }
                 let l = 1;
                 let crtA = attrList.map((attr1)=>(attr === attr1? 1 / l:0));
                 
@@ -913,7 +971,7 @@ class Controller {
 
         let attrList = this.get_all_attributes();
         let eq_res = this.generate_equation_matrix(attrList, new_equations);
-        let val_res = this.generate_value_matrix(attrList, new_attr_values);
+        let val_res = this.generate_value_matrix(attrList, new_attr_values, inferChangedAttr);
 
         let changedAttrs = new Set(inferChangedAttr);
         let unchangedAttrs = new Set(unchangedAttr);
@@ -983,8 +1041,9 @@ class Controller {
                 val_res[0][idx] = val_res[0][idx].map(x=>x*10000);
                 val_res[1][idx] = val_res[1][idx] * 10000;
             } else if(inferChangedAttr.includes(attr)){
-                val_res[0][idx] = val_res[0][idx].map(x=>x*0.00001);
-                val_res[1][idx] = val_res[1][idx] * 0.00001;
+                // val_res[0][idx] = val_res[0][idx].map(x=>x*0.00001);
+                // val_res[1][idx] = val_res[1][idx] * 0.00001;
+                // 在生成向量的时候，已经将对应的删除了
             } else if(inferUnchangedConst.has(attr)){
                 // 如果我们倾向于保持关系，也要倾向于保持关系中出现的常量
                 val_res[0][idx] = val_res[0][idx].map(x=>x*100);
@@ -1018,6 +1077,8 @@ class Controller {
             let eleAttrVals: number[] = [];
             let element_to_pos:Map<SingleElement, [number, number]> = new Map();
             // 不支持位置的重复
+
+            let posInvalid = false;
             attrList.forEach((attr, idx)=>{
                 if(attr.element.id > 0){
                     eleAttrVals.push(oneGroup[idx]);
@@ -1026,13 +1087,23 @@ class Controller {
                     }
                     if(attr.name === 'x'){
                         element_to_pos.get(attr.element)![0] = oneGroup[idx];
+                        if(oneGroup[idx] < 0){
+                            posInvalid = true;
+                        }
                     }
 
                     if(attr.name === 'y'){
                         element_to_pos.get(attr.element)![1] = oneGroup[idx];
+                        if(oneGroup[idx] < 0){
+                            posInvalid = true;
+                        }
                     }
                 }
             })
+
+            if(posInvalid){
+                continue;
+            }
 
             let occupiedPos: Set<string> = new Set();
             let noPosConflict = true;
@@ -1072,6 +1143,9 @@ class Controller {
             }
             return 0;
         })
+        if(finalResult.length === 0){
+            return finalResult;
+        }
 
         let allowGapFactor = 5;
 
@@ -1089,7 +1163,7 @@ class Controller {
     }
 
     async rowReduce(mat: number[][]): Promise<number[][]>{
-        let res = await axios.post('http://localhost:12345/solve', {
+        let res = await axios.post('http://localhost:12345/row_reduction', {
             coef: mat
         })
 
@@ -1228,6 +1302,9 @@ class Controller {
         let freeAttrs = freeIndexes.map(idx=>elementAttrList[idx]);
         let canDependAttr = canDependentIndexes.map(idx=>elementAttrList[idx]);
 
+        canDependAttr.push(... attrList.filter((x)=>(x.element.id <= 0)))
+        canDependAttr.push(... this.get_all_val_const_attr())
+
         let postCandidates: Array<PostResultCandidate[]> = freeAttrs.map((attr)=>{
             return  this.genPostCandidate(attr, canDependAttr);  // 
         })
@@ -1236,24 +1313,38 @@ class Controller {
 
         let combCandidate:[Equation[], Attribute[], number[], number][] = []; // 属性列表、属性取值、误差
 
-        for(let candidateComb of allCandidateComb){
+        if(allCandidateComb.length > 0){
+            for(let candidateComb of allCandidateComb){
+                let new_attr_values: Map<Attribute, number> = new Map();
+                let new_equations: Equation[] = [...newEqInExpr];
+                let unchangedAttr: Attribute[] = [];
+                let inferChangedAttr: Attribute[] = [xAttr, yAttr]; 
+                
+                for(let oneNewCandidate of candidateComb){
+                    inferChangedAttr.push(oneNewCandidate.target);
+                    new_equations.push(oneNewCandidate.newEq);
+                }
+    
+                let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+                cal_res.forEach((v)=>{
+                    // v[3] += combErrors;
+                    for(let oneNewCandidate of candidateComb){
+                        let tgt = oneNewCandidate.target;
+                        let idx = v[1].indexOf(tgt);
+                        let tgt_val = v[2][idx];
+                        v[3] += oneNewCandidate.calDis(tgt_val);
+                    }
+                })
+    
+                combCandidate.push(... cal_res)
+            }
+        } else {
             let new_attr_values: Map<Attribute, number> = new Map();
             let new_equations: Equation[] = [...newEqInExpr];
             let unchangedAttr: Attribute[] = [];
-            let inferChangedAttr: Attribute[] = []; 
-            
-            let combErrors = 0;
-            for(let oneNewCandidate of candidateComb){
-                inferChangedAttr.push(oneNewCandidate.target);
-                new_equations.push(oneNewCandidate.newEq);
-                combErrors += oneNewCandidate.calDis();
-            }
+            let inferChangedAttr: Attribute[] =  [xAttr, yAttr]; 
 
             let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
-            cal_res.forEach((v)=>{
-                v[3] += combErrors;
-            })
-
             combCandidate.push(... cal_res)
         }
 
@@ -1307,12 +1398,24 @@ class Controller {
             return 1;
         })
 
+
+
         
         // this.attrList = combCandidate[0][0];
         // this.candidateValues = combCandidate.map(x=>x[1]);
         this.crtCdtIdx = 0;
 
-        this.candidates = combCandidate;
+        this.candidates = [];
+        let drawed_pos_set: Set<string> = new Set();
+        for(let oneCdt of combCandidate){
+            let ids = oneCdt[2].map(x=>x.toFixed(0)).join('-');
+            if(!drawed_pos_set.has(ids)){
+                this.candidates.push(oneCdt);
+                drawed_pos_set.add(ids);
+            }
+        }
+
+        console.log(drawed_pos_set);
         
         // 更新基础的取值
         this.update_attr()

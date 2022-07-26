@@ -7,7 +7,7 @@ import { loadFile, parseNewEquation} from "./components/load_file";
 import { Button } from 'antd';
 import Konva from 'konva';
 
-const FILEINPUT = require("./components/sample-input1.json");
+const FILEINPUT = require("./components/sample-input.json");
 
 function delay(ms: number) {
     let crt = Date.now();
@@ -20,7 +20,6 @@ class AllComponents extends React.Component {
         super(props);
         this.controller = new Controller();
         loadFile(this.controller, FILEINPUT);
-
         // this.controller.update_contents(new Map(), []);
     }
 
@@ -40,6 +39,12 @@ class AllComponents extends React.Component {
             this.forceUpdate()
         }
     }
+
+    async componentDidMount(){
+        await this.controller.updateValsByEquations();
+        this.forceUpdate()
+    }
+
 
     render() {
         console.log("render all");

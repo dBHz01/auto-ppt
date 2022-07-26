@@ -18,7 +18,7 @@ def RowReduce(mtrx, showSteps = False):
         if row >= rowNum: continue#stop if all rows solved
             
         nonZero = True
-        if a[row][col] == 0:
+        if mtrx[row][col] == 0:
             nonZero = False
             for rIdx in range(row, rowNum):
                 if mtrx[rIdx][col] != 0:
@@ -40,7 +40,7 @@ def RowReduce(mtrx, showSteps = False):
                 if row == rIdx: continue
                 if mtrx[rIdx][col] == 0: continue
                 if showSteps: print(f"R{rIdx} + ({(-mtrx[rIdx][col])} * R{row}) -> R{rIdx}")
-                mtrx[rIdx] += (-mtrx[rIdx][col]) * a[row]#subtract or add until zero
+                mtrx[rIdx] += (-mtrx[rIdx][col]) * mtrx[row]#subtract or add until zero
                 if showSteps: print(mtrx, "\n")
             row += 1
         

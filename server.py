@@ -79,7 +79,7 @@ def solve2():
         error = np.sqrt(np.sum(errors ** 2))
 
         # if error == 0:
-        if error < 1e-5:
+        if error < 0.01:
             overall_error = np.sum(np.abs(np.matmul(A, x[0]) - B)).item()
             result.append((crtA, crtB, res, error, overall_error, crtID))
             continue
@@ -106,7 +106,7 @@ def solve2():
 @app.route('/row_reduction', methods=['POST'])
 def row_reduction():
     coef = request.json.get('coef')
-    mat = np.array(coef, dtype=np.longdouble)
+    mat = np.array(coef, dtype=np.double)
     reduced_mat = RowReduce(mat)
     return jsonify({
         'res': reduced_mat.tolist()
