@@ -139,12 +139,12 @@ function loadFile(controller: Controller, fileInput: any) {
 function parseNewEquation(controller: Controller, expr: string): Equation {
 
     // 需要保证表达式内仅有一个符号
-    let ops = ['>=', '<=', '>', '<']
+    let ops = ['>', '<', '>=', '<=']
     let opsAssign = [AssignOp.gt, AssignOp.lt, AssignOp.ge, AssignOp.le]
     let assignOp = AssignOp.eq;
     ops.forEach((op, idx) => {
         if (expr.includes(op)) {
-            expr.replace(op, '=');
+            expr = expr.replace(op, '=');
             assignOp = opsAssign[idx];
         }
     })

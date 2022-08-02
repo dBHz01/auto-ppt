@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { e } from 'mathjs';
+import { abs, e, max, min, sqrt } from 'mathjs';
 import {parseNewEquation} from './load_file'
-import {getAllCase, count, getTs, floatEq} from './utility'
+import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt} from './utility'
 enum Operator {
     PLUS,
     MINUS,
@@ -172,7 +172,7 @@ class SingleElement {
         return this.attributes.get(name);
     }
 
-    getAttrOrDefault(name:string, dft: Attribute):Attribute{
+    getAttrOrDefault(name:string, dft: Attribute | null):Attribute|null{
         let res = this.attributes.get(name);
         if(res == null){
             return dft;
@@ -197,6 +197,51 @@ class SingleElement {
 
 const TMP = new SingleElement(-1, ElementType.TMP);
 
+
+function str2AssignOp(s: string){
+    s = s.trim()
+    if(s === '='){
+        return AssignOp.eq;
+    }
+
+    if(s === '>'){
+        return AssignOp.gt;
+    }
+
+    if(s === '>='){
+        return AssignOp.ge;
+    }
+
+    if(s === '<'){
+        return AssignOp.lt;
+    }
+
+    if(s === '<='){
+        return AssignOp.le;
+    }
+}
+
+function sideSwap(op: AssignOp){
+    let ops1 = [AssignOp.eq, AssignOp.ge, AssignOp.le, AssignOp.gt, AssignOp.lt]
+    let ops2 = [AssignOp.eq, AssignOp.le, AssignOp.ge, AssignOp.lt, AssignOp.gt]
+
+    return ops2[ops1.indexOf(op)];
+}
+
+function op2func(op: AssignOp){
+    switch(op){
+        case AssignOp.eq:
+            return (n1: number, n2: number)=>floatEq(n1, n2)
+        case AssignOp.gt:
+            return (n1: number, n2: number)=>floatGt(n1, n2)
+        case AssignOp.ge:
+            return (n1: number, n2: number)=>floatGe(n1, n2)
+        case AssignOp.lt:
+            return (n1: number, n2: number)=>floatLt(n1, n2)
+        case AssignOp.le:
+            return (n1: number, n2: number)=>floatLe(n1, n2)
+    }
+}
 
 enum AssignOp {
     eq,
@@ -240,8 +285,26 @@ class Equation {
 
         this.timestamp = getTs();
     }
-    // TODO
-    judgeEquality() {
+
+    judgeEquality(attrList: Attribute[], attrVals: number[]):boolean {
+        let coef = this.convertToVector(attrList);
+        let res = 0;
+        for(let i = 0; i < attrVals.length; ++ i){
+            res += (coef[i] * attrVals[i])
+        }
+        switch(this.assignOp){
+            case AssignOp.eq:
+                return floatEq(res, 0);
+            case AssignOp.gt:
+                return floatGt(res, 0);
+            case AssignOp.ge:
+                return floatGe(res, 0);
+            case AssignOp.le:
+                return floatLe(res, 0);
+            case AssignOp.lt:
+                return floatLt(res, 0);
+        }
+        return floatEq(res, 0);
     }
     transform(pos: number, target: Attribute): Equation {
         // replace args[pos] with target and return a new Equation
@@ -369,6 +432,14 @@ class Equation {
     }
     isAmbiguous(){
         return this.assignOp != AssignOp.eq;
+    }
+
+    clone(){
+        let left = this.leftFunc.deepCopy();
+        let right = this.rightFunc.deepCopy();
+        let leftArgs = [... this.leftArgs];
+        let rightArgs = [... this.rightArgs];
+        return new Equation(left, right, leftArgs, rightArgs);
     }
 }
 
@@ -613,14 +684,17 @@ class PostResultCandidate {
     oriEq:Equation;
     newEq: Equation
     target: Attribute;  // 这一个新增的
+
+    val: number;
  
     constructor(oriEq: Equation, newEq: Equation, tgtAttr: Attribute){
         this.oriEq = oriEq;
         this.newEq = newEq;
         this.target = tgtAttr;
+        this.val = -1;
     }
 
-    calDis(solvedValue=-1){ // 所有的属性都需要计算之后才能够确定，需要额外提供位置
+    calDis(tgt_val: number){ // 所有的属性都需要计算之后才能够确定，需要额外提供位置
         // 与之前联合考虑的误差不同，仅仅考虑单属性的误差
         // 缺少交叉项的误差
         let allArgs: Attribute[] = [...this.newEq.leftArgs.filter((x)=>(x !== this.target))];
@@ -634,14 +708,14 @@ class PostResultCandidate {
         deltaRelT /= 1000;
         
         let dis = 0;
-        if(solvedValue >= 0){
+        if(tgt_val>= 0){
             let nonConstArgsNum = count(allArgs, (item)=>(item.element.id != 0));
             let tgtAttrName = this.target.name;
             let avgAttrInArgs = nonConstArgsNum === 0? 0:allArgs
                         .flatMap((attr)=>(!attr.element.attributes.has(tgtAttrName)? []: [attr.element.getAttribute(tgtAttrName)!.val.val]))
                         .reduce((pv, cv)=>(pv+cv), 0) / nonConstArgsNum;
             
-            dis = Math.abs(avgAttrInArgs - solvedValue) / 100;
+            dis = Math.abs(avgAttrInArgs - tgt_val) / 100;
         }
         // 没有拓扑距离
 
@@ -656,6 +730,31 @@ class PostResultCandidate {
         factor *= (1 + Math.abs(oriEqEle.size - newEqEle.size) / Math.min(oriEqEle.size, newEqEle.size))
         return factor * (deltaT + deltaRelT + dis);
     }
+
+    async calValue(newEquation: Equation[], con: Controller):Promise<number>{
+        if(this.val >= 0){
+            return this.val;
+        }
+        let new_attr_values: Map<Attribute, number> = new Map();
+        let new_equations: Equation[] = [...newEquation];
+        let unchangedAttr: Attribute[] = 
+            [... this.newEq.leftArgs, ... this.newEq.rightArgs].filter((x)=>(x!=this.target));
+        let inferChangedAttr: Attribute[] = []; 
+        
+        
+        inferChangedAttr.push(this.target);
+        new_equations.push(this.newEq);
+
+        let cal_res = await con.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+        // if(cal_res.length > 1){
+        //     console.warn('理论上推测的内容应该可以直接求解')
+        // }
+
+        let firstRes = cal_res[0];
+        this.val = firstRes[2][firstRes[1].indexOf(this.target)];
+        return this.val;
+
+    }
 }
 
 class Controller {
@@ -667,13 +766,17 @@ class Controller {
     candidates: Array<[Equation[], Attribute[], number[], number]>;
     crtCdtIdx: number;
 
+    tmpElement: SingleElement;
+    constElement: SingleElement;
+    baseElement: SingleElement;
+
     constructor() {
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
-        let constElement = new SingleElement(-2, ElementType.CONST, "const");
-        this.elements.set(-2, constElement);
-        let baseElement = new SingleElement(0, ElementType.BASE, "base");
-        this.elements.set(0, baseElement);
+        this.constElement = new SingleElement(-2, ElementType.CONST, "const");
+        this.elements.set(-2, this.constElement);
+        this.baseElement = new SingleElement(0, ElementType.BASE, "base");
+        this.elements.set(0, this.baseElement);
         this.idAllocator = 1;
         this.constAllocator = 0;
         this.addAttribute(0, 'const_dis', new RawNumber(PREDEFINE_DIS));
@@ -682,6 +785,8 @@ class Controller {
         this.crtCdtIdx = -1
 
         this.equations = [];
+
+        this.tmpElement = new SingleElement(-3, ElementType.TMP, 'tmp');  // 用于存储一些临时的attribute
     }
 
     getAttributeByStr(s:string): Attribute{
@@ -769,19 +874,24 @@ class Controller {
         })
     }
     
-
-    genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[]):PostResultCandidate[]{
+    async genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[], userGivenNewEq: Equation[]):Promise<PostResultCandidate[]>{
         let genRes:PostResultCandidate[] = [];
         for(let equation of this.equations){
             let possibleTgtIdxLeft: number[] = [];
             equation.leftArgs.forEach((leftAttr, idx)=>{
                 if(tgtAttr.isSameAttribute(leftAttr)){
+                    if(equation.cal_arg_depth(idx, 'left') > MAX_POST_DEPTH){
+                        return;
+                    }
                     possibleTgtIdxLeft.push(idx);
                 }
             })
             let possibleTgtIdxRight: number[] = [];
             equation.rightArgs.forEach((rightAttr, idx)=>{
                 if(tgtAttr.isSameAttribute(rightAttr)){
+                    if(equation.cal_arg_depth(idx, 'right') > MAX_POST_DEPTH){
+                        return;
+                    }
                     possibleTgtIdxRight.push(idx);
                 }
             })
@@ -838,11 +948,18 @@ class Controller {
                 let newLeftArgs = getAllCase<Attribute>(leftRes);
                 let newRightArgs = getAllCase<Attribute>(rightRes);
 
+                let allOriAttrs: Set<Attribute> = new Set([... equation.leftArgs, ... equation.rightArgs]);
+
                 for(let leftArgList of newLeftArgs){
                     for(let rightArgList of newRightArgs){
                         // 生成对应的equation
+                        let allNewAttrs = new Set([... leftArgList, ...rightArgList]);
+                        if(allOriAttrs.size != allNewAttrs.size){
+                            continue;
+                        }
                         let newEq = new Equation(equation.leftFunc, equation.rightFunc, leftArgList, rightArgList)
                         let pc = new PostResultCandidate(equation, newEq, tgtAttr);
+                        await pc.calValue(userGivenNewEq, this);
                         genRes.push(pc);
                     }
                 }
@@ -851,8 +968,8 @@ class Controller {
         }
 
         genRes = genRes.sort((pc1, pc2)=>{
-            let dis1 = pc1.calDis();
-            let dis2 = pc2.calDis();
+            let dis1 = pc1.calDis(-1);
+            let dis2 = pc2.calDis(-1);
             if(dis1 < dis1){
                 return -1;
             } else if(dis1 === dis2){
@@ -861,8 +978,17 @@ class Controller {
             return -1;
         })
 
+        let vals:Set<string> = new Set();
+        let finalRes: PostResultCandidate[] = [];
+        for(let pc of genRes){
+            if(!vals.has(pc.val.toFixed(2))){
+                finalRes.push(pc);
+                vals.add(pc.val.toFixed(2));
+            }
+        }
+
         // 去重需要后续再去了
-        return genRes;
+        return finalRes;
     }
 
     getAllSameAttr(tgtAttr: Attribute, exceptAttrs: Attribute[]):Attribute[]{
@@ -880,7 +1006,7 @@ class Controller {
     get_all_attributes():Attribute[]{
         let allAttrs: Attribute[] = [];
         this.elements.forEach((ele, id)=>{
-            if(id < 0){ // const
+            if(id < 0){ // const or tmp
                 return
             }
 
@@ -949,10 +1075,10 @@ class Controller {
                 B.push(new_attr_values!.get(attr)! * 1000000)
             } else {
                 if(inferChangedAttr.includes(attr)){
-                    continue;
+                    // continue;
                 }
-                let l = 1;
-                let crtA = attrList.map((attr1)=>(attr === attr1? 1 / l:0));
+                let l = inferChangedAttr.includes(attr)? 1000000: 1;
+                let crtA = attrList.map((attr1)=>(attr === attr1? (1 / l):0));
                 
                 A.push(crtA);
                 B.push(attr.val.val / l)
@@ -972,6 +1098,11 @@ class Controller {
         let attrList = this.get_all_attributes();
         let eq_res = this.generate_equation_matrix(attrList, new_equations);
         let val_res = this.generate_value_matrix(attrList, new_attr_values, inferChangedAttr);
+
+        let rel_keep_idx = new_equations.map((x)=>eq_res[2].indexOf(x));
+        let rel_ignore_idx: number[] = [] // 暂时不包含
+        let val_keep_idx = unchangedAttr.map((x)=>attrList.indexOf(x));
+        let val_ignore_idx = inferChangedAttr.map((x)=>attrList.indexOf(x));
 
         let changedAttrs = new Set(inferChangedAttr);
         let unchangedAttrs = new Set(unchangedAttr);
@@ -1060,10 +1191,14 @@ class Controller {
             rel_coef: eq_res[0],
             rel_res: eq_res[1],
             val_coef: val_res[0],
-            val_res: val_res[1]
+            val_res: val_res[1],
+            rel_keep_idx,
+            rel_ignore_idx,
+            val_keep_idx,
+            val_ignore_idx,
         })
 
-        console.log(res.data)
+        // console.log(res.data)
         let err: number[] = res.data['err'];
         let newVals: number[][] = res.data['res'];
 
@@ -1128,7 +1263,20 @@ class Controller {
 
             addedValues.add(valsId);
 
-            let newEquations: Equation[] = []; // todo
+            let newEquations: Equation[] = [... this.equations, ...new_equations].filter((eq)=>{
+                return eq.judgeEquality(attrList, oneGroup);
+            })
+
+            let freeAttrInfo = await this.getFreeAttrInfo(attrList, newEquations);
+            freeAttrInfo[1].forEach((attr)=>{
+                let v = oneGroup[attrList.indexOf(attr)];
+                let tmpAttr = new Attribute(randomID(), new RawNumber(v), this.tmpElement);
+                this.tmpElement.addAttribute(tmpAttr);
+
+                let newEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleEq(), 
+                    [attr], [tmpAttr])
+                newEquations.push(newEq);
+            })
 
             finalResult.push([
                 newEquations, attrList, oneGroup, crtErr
@@ -1163,11 +1311,18 @@ class Controller {
     }
 
     async rowReduce(mat: number[][]): Promise<number[][]>{
-        let res = await axios.post('http://localhost:12345/row_reduction', {
-            coef: mat
-        })
+        // let resPy = await axios.post('http://localhost:12345/row_reduction', {
+        //     coef: mat
+        // })
 
-        return res.data['res']
+        // let res = resPy.data['res'];
+        let resJS = reduceRowJs(mat);
+        // if(!listEq(res, resJS)){
+        //     console.warn('js 版本的行消去是错误的。。。')
+        // }
+
+        // return res;
+        return resJS;
     }
 
     getFreeIndex(mat: number[][]): [number[], number[], number[]]{
@@ -1229,12 +1384,72 @@ class Controller {
         // 更新基础的取值
         this.update_attr()
         // todo: 对整体的取值进行更新
-        
     }
 
     update_attr(){
-        this.equations = this.candidates[this.crtCdtIdx][0].slice();
-        let attrList = this.candidates[this.crtCdtIdx][1];
+        this.equations = this.candidates[this.crtCdtIdx][0].map((eq)=>(eq.clone()));
+        // 将所有的equation中的临时内容全部替换
+        for(let i = 0; i < this.equations.length; ++ i){
+            let crtEq = this.equations[i];
+            let attrInfo: Array<[Attribute, number, boolean]> = 
+                [... crtEq.leftArgs.map((x, idx):[Attribute, number, boolean]=>([x, idx, true])),
+                ... crtEq.rightArgs.map((x, idx):[Attribute, number, boolean]=>([x, idx, false]))]
+            attrInfo.forEach((attrInfo)=>{
+                let attr = attrInfo[0];
+                let idx = attrInfo[1];
+                let isLeft = attrInfo[2];
+
+                if(attr.element === this.tmpElement){
+                    let attr_name = attr.name;
+                    let attrInBase = this.baseElement.getAttrOrDefault(attr_name, null);
+                    if(attrInBase == null){
+                        attrInBase = new Attribute(attr_name, new RawNumber(attr.val.val), this.baseElement);
+                        this.baseElement.addAttribute(attrInBase);
+                    }
+
+                    if(isLeft){
+                        crtEq.leftArgs[idx] = attrInBase; // 替换成实际的attr
+                    } else {
+                        crtEq.rightArgs[idx] = attrInBase;
+                    }
+                } else if(attr.element === this.baseElement){
+                    // 检查对应的element是否存在于主内容中
+                    if(attr !== this.baseElement.getAttrOrDefault(attr.name, null)){
+                        console.warn("baseElement的属性不在它的属性列表里。");
+                        this.baseElement.addAttribute(attr);
+                    }
+                }
+            })
+            
+        }
+        
+        // 检查现在的baseAttr中不再在equation中使用的；并将其删除
+        let usedBaseAttrNames: Set<string> = new Set();
+        this.equations.forEach((eq)=>{
+            [... eq.leftArgs, ...eq.rightArgs].forEach((attr)=>{
+                if(attr.element === this.baseElement){
+                    usedBaseAttrNames.add(attr.name)
+                }
+                if(attr.element === this.tmpElement){
+                    console.warn("为什么还有临时元素呢？？");
+                }
+            })
+        })
+
+        let attr_name_to_delete = [];
+        for(let one_name of this.baseElement.attributes.keys()){
+            if(!usedBaseAttrNames.has(one_name)){
+                attr_name_to_delete.push(one_name);
+            }
+        }
+
+        attr_name_to_delete.forEach((attrName)=>{
+            this.baseElement.attributes.delete(attrName); // 删除不再使用的baseAttr
+        })
+        
+        let attrList = this.candidates[this.crtCdtIdx][1]; 
+        // 新增的attr不在这里面；已经在上面添加的时候设置属性了
+        // 已经被删除attr会在这里面，但是重新赋值也没有影响
         let newVals = this.candidates[this.crtCdtIdx][2];
         attrList.forEach((attr, idx)=>{
             let newVal = newVals[idx];
@@ -1243,48 +1458,66 @@ class Controller {
     }
 
     nextSolution(){
+        // 计算下一步中所有baseAttr的名字
         this.crtCdtIdx = (this.crtCdtIdx + 1) % this.candidates.length;
         this.update_attr()
     }
 
-    async handleUserCommand(trace: Array<Array<[number, number]>>, traceEleRelation: string, newEleRel: string){
-        if(traceEleRelation.includes('new') || newEleRel.includes('new')){
-            await this.handleUserAdd(trace, traceEleRelation, newEleRel);
+    async handleUserCommand(
+        trace: Array<Array<[number, number]>>, 
+        traceEleRelation: string, 
+        newEleRel: string,
+        newEleRange: string,
+        forceUnchangeStr:string,
+        inferChangeStr:string){
+        if(traceEleRelation.includes('new') 
+            || newEleRel.includes('new')
+            || newEleRange.includes('new')){
+            await this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
             return;
         }
+
+        await this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
+            newEleRange, trace, traceEleRelation);
+
+
     }
 
-    async handleUserAdd(RawTraces: Array<Array<[number, number]>>, traceEleRelation: string, newEleEq?: string){
-        if(newEleEq == null){
-            newEleEq = "";
-        }
-        
-        let nextElementId = this.createElement(ElementType.RECTANGLE);
-        this.addAttribute(nextElementId, 'x', new RawNumber(0));
-        this.addAttribute(nextElementId, 'y', new RawNumber(0));
-        
-        let nextElement = this.getElement(nextElementId);
-        let xAttr = nextElement.getAttribute('x')!;
-        let yAttr = nextElement.getAttribute('y')!;
-        
-        newEleEq = newEleEq.replaceAll('new', `${nextElementId}`)
+    isValid(attrList: Attribute[], attrValues:  number[]){
+        let ele2pos: Map<SingleElement, [number, number]> = new Map();
+        attrList.forEach((attr, idx)=>{
+            let ele = attr.element;
+            if(ele.id <= 0){
+                return;
+            }
 
-        let newEqInExpr = newEleEq.length === 0? []: newEleEq.split(';').map((oneEqStr)=>{
-            return parseNewEquation(this, oneEqStr);
+            if(!ele2pos.has(ele)){
+                ele2pos.set(ele, [-1, -1])
+            }
+
+            if(attr.name === 'x'){
+                ele2pos.get(ele)![0] = attrValues[idx];
+            }
+
+            if(attr.name === 'y'){
+                ele2pos.get(ele)![1] = attrValues[idx];
+            }
         })
 
-        let attrList = this.get_all_attributes()
-        // 判断哪些元素需要进行推测，结合现在所有的关系进行判断
+        let posOccupy = new Set();
+        ele2pos.forEach((v)=>{
+            posOccupy.add(`${v[0].toFixed(0)}-${v[1].toFixed(1)}`);
+        })
 
-        let coef_matrix: number[][] = this.equations.map((eqt)=>{
+        return ele2pos.size === posOccupy.size;
+    }
+
+    async getFreeAttrInfo(attrList: Attribute[], equations: Equation[]):
+     Promise<[Attribute[], Attribute[], Attribute[]]>{
+        let coef_matrix: number[][] = equations.map((eqt)=>{
             return eqt.convertToVector(attrList);
         })
 
-        for(let oneNewEq of newEqInExpr){
-            coef_matrix.push(oneNewEq.convertToVector(attrList));
-        }
-
-        // 删除其中的基变量
         coef_matrix = coef_matrix.map((coef)=>{
             return coef.filter((_, idx)=>{
                 return attrList[idx].element.id > 0;
@@ -1297,25 +1530,147 @@ class Controller {
 
         let reducedRes = await this.rowReduce(coef_matrix);
         let freeIndexInfo = this.getFreeIndex(reducedRes);
-        let freeIndexes = freeIndexInfo[1];
-        let canDependentIndexes = freeIndexInfo[2];
-        let freeAttrs = freeIndexes.map(idx=>elementAttrList[idx]);
-        let canDependAttr = canDependentIndexes.map(idx=>elementAttrList[idx]);
+
+        return [
+            freeIndexInfo[0].map((x)=>(elementAttrList[x])),
+            freeIndexInfo[1].map((x)=>(elementAttrList[x])),
+            freeIndexInfo[2].map((x)=>(elementAttrList[x])),
+        ]
+    }
+
+    async handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
+        traceEleRelation: string, newEleEq: string,
+        newEleRange:string){
+
+        let traces = RawTraces.map(rt=>new Trace(rt));
+
+        let nextElementId = this.createElement(ElementType.RECTANGLE);
+        this.addAttribute(nextElementId, 'x', new RawNumber(0));
+        this.addAttribute(nextElementId, 'y', new RawNumber(0));
+        
+        let nextElement = this.getElement(nextElementId);
+        let xAttr = nextElement.getAttribute('x')!;
+        let yAttr = nextElement.getAttribute('y')!;
+        
+        newEleEq = newEleEq.replaceAll('new', `${nextElementId}`)
+        newEleRange = newEleRange.replaceAll('new', `${nextElementId}`)
+        traceEleRelation = traceEleRelation.replaceAll('new', `${nextElementId}`)
+        
+        let traceRelations: TraceAttrRelation[] = [];
+        if(traceEleRelation.length > 0){
+            traceRelations = traceEleRelation.split(';').map((x)=>{
+                return new TraceAttrRelation(this, traces, x);
+            })
+        }
+        
+        
+        let newEqInExpr = newEleEq.length === 0? []: newEleEq.split(';').map((oneEqStr)=>{
+            return parseNewEquation(this, oneEqStr);
+        })
+
+        let newRangeInExpr = newEleRange.length === 0? []: newEleRange.split(';').map((oneRangeStr)=>{
+            return parseNewEquation(this, oneRangeStr);
+        }).filter((range)=>{
+            if(range.assignOp === AssignOp.eq){
+                console.warn('忽略等于关系')
+                return false;
+            }
+
+            let newAttrInvolved = [... range.leftArgs, ... range.rightArgs].filter((attr)=>(attr === xAttr || attr === yAttr));
+            if(newAttrInvolved.length === 0){
+                console.warn("给定关系与创建的元素无关")
+                return false;
+            }
+
+            return true;
+        })
+
+        let attrList = this.get_all_attributes()
+        // 判断哪些元素需要进行推测，结合现在所有的关系进行判断
+
+        let freeAttrInfo = await this.getFreeAttrInfo(attrList, [...this.equations, ...newEqInExpr])
+        
+        let freeAttrs = freeAttrInfo[1];
+        let canDependAttr = freeAttrInfo[2];
 
         canDependAttr.push(... attrList.filter((x)=>(x.element.id <= 0)))
         canDependAttr.push(... this.get_all_val_const_attr())
 
-        let postCandidates: Array<PostResultCandidate[]> = freeAttrs.map((attr)=>{
-            return  this.genPostCandidate(attr, canDependAttr);  // 
+        let postCandidates: Array<PostResultCandidate[]> = []
+        
+        // 根据用户指令进行的调整可以在此进行
+        for(let attr of freeAttrs){
+            let pcList = await this.genPostCandidate(attr, canDependAttr, newEqInExpr);
+            // 检查是否满足
+            // 只能局部检查的，因为可能会包含多个attr
+            for(let rangeExpr of newRangeInExpr){
+                let involvedFreeAttr = new Set([...rangeExpr.leftArgs, ... rangeExpr.rightArgs]
+                    .filter((x)=>(!canDependAttr.includes(x))));
+                if(involvedFreeAttr.size != 1 || !involvedFreeAttr.has(attr)){
+                    continue;
+                }
+                pcList = pcList.filter((pc)=>{
+                    if(pc.val === -1){
+                        return true; // 留后处理
+                    }
+                    // 只有除了当前之外都是 can depend才行
+                    let attrVal = attrList.map((x)=>{
+                        if(x === attr){
+                            return pc.val;
+                        }
+                        return x.val.val; 
+                    })
+                    return rangeExpr.judgeEquality(attrList, attrVal);
+                })
+            }
+
+            for(let traceRel of traceRelations){
+                // 删除不满足路径要求的
+                if(traceRel.atttibute !== attr){
+                    continue;
+                }
+
+                pcList = pcList.filter((pc)=>{
+                    return traceRel.satisfy(pc.val)
+                })
+            }
+
+            postCandidates.push(pcList);
+        }
+
+        let new_attr_values: Map<Attribute, number> = new Map(); // 在创建过程中的固定值只能是在trace相关的过程中出现的
+        // todo：检查，如果存在某个属性的pc是空的，但是它是free的
+        // 直接根据trace确定位置
+        postCandidates.forEach((pcList, idx)=>{
+            if(pcList.length > 0){
+                return;
+            }
+            let missedInferAttr = freeAttrs[idx];
+            for(let traceRel of traceRelations){
+                if(traceRel.atttibute !== missedInferAttr){
+                    continue;
+                }
+
+                if(traceRel.op === AssignOp.eq || !new_attr_values.has(missedInferAttr)){
+                    new_attr_values.set(missedInferAttr, traceRel.isX? traceRel.trace.center[0]:traceRel.trace.center[1]);
+                }
+            }
+
+            if(!new_attr_values.has(missedInferAttr)){
+                console.warn(
+                    `属性${missedInferAttr.name}_${missedInferAttr.element.id}没有符合要求的推荐。`
+                )
+            }
         })
 
+        postCandidates = postCandidates.filter((x)=>(x.length>0))
+        
         let allCandidateComb = getAllCase(postCandidates);
 
         let combCandidate:[Equation[], Attribute[], number[], number][] = []; // 属性列表、属性取值、误差
 
         if(allCandidateComb.length > 0){
             for(let candidateComb of allCandidateComb){
-                let new_attr_values: Map<Attribute, number> = new Map();
                 let new_equations: Equation[] = [...newEqInExpr];
                 let unchangedAttr: Attribute[] = [];
                 let inferChangedAttr: Attribute[] = [xAttr, yAttr]; 
@@ -1326,6 +1681,24 @@ class Controller {
                 }
     
                 let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+                if(cal_res.length > 1){
+                    console.warn('理论上在推测过程中应该直接求解')
+                }
+
+                cal_res = cal_res.filter((one_res)=>{
+                    //  不需要再进行trace的筛选
+                    // 因为trace仅仅涉及单属性，在前面已经筛选过了
+                    let attrList = one_res[1];
+                    let attrVals = one_res[2];
+                    for(let rangeExpr of newRangeInExpr){
+                        if(!rangeExpr.judgeEquality(attrList, attrVals)){
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+
                 cal_res.forEach((v)=>{
                     // v[3] += combErrors;
                     for(let oneNewCandidate of candidateComb){
@@ -1334,59 +1707,34 @@ class Controller {
                         let tgt_val = v[2][idx];
                         v[3] += oneNewCandidate.calDis(tgt_val);
                     }
+                    let attrList = v[1];
+                    let attrVals = v[2];
+                    // 距离权重1：和路径之间的距离
+                    for(let attrTraceRel of traceRelations){
+                        let val = attrVals[attrList.indexOf(attrTraceRel.atttibute)]
+                        v[3] *= (1 + attrTraceRel.calDis(val) / 100);
+                    }
+                    // 距离权重2：所有freeAttr和关系中最近的非freeAttr之间的距离
+                    let disRange = 0;
+                    newRangeInExpr.forEach((range)=>{
+                        disRange += this.calAttrRangeDistance(range, attrList, attrVals, freeAttrs);
+                    })
+
+                    v[3] *= (1 + disRange / 1);
                 })
-    
                 combCandidate.push(... cal_res)
             }
         } else {
-            let new_attr_values: Map<Attribute, number> = new Map();
+            // 除了用户指令本身就充分之外，也可能是通过路径推测的结果
             let new_equations: Equation[] = [...newEqInExpr];
             let unchangedAttr: Attribute[] = [];
             let inferChangedAttr: Attribute[] =  [xAttr, yAttr]; 
 
             let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
             combCandidate.push(... cal_res)
-        }
 
-        
-        // 根据模糊的条件来检测最佳的位置
-        
-        // trace大概有三种形态：点、形状、线。
-        
-        // x_new = trace0
-        let traces = RawTraces.map(rt=>new Trace(rt));
-
-        // 根据预测位置和trace的距离来对距离进行重新加权
-        // loss *= (1 + dis)，单次只考虑一个坐标
-        for(let oneTraceRel of traceEleRelation.split(';')){
-            oneTraceRel = oneTraceRel.trim();
-            let splitRes = oneTraceRel.split('='); // 目前先仅考虑通过trace给定位置的
-            if(splitRes.length !== 2){
-                console.log('不合法的表达 ' + oneTraceRel);
-                continue;
-            }
-
-            if(!['x_new', 'y_new'].includes(splitRes[0].trim())){
-                console.log('不合法的左侧 ' + oneTraceRel);
-                continue;
-            }
-
-            let tgtAttrIdx = (splitRes[0].trim() === 'x_new')? 0:1;
-            let tgtAttr = (splitRes[0].trim() === 'x_new')? xAttr: yAttr;
-
-            let traceIdx = Number(splitRes[1].trim().split('_')[1]);
-            if(traceIdx !== traceIdx){
-                console.log('不合法的右侧 ' + oneTraceRel);
-                continue;
-            }
-
-            let trace = traces[traceIdx];
-            for(let onePosCandidate of combCandidate){
-                let attrList = onePosCandidate[1];
-                let attrV = onePosCandidate[2];
-                // 加上error的内容
-                onePosCandidate[3] *= (1 + Math.abs(trace.center[tgtAttrIdx] - attrV[attrList.indexOf(tgtAttr)]));
-            }
+            // 指令本身充分的情况下需要筛选吗？
+            // 不需要，因为这里只会增加条件，不会有冲突
         }
 
         combCandidate = combCandidate.sort((a, b)=>{
@@ -1398,13 +1746,9 @@ class Controller {
             return 1;
         })
 
-
-
-        
         // this.attrList = combCandidate[0][0];
         // this.candidateValues = combCandidate.map(x=>x[1]);
         this.crtCdtIdx = 0;
-
         this.candidates = [];
         let drawed_pos_set: Set<string> = new Set();
         for(let oneCdt of combCandidate){
@@ -1421,17 +1765,431 @@ class Controller {
         this.update_attr()
         // todo: 对整体的取值进行更新
     }
+
+    calAttrRangeDistance(range: Equation, attrList: Attribute[], 
+        attrVals: number[], freeAttrs: Attribute[]){
+        // 用户描述了一个属性之间的偏序关系
+        // 新生成的元素和涉及的元素应该尽量接近
+        if(range.assignOp === AssignOp.eq){
+            return 0; // 
+        }
+
+        let involvedElements = new Set([... range.leftArgs, ... range.rightArgs].flatMap((attr)=>{
+            let ele = attr.element;
+            if(ele.id > 0){
+                return [ele];
+            }
+            return []
+        }));
+
+        let eleToPos: Map<SingleElement, [number,  number]> = new Map();
+        involvedElements.forEach((ele)=>{
+            eleToPos.set(ele, [-1, -1]);
+        })
+
+        attrList.forEach((attr, idx)=>{
+            if(!eleToPos.has(attr.element)){
+                return;
+            }
+            if(attr.name === 'x'){
+                eleToPos.get(attr.element)![0] = attrVals[idx];
+            } else if(attr.name === 'y'){
+                eleToPos.get(attr.element)![1] = attrVals[idx];
+            }
+        })
+
+        let involvedFreeEle = new Set(freeAttrs.map((x)=>x.element).filter((x)=>involvedElements.has(x)));
+        let baseEle = [... involvedElements].filter((x)=>(!involvedFreeEle.has(x)))
+        if(baseEle.length === 0){
+            return 0;
+        }
+        let allAttrs = [... range.leftArgs, ... range.rightArgs];
+        let involveFreeAttrs = allAttrs.filter((x)=>{
+            return freeAttrs.includes(x);
+        })
+
+        let minDis = 0;
+        let count = 0;
+        for(let attr of involveFreeAttrs){
+            if(attr.name !== 'x' && attr.name !== 'y'){
+                continue;
+            }
+            count += 1;
+            let pos = attr.name === 'y'? 0:1; // 主元素已经比较了，使用次元素
+            minDis += min(baseEle.map((ele)=>{
+                let dis = abs(eleToPos.get(ele)![pos] - eleToPos.get(attr.element)![pos]);
+                return dis;
+            }))
+        }
+
+        return minDis / involvedFreeEle.size;
+
+    }
+
+    async handleUserModify(newEleEq: string, 
+        forceUnchangeStr: string, 
+        inferChangeStr: string, 
+        newEleRange: string, 
+        RawTraces: Array<Array<[number, number]>>, 
+        traceEleRelation: string){
+        
+        let traces = RawTraces.map(rt=>new Trace(rt));
+        let unchangedAttr: Attribute[] = [];
+        let inferChangedAttr: Attribute[] = [];
+
+        if(forceUnchangeStr.length > 0){
+            forceUnchangeStr.split(';').forEach((s)=>{
+                s = s.trim();
+                let attr = this.getAttributeByStr(s);
+                unchangedAttr.push(attr);
+            })
+        }
+
+        if(inferChangeStr.length > 0){
+            inferChangeStr.split(';').forEach((s)=>{
+                s = s.trim();
+                let attr = this.getAttributeByStr(s);
+                inferChangedAttr.push(attr);
+            })
+        }
+        
+        // todo 先仅仅考虑关系发生改变的情况
+        let newEqInExpr = newEleEq.length === 0? []: newEleEq.split(';').filter(x=>x.length > 0).map((oneEqStr)=>{
+            return parseNewEquation(this, oneEqStr);
+        })
+
+        let newRangeInExpr = newEleRange.length === 0? []: newEleRange.split(';').filter(x=>x.length > 0).map((oneRangeStr)=>{
+            return parseNewEquation(this, oneRangeStr);
+        }).filter((x)=>(x.assignOp !== AssignOp.eq));
+
+        let traceRelations: TraceAttrRelation[] = [];
+        if(traceEleRelation.length > 0){
+            traceRelations = traceEleRelation.split(';').map((x)=>{
+                return new TraceAttrRelation(this, traces, x);
+            })
+        }
+
+        traceRelations.forEach((tr)=>{
+            if(!inferChangedAttr.includes(tr.atttibute)){
+                inferChangedAttr.push(tr.atttibute)
+            }
+        })
+
+        // 在 range中，如果所有的属性都没有被列为inferchange
+        // 那么所有的都预期它会修改
+        let attrToExprs: Map<Attribute, [Attribute, Equation[]]> = new Map();
+        let noInferChangeEqs: Equation[] = [];
+        [... newRangeInExpr].forEach((x)=>{
+            let allArgs = [...x.leftArgs, ...x.rightArgs].filter((x)=>x.element.id>0);
+            let changedArgs = allArgs.filter((x)=>(inferChangedAttr.includes(x)));
+            
+            if(changedArgs.length === 0){ // 强制最后加入的元素是需要修改的
+                noInferChangeEqs.push(x);
+                allArgs.forEach((arg)=>{
+                    if(!attrToExprs.has(arg)){
+                        attrToExprs.set(arg, [arg, []]);
+                    }
+                    attrToExprs.get(arg)?.[1].push(x);
+                })    
+            }
+        })
+        
+        let attrExprTuples = [...attrToExprs.values()]
+
+        while(noInferChangeEqs.length > 0){
+            attrExprTuples.sort((attrTp1, attrTp2)=>{
+                if(attrTp1.length > attrTp2.length){
+                    return -1;
+                } else if(attrTp1.length < attrTp2.length){
+                    return 1;
+                } else {
+                    if(attrTp1[0].timestamp > attrTp2[0].timestamp){
+                        return -1;
+                    } else if(attrTp1[0].timestamp < attrTp2[0].timestamp){
+                        return 1;
+                    }
+                }
+
+                return 0;
+            })
+
+            let firstEle = attrExprTuples[0];
+            inferChangedAttr.push(firstEle[0]);
+            noInferChangeEqs = noInferChangeEqs.filter((x)=>{
+                return !firstEle[1].includes(x);
+            })
+
+            attrExprTuples = attrExprTuples.slice(1);
+            attrExprTuples = attrExprTuples.map((tp)=>{
+                let res :[Attribute, Equation[]] = [tp[0], tp[1].filter((x)=>noInferChangeEqs.includes(x))];
+                return res;
+            }).filter((x)=>x[1].length > 0);
+        }
+
+
+        if(newEqInExpr.length === 0 && newRangeInExpr.length === 0 && traceRelations.length === 0){
+            return;
+        }
+
+        // 检查：所有的inferChanges都有对应的newEleEq；筛选出那些没有对应的
+        let allAttrInEqs: Set<Attribute> = new Set([... newEqInExpr.flatMap((eq)=>([... eq.leftArgs, ...eq.rightArgs]))]);
+        let inferChangeWithoutNewEq = inferChangedAttr.filter((x)=>(!allAttrInEqs.has(x)));
+        
+        let attrList = this.get_all_attributes();
+        let canDependAttr = [...attrList, ... this.get_all_val_const_attr()]
+            .filter((attr)=>!inferChangedAttr.includes(attr));
+        
+        let pcComb: Array<PostResultCandidate[]> = [];
+        for(let attr of inferChangeWithoutNewEq){
+            let pcList = await this.genPostCandidate(attr, canDependAttr, newEqInExpr);
+            // pcComb.push(pcList);
+            // continue;
+            for(let rangeExpr of newRangeInExpr){
+                let involvedFreeAttr = new Set([...rangeExpr.leftArgs, ... rangeExpr.rightArgs]
+                    .filter((x)=>(!canDependAttr.includes(x))));
+                if(involvedFreeAttr.size != 1 || !involvedFreeAttr.has(attr)){
+                    continue;
+                }
+                pcList = pcList.filter((pc)=>{
+                    // 这里的处理只能是一个近似处理了
+                    if(pc.val === -1){
+                        return true; // 留后处理
+                    }
+                    // 只有除了当前之外都是 can depend才行
+                    let attrVal = attrList.map((x)=>{
+                        if(x === attr){
+                            return pc.val;
+                        }
+                        return x.val.val; 
+                    })
+                    return rangeExpr.judgeEquality(attrList, attrVal);
+                })
+            }
+
+            for(let traceRel of traceRelations){
+                // 删除不满足路径要求的
+                if(traceRel.atttibute !== attr){
+                    continue;
+                }
+
+                pcList = pcList.filter((pc)=>{
+                    return traceRel.satisfy(pc.val)
+                })
+            }
+            
+            pcComb.push(pcList);
+        }
+
+        let new_attr_values: Map<Attribute, number> = new Map(); // 用户会主动输入取值吗
+
+        pcComb.forEach((pcList, idx)=>{
+            if(pcList.length > 0){
+                return;
+            }
+            let missedInferAttr = inferChangedAttr[idx];
+            for(let traceRel of traceRelations){
+                if(traceRel.atttibute !== missedInferAttr){
+                    continue;
+                }
+
+                if(traceRel.op === AssignOp.eq || !new_attr_values.has(missedInferAttr)){
+                    new_attr_values.set(missedInferAttr, traceRel.isX? traceRel.trace.center[0]:traceRel.trace.center[1]);
+                }
+            }
+
+            if(!new_attr_values.has(missedInferAttr)){
+                console.warn(
+                    `属性${missedInferAttr.name}_${missedInferAttr.element.id}没有符合要求的推荐。`
+                )
+            }
+        })
+
+        let allCandidateComb = getAllCase(pcComb);
+
+        let combCandidate:[Equation[], Attribute[], number[], number][] = []; // 属性列表、属性取值、误差
+        if(allCandidateComb.length > 0){
+            for(let candidateComb of allCandidateComb){
+                let new_equations: Equation[] = [...newEqInExpr];
+                let unchangedAttr: Attribute[] = [];
+                // let inferChangedAttr: Attribute[] = [xAttr, yAttr]; 
+                
+                for(let oneNewCandidate of candidateComb){
+                    new_equations.push(oneNewCandidate.newEq);
+                }
+    
+                let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+
+                cal_res.forEach((v)=>{
+                    // v[3] += combErrors;
+                    for(let oneNewCandidate of candidateComb){
+                        let tgt = oneNewCandidate.target;
+                        let idx = v[1].indexOf(tgt);
+                        let tgt_val = v[2][idx];
+                        v[3] += oneNewCandidate.calDis(tgt_val);
+                    }
+                })
+                combCandidate.push(... cal_res)
+            }
+        } else {
+            let new_attr_values: Map<Attribute, number> = new Map();
+            let new_equations: Equation[] = [...newEqInExpr];
+
+            let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+            combCandidate.push(... cal_res)
+        }
+
+        // 筛选位置
+        // trace 筛选可能需要进行，因为不排除额外的解
+        combCandidate = combCandidate.filter((one_res)=>{
+            for(let traceRange of traceRelations){
+                let attrVal = one_res[2][one_res[1].indexOf(traceRange.atttibute)];
+                if(!traceRange.satisfy(attrVal)){
+                    return false;
+                }
+            }
+
+            return true;
+        })
+
+
+        combCandidate = combCandidate.filter((one_res)=>{
+            let attrList = one_res[1];
+            let attrVals = one_res[2];
+            for(let rangeExpr of newRangeInExpr){
+                if(!rangeExpr.judgeEquality(attrList, attrVals)){
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        // 更新权重
+        combCandidate.forEach((v)=>{
+            let attrList = v[1];
+            let attrVals = v[2];
+            // 距离权重1：和路径之间的距离
+            for(let attrTraceRel of traceRelations){
+                let val = attrVals[attrList.indexOf(attrTraceRel.atttibute)]
+                v[3] *= (1 + attrTraceRel.calDis(val) / 100);
+            }
+            // 距离权重2：所有freeAttr和关系中最近的非freeAttr之间的距离
+            let disRange = 0;
+            newRangeInExpr.forEach((range)=>{
+                disRange += this.calAttrRangeDistance(range, attrList, attrVals, inferChangedAttr);
+            })
+
+            v[3] *= (1 + disRange / 1);
+        })
+
+        // 排序
+        combCandidate = combCandidate.sort((a, b)=>{
+            if(a[3] < b[3]){
+                return -1;
+            } else if(a[3] === b[3]){
+                return 0;
+            }
+            return 1;
+        })
+
+        if(combCandidate.length > 0){
+            this.candidates = [... combCandidate];
+            this.crtCdtIdx = 0;
+            this.update_attr()
+        } else {
+            if(newEleRange.length > 0){
+                let newRangeStr = newEleRange.replaceAll(/[><]/g, '=').replaceAll('==', '=')
+                let newEqStr = `${newEleEq};${newRangeStr}`;
+                await this.handleUserModify(newEqStr, forceUnchangeStr, inferChangeStr, "", RawTraces, traceEleRelation);
+            } else {
+                alert('没有计算出给出指令的合适结果！请检查')
+            }
+        }
+    }
 }
 
 class Trace{
     rawTrace: Array<[number, number]>;
     center: [number, number];
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    static ALLOW_DELTA = 25;
     constructor(trace: Array<[number, number]>){
         this.rawTrace = trace.map(x=>[x[0], x[1]]);
         this.center = [
             trace.map(x=>x[0]).reduce((p, c)=>(p+c), 0) / trace.length,
             trace.map(x=>x[1]).reduce((p, c)=>(p+c), 0) / trace.length
         ];
+
+        this.minX = min(this.rawTrace.map((x)=>x[0]));
+        this.minY = min(this.rawTrace.map((x)=>x[1]));
+        this.maxX = max(this.rawTrace.map((x)=>x[0]));
+        this.maxY = max(this.rawTrace.map((x)=>x[1]));
+    }
+
+    isInside(p: number, isX:boolean){
+        if(isX){
+            return (p >= this.minX - Trace.ALLOW_DELTA) && (p <= this.maxX + Trace.ALLOW_DELTA);
+        } else {
+            return (p >= this.minY - Trace.ALLOW_DELTA) && (p <= this.maxY + Trace.ALLOW_DELTA);
+        }
+    }
+}
+
+class TraceAttrRelation {
+    trace: Trace;
+    atttibute: Attribute;
+    op: AssignOp;
+    isX: boolean;
+    constructor(con: Controller, traces: Trace[], expr: string){
+        let re = /\s*(.*_\d+)\s*([><=]*)\s*(.*_\d+)\s*/;
+        let execRes = re.exec(expr);
+        let left = execRes![1];
+        this.op = str2AssignOp(execRes![2])!
+        let right = execRes![3];
+
+        if(left.includes('trace')){
+            let tmp = left;
+            left = right;
+            right = tmp;
+            this.op = sideSwap(this.op);
+        }
+
+        // left 是 attr，right 是 trace
+        this.atttibute = con.getAttributeByStr(left);
+        this.isX = this.atttibute.name !== 'y';
+        let traceIdx = Number(right.split('_')[1]);
+        this.trace = traces[traceIdx];
+    }
+
+    satisfy(val:number|undefined){
+        if(val == undefined){
+            val = this.atttibute.val.val;
+        }
+        switch(this.op){
+            case AssignOp.eq:
+                return this.trace.isInside(val!, this.isX);
+            case AssignOp.ge:
+            case AssignOp.gt:
+                return op2func(this.op)(val!, this.isX?this.trace.minX: this.trace.minY);
+            case AssignOp.le:
+            case AssignOp.lt:
+                return op2func(this.op)(val!, this.isX?this.trace.maxX: this.trace.maxY);
+        }
+    }
+
+    calDis(val: number|undefined):number{
+        if(val == undefined){
+            val = this.atttibute.val.val;
+        }
+
+        if(this.op == AssignOp.eq){
+            return abs((this.isX? this.trace.center[0]: this.trace.center[1]) - val!)
+        }
+
+        return this.satisfy(val)? 0: 1;
+        
     }
 }
 

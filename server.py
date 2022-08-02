@@ -47,6 +47,18 @@ def solve2():
     val_coef = request.json.get('val_coef')
     val_res = request.json.get('val_res')
 
+    rel_keep_idx = request.json.get('rel_keep_idx', [])
+    rel_ignore_idx = request.json.get('rel_ignore_idx', [])
+    
+    val_keep_idx = request.json.get('val_keep_idx', [])
+    val_ignore_idx = request.json.get('val_ignore_idx', [])
+
+    val_keep_idx = [x + len(rel_coef) for x in val_keep_idx]
+    val_ignore_idx = [x + len(rel_coef) for x in val_ignore_idx]
+
+    keep_idx = rel_keep_idx + val_keep_idx
+    ignore_idx = rel_ignore_idx + val_ignore_idx
+
     coef = []
     coef.extend(rel_coef)
     coef.extend(val_coef)
@@ -84,7 +96,23 @@ def solve2():
             result.append((crtA, crtB, res, error, overall_error, crtID))
             continue
         
-        candidateIdx = np.argpartition(errors, -4)[-4:].tolist() # 优先不考虑error小的
+        crtID_list = crtID.tolist()
+
+        keep_idx_in_crt = [crtID_list.index(x) for x in keep_idx if x in crtID_list]
+        ignore_idx_in_crt = [crtID_list.index(x) for x in ignore_idx if x in crtID_list]
+        
+        beam_size = min(len(keep_idx_in_crt) + 2, len(crtID_list)) # keep 是经过加权的，所以很可能error会大
+        
+        candidateIdx = np.argpartition(errors, -beam_size)[-beam_size:].tolist() # 优先不考虑error小的
+
+        candidateIdx = [x for x in candidateIdx if x not in keep_idx_in_crt]
+        ignore_exclude = [x for x in ignore_idx_in_crt if x not in candidateIdx]
+        ignore_exclude.extend(candidateIdx)
+
+        candidateIdx = ignore_exclude
+        if len(candidateIdx) > 4:
+            candidateIdx = candidateIdx[:4]
+        
         for max_error_idx in candidateIdx:
             idx = list(range(crtA.shape[0]))
             del idx[max_error_idx]
@@ -113,4 +141,4 @@ def row_reduction():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=12345)
+    app.run(host='0.0.0.0', port=12345, threaded=True)

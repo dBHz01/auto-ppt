@@ -6,6 +6,7 @@ import { testBackend } from './components/test_backend';
 import { loadFile, parseNewEquation} from "./components/load_file";
 import { Button } from 'antd';
 import Konva from 'konva';
+import { getValue } from '@testing-library/user-event/dist/utils';
 
 const FILEINPUT = require("./components/sample-input.json");
 
@@ -94,7 +95,6 @@ class AllComponents extends React.Component {
 
 class App extends Component {
     allComponentsRef: React.RefObject<AllComponents>;
-    newRelRef: React.RefObject<HTMLInputElement>;
     forceUnchangedRef: React.RefObject<HTMLInputElement>;
     inferChangedRef: React.RefObject<HTMLInputElement>;
     traces: Array<Array<[number, number]>>;
@@ -104,6 +104,7 @@ class App extends Component {
     elemRelationRef: React.RefObject<HTMLInputElement>;
 
     static colors:string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
+    elemRangeRef: React.RefObject<HTMLInputElement>;
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
@@ -111,46 +112,18 @@ class App extends Component {
         this.traces = [];
         this.isDown = false;
 
-        this.newRelRef = React.createRef();
         this.forceUnchangedRef = React.createRef();
         this.inferChangedRef = React.createRef();
 
         // new stage
         this.traceRelationRef = React.createRef(); 
         this.elemRelationRef = React.createRef();
-
+        this.elemRangeRef = React.createRef();
     }
 
     nextSolution(){
         this.allComponentsRef.current?.controller.nextSolution()
         this.forceUpdate();
-    }
-
-    async applyChange(){
-        let exprs:string = this.newRelRef.current?.value || "";
-        if(exprs.length == 0){
-            return;
-        }
-
-        let exprList = exprs.split(';');
-
-        let newEquation = exprList.map((expr)=>parseNewEquation(this.allComponentsRef.current!.controller, expr));
-        console.log(newEquation)
-        
-        let forceUnchange: string = this.forceUnchangedRef.current?.value || '';
-        let unchangedAttr: Attribute[] = forceUnchange.split(';')
-            .filter(s=>s.length > 0)
-            .map((s)=>this.allComponentsRef.current!.controller.getAttributeByStr(s));
-        
-        let inferChange: string = this.inferChangedRef.current?.value || '';
-        let inferChangedAttr: Attribute[] = inferChange.split(';')
-            .filter(s=>s.length > 0)
-            .map((s)=>this.allComponentsRef.current!.controller.getAttributeByStr(s));
-
-        await this.allComponentsRef.current!.controller!
-            .update_contents(new Map(), newEquation, unchangedAttr, inferChangedAttr)
-        this.forceUpdate()
-        this.newRelRef.current!.value = "ok✅"
     }
 
     handlePointerDown(event:Konva.KonvaEventObject<MouseEvent>){
@@ -164,6 +137,9 @@ class App extends Component {
             return;
         }
         let crtTrace = this.traces[this.traces.length - 1];
+        if(crtTrace == null){
+            return;
+        }
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
     }
 
@@ -174,14 +150,20 @@ class App extends Component {
         let crtTrace = this.traces[this.traces.length - 1];
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
         this.isDown = false;
-        console.log(crtTrace)
+        // console.log(crtTrace)
         this.forceUpdate()
     }
 
     async applyCmd(){
         let traceEleRelationStr = this.traceRelationRef.current!.value;
         let elemRelStr = this.elemRelationRef.current!.value;
-        await this.allComponentsRef.current!.controller.handleUserCommand(this.traces, traceEleRelationStr, elemRelStr);
+        let unchangedStr = this.forceUnchangedRef.current!.value;
+        let inferChangeStr = this.inferChangedRef.current!.value;
+        let eleRangeStr = this.elemRangeRef.current!.value;
+        await this.allComponentsRef.current!.
+            controller.handleUserCommand(
+                this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr 
+            );
 
         this.traces = [];
         this.forceUpdate();
@@ -190,7 +172,7 @@ class App extends Component {
     render() {
         return (
             <div>
-                <Stage width={window.innerWidth} height={window.innerHeight - 100}
+                <Stage width={window.innerWidth} height={window.innerHeight - 200}
                     onMouseDown={this.handlePointerDown.bind(this)}
                     onMouseMove={this.handlePointerMove.bind(this)}
                     onMouseUp={this.handlePointerUp.bind(this)}
@@ -214,19 +196,13 @@ class App extends Component {
                 </Stage>
                 <hr/>
                 路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
-                元素之间的关系：<input type="text" ref={this.elemRelationRef}/>
-
-                <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
+                元素之间的相等关系：<input type="text" ref={this.elemRelationRef}/>
+                元素之间的比较关系：<input type="text" ref={this.elemRangeRef}/>
                 <hr/>
-                新关系（;分隔）：<input ref={this.newRelRef} type='text'/>
                 推测发生变化（;分隔）：<input ref={this.inferChangedRef} type='text'/>
                 强制保持不变（;分隔）：<input ref={this.forceUnchangedRef} type='text'/>
-                
-                <Button
-                type="primary"
-                onClick={this.applyChange.bind(this)}
-                >确定修改</Button>
-
+                <hr/>
+                <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
                 <Button
                 type="primary"
                 onClick={this.nextSolution.bind(this)}
