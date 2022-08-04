@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { abs, e, max, min, sqrt } from 'mathjs';
 import {parseNewEquation} from './load_file'
-import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt} from './utility'
+import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList} from './utility'
 enum Operator {
     PLUS,
     MINUS,
@@ -635,50 +635,18 @@ class FuncTree {
     }
 }
 
-enum PrioType {
-    ALIGN,
-    CONST_DIS_ADD,
-    CONST_DIS_MINUS,
+enum EstimateType {
+    CONST_DIS,
+    SAME_DIS,
+    HISTORY_EQ
 }
-const prioType2Factor:Map<PrioType, number> = new Map();
-prioType2Factor.set(PrioType.ALIGN, 1);
-prioType2Factor.set(PrioType.CONST_DIS_ADD, 2);
-prioType2Factor.set(PrioType.CONST_DIS_MINUS, 2);
+const estType2Factor:Map<EstimateType, number> = new Map();
+estType2Factor.set(EstimateType.CONST_DIS, 8);
+estType2Factor.set(EstimateType.SAME_DIS, 4);
+estType2Factor.set(EstimateType.HISTORY_EQ, 0);
+
 
 const PREDEFINE_DIS = 15+50; // 预设的先验距离。
-class PrioResultCandidate{
-    eq: Equation;
-    type: PrioType;
-    ref: Array<Attribute>;
-    tgt:Attribute;
-    constructor(ref:Array<Attribute>, type: PrioType, tgtAttribute:Attribute, con:Controller){
-        this.type = type;
-        this.ref = [];
-        this.tgt = tgtAttribute;
-        switch(type){
-            // 这里的写法可能还有问题
-            case PrioType.ALIGN:
-                this.eq = new Equation(FuncTree.simpleEq(), FuncTree.simpleEq(), [tgtAttribute], [ref[0]]);
-                this.ref.push(ref[0]);
-                break;
-            case PrioType.CONST_DIS_ADD:
-                let constAttr = con.getAttribute(0, 'const_dis');
-                this.eq = new Equation(FuncTree.simpleEq(), FuncTree.simpleAdd(), [tgtAttribute], [ref[0], constAttr]);
-                this.ref.push(ref[0]);
-                break;
-            case PrioType.CONST_DIS_MINUS:
-                let constAttr2 = con.getAttribute(0, 'const_dis');
-                this.eq = new Equation(FuncTree.simpleEq(), FuncTree.simpleMinus(), [tgtAttribute], [ref[0], constAttr2]);
-                this.ref.push(ref[0]);
-                break;
-            default:
-                this.eq = new Equation(FuncTree.simpleEq(), FuncTree.simpleEq(), [tgtAttribute], [ref[0]]);
-                this.ref.push(ref[0]);
-                assert(false);
-        }
-        // this.val = this.rel.func.calculate(this.rel.args);
-    }
-}
 const MAX_POST_DEPTH = 1
 class PostResultCandidate {
     oriEq:Equation;
@@ -686,15 +654,24 @@ class PostResultCandidate {
     target: Attribute;  // 这一个新增的
 
     val: number;
+    type: EstimateType
  
-    constructor(oriEq: Equation, newEq: Equation, tgtAttr: Attribute){
+    constructor(oriEq: Equation, newEq: Equation, tgtAttr: Attribute, type?: EstimateType){
         this.oriEq = oriEq;
         this.newEq = newEq;
         this.target = tgtAttr;
         this.val = -1;
+        if(type == null){
+            this.type = EstimateType.HISTORY_EQ;
+        } else {
+            this.type = type;
+        }
     }
 
     calDis(tgt_val: number){ // 所有的属性都需要计算之后才能够确定，需要额外提供位置
+        if(tgt_val === -1 && this.val > 0){
+            tgt_val = this.val;
+        }
         // 与之前联合考虑的误差不同，仅仅考虑单属性的误差
         // 缺少交叉项的误差
         let allArgs: Attribute[] = [...this.newEq.leftArgs.filter((x)=>(x !== this.target))];
@@ -728,6 +705,7 @@ class PostResultCandidate {
         let oriEqEle:Set<SingleElement> = new Set(oriArgs.map(x=>x.element));
         let newEqEle: Set<SingleElement> = new Set(newArgs.map(x=>x.element));
         factor *= (1 + Math.abs(oriEqEle.size - newEqEle.size) / Math.min(oriEqEle.size, newEqEle.size))
+        factor *= (1 + estType2Factor.get(this.type)!); // 后验经验的优先性
         return factor * (deltaT + deltaRelT + dis);
     }
 
@@ -745,7 +723,9 @@ class PostResultCandidate {
         inferChangedAttr.push(this.target);
         new_equations.push(this.newEq);
 
-        let cal_res = await con.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+        let cal_res = await con.cal_contents(new_attr_values, 
+            new_equations, unchangedAttr, inferChangedAttr
+            , false, false);
         // if(cal_res.length > 1){
         //     console.warn('理论上推测的内容应该可以直接求解')
         // }
@@ -770,6 +750,7 @@ class Controller {
     constElement: SingleElement;
     baseElement: SingleElement;
 
+    constDisAttr: Attribute;
     constructor() {
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
@@ -780,6 +761,7 @@ class Controller {
         this.idAllocator = 1;
         this.constAllocator = 0;
         this.addAttribute(0, 'const_dis', new RawNumber(PREDEFINE_DIS));
+        this.constDisAttr = this.getAttribute(0, 'const_dis');
 
         this.candidates = [];
         this.crtCdtIdx = -1
@@ -872,6 +854,146 @@ class Controller {
         attrList.forEach((attr, idx)=>{
             attr.val.val = attrValues[idx];
         })
+    }
+
+    anyEleBetween(val1: number, val2: number, allAttrs: Attribute[], isX: boolean){
+        let attrName = isX? 'x': 'y';
+        
+        let vals = allAttrs.flatMap((attr)=>{
+            if(attr.name === attrName){
+                return [attr.val.val];
+            }
+            return [];
+        })
+
+        let min_val = min(val1, val2);
+        let max_val = max(val1, val2);
+
+        for(let val of vals){
+            if(floatLe(val, min_val) || floatGe(val, max_val)){
+                continue;
+            } else
+                return true;
+        }
+
+        return false;
+    }
+
+    genPrioCandidate(tgtAttr: Attribute, canDependAttr:Attribute[]):PostResultCandidate[]{
+        // 先验经验
+        // 1. 对齐，这个不需要在这里处理，必然会在post candidate中涉及的；
+        // 2. 等距。仅考虑跨模态（x/y）的等距关系
+        // 3. 给定的距离。
+        let genRes:PostResultCandidate[] = [];
+
+        // 确定可用的等距方案：元素之间没有任何其他的属性
+        let xAttrs = canDependAttr.filter((x)=>(x.name==='x'))
+            .sort((a, b)=>(a.element.id - b.element.id));
+
+        xAttrs = uniquifyList(xAttrs, x=>x.val.val.toFixed(2));
+        xAttrs.sort((a, b)=>(b.val.val-a.val.val));  // 大小逆序排序
+        
+
+        let yAttrs = canDependAttr.filter((x)=>(x.name==='y'))
+            .sort((a, b)=>(a.element.id - b.element.id));
+        yAttrs = uniquifyList(yAttrs, x=>x.val.val.toFixed(2));
+        yAttrs.sort((a, b)=>(b.val.val-a.val.val));
+
+        let xAttrPairs: [Attribute, Attribute][] = [];
+        for(let i = 0; i < xAttrs.length; ++ i){
+            for(let j = i + 1; j < xAttrs.length; ++ j){
+                if(this.anyEleBetween(xAttrs[i].val.val, xAttrs[j].val.val, canDependAttr, true)){
+                    continue;
+                }
+
+                xAttrPairs.push([xAttrs[i], xAttrs[j]]);
+                xAttrPairs.push([xAttrs[j], xAttrs[i]]); // 两种顺序
+            }
+        }
+
+        let yAttrPairs: [Attribute, Attribute][] = [];
+        for(let i = 0; i < yAttrs.length; ++ i){
+            for(let j = i + 1; j < yAttrs.length; ++ j){
+                if(this.anyEleBetween(yAttrs[i].val.val, yAttrs[j].val.val, canDependAttr, false)){
+                    continue;
+                }
+                yAttrPairs.push([yAttrs[i], yAttrs[j]]); 
+                yAttrPairs.push([yAttrs[j], yAttrs[i]]); // 两种顺序
+            }
+        }
+
+        for(let pair of [... xAttrPairs, ... yAttrPairs]){
+            let attr1 = pair[0];
+            let attr2 = pair[1];
+
+            for(let dependAttr of canDependAttr){
+                if(dependAttr.name !== tgtAttr.name){
+                    continue;
+                }
+
+                // tgt - depend  = attr1 - attr2  1 & 2 的顺序在前面已经处理过了
+                let nextVal = attr1.val.val - attr2.val.val + dependAttr.val.val;
+                if(nextVal < 0){
+                    continue;
+                }
+
+                // 剪枝1：必须有重叠的元素
+                if(dependAttr.element !== attr1.element && dependAttr.element !== attr2.element
+                    && tgtAttr.element !== attr1.element && tgtAttr.element !== attr2.element){
+                    continue;
+                }
+
+                // 剪枝2：中间不能有新的元素（否则大概率可以用其他方法完成）
+                if(this.anyEleBetween(nextVal, dependAttr.val.val, canDependAttr, tgtAttr.name === 'x')){
+                    continue;
+                }
+
+                // 剪枝3，排除简单的相等情况
+                if(dependAttr === attr2){
+                    continue
+                }
+
+                let eq = new Equation(FuncTree.simpleMinus(), 
+                    FuncTree.simpleMinus(), [tgtAttr, dependAttr], [attr1, attr2]);
+                let crtPrio = new PostResultCandidate(eq, eq, tgtAttr, EstimateType.SAME_DIS);
+                crtPrio.val = nextVal;
+
+                genRes.push(crtPrio);
+            }
+        }
+
+
+        // 设置一些给定的距离
+        // 只有在边缘的元素才会被使用（加上给定距离之后，超过所有的现有元素）
+        let dependAttrSameName = canDependAttr.filter((x)=>(x.name === tgtAttr.name))
+        if(dependAttrSameName.length > 0){
+                let dependValSameName = dependAttrSameName.map((x)=>x.val.val);
+            let crtMin = min(dependValSameName)
+            let crtMax = max(dependValSameName);
+            for(let dependAttr of dependAttrSameName){
+                let minusRes = dependAttr.val.val - PREDEFINE_DIS;
+                if(minusRes > 0 && minusRes < crtMin){
+                    let minusEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleMinus(), 
+                        [tgtAttr], [dependAttr, this.constDisAttr]);
+                    let minusCdt = new PostResultCandidate(minusEq, minusEq, tgtAttr, EstimateType.CONST_DIS);
+                    minusCdt.val = minusRes;
+                    genRes.push(minusCdt);
+                }
+
+                let plusRes = dependAttr.val.val + PREDEFINE_DIS;
+                if(plusRes > crtMax){
+                    let plusEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleAdd(), 
+                        [tgtAttr], [dependAttr, this.constDisAttr]);
+                    let plusCdt = new PostResultCandidate(plusEq, plusEq, tgtAttr, EstimateType.CONST_DIS);
+                    plusCdt.val = plusRes;
+                    genRes.push(plusCdt);
+                }
+            }
+        }
+
+        genRes.sort((a, b)=>(a.calDis(-1)-b.calDis(-1)))
+        genRes = uniquifyList(genRes, (x)=>x.val);
+        return genRes;
     }
     
     async genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[], userGivenNewEq: Equation[]):Promise<PostResultCandidate[]>{
@@ -1090,7 +1212,9 @@ class Controller {
     async cal_contents(new_attr_values: Map<Attribute, number>, 
         new_equations: Equation[],
         unchangedAttr: Attribute[], 
-        inferChangedAttr: Attribute[])
+        inferChangedAttr: Attribute[],
+        applyFilter=true,
+        outputEq=true)
         : Promise<Array<[Equation[], Attribute[], number[], number]>>{
         // 返回的内容：每一个元素都是一个可能的选项，分别对应于
         // 满足的方程、属性列表、属性取值、误差
@@ -1236,7 +1360,7 @@ class Controller {
                 }
             })
 
-            if(posInvalid){
+            if(posInvalid && applyFilter){
                 continue;
             }
 
@@ -1252,31 +1376,33 @@ class Controller {
                 occupiedPos.add(posId);
             }
 
-            if(!noPosConflict){
+            if(applyFilter && !noPosConflict){
                 continue;
             }
             
             let valsId = eleAttrVals.map(v=>v.toFixed(0).toString()).join('-');
-            if(addedValues.has(valsId)){
+            if(applyFilter && addedValues.has(valsId)){
                 continue;  // 去重：所有元素的属性相同
             }
 
             addedValues.add(valsId);
 
-            let newEquations: Equation[] = [... this.equations, ...new_equations].filter((eq)=>{
-                return eq.judgeEquality(attrList, oneGroup);
-            })
-
+            let newEquations: Equation[] = [];
             let freeAttrInfo = await this.getFreeAttrInfo(attrList, newEquations);
-            freeAttrInfo[1].forEach((attr)=>{
-                let v = oneGroup[attrList.indexOf(attr)];
-                let tmpAttr = new Attribute(randomID(), new RawNumber(v), this.tmpElement);
-                this.tmpElement.addAttribute(tmpAttr);
-
-                let newEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleEq(), 
-                    [attr], [tmpAttr])
-                newEquations.push(newEq);
-            })
+            if(outputEq) {
+                newEquations = [... this.equations, ...new_equations].filter((eq)=>{
+                    return eq.judgeEquality(attrList, oneGroup);
+                })
+                freeAttrInfo[1].forEach((attr)=>{
+                    let v = oneGroup[attrList.indexOf(attr)];
+                    let tmpAttr = new Attribute(randomID(), new RawNumber(v), this.tmpElement);
+                    this.tmpElement.addAttribute(tmpAttr);
+    
+                    let newEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleEq(), 
+                        [attr], [tmpAttr])
+                    newEquations.push(newEq);
+                })
+            }
 
             finalResult.push([
                 newEquations, attrList, oneGroup, crtErr
@@ -1424,7 +1550,7 @@ class Controller {
         }
         
         // 检查现在的baseAttr中不再在equation中使用的；并将其删除
-        let usedBaseAttrNames: Set<string> = new Set();
+        let usedBaseAttrNames: Set<string> = new Set([this.constDisAttr.name]);
         this.equations.forEach((eq)=>{
             [... eq.leftArgs, ...eq.rightArgs].forEach((attr)=>{
                 if(attr.element === this.baseElement){
@@ -1472,7 +1598,8 @@ class Controller {
         inferChangeStr:string){
         if(traceEleRelation.includes('new') 
             || newEleRel.includes('new')
-            || newEleRange.includes('new')){
+            || newEleRange.includes('new') || 
+            (traceEleRelation.length + newEleRel.length + newEleRange.length === 0 )){
             await this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
             return;
         }
@@ -1528,6 +1655,10 @@ class Controller {
             return attr.element.id > 0;
         })
 
+        if(coef_matrix.length === 0){
+            return [[], elementAttrList, []]
+        }
+
         let reducedRes = await this.rowReduce(coef_matrix);
         let freeIndexInfo = this.getFreeIndex(reducedRes);
 
@@ -1549,6 +1680,7 @@ class Controller {
         this.addAttribute(nextElementId, 'y', new RawNumber(0));
         
         let nextElement = this.getElement(nextElementId);
+        nextElement.name = `${nextElementId}`
         let xAttr = nextElement.getAttribute('x')!;
         let yAttr = nextElement.getAttribute('y')!;
         
@@ -1601,6 +1733,13 @@ class Controller {
         // 根据用户指令进行的调整可以在此进行
         for(let attr of freeAttrs){
             let pcList = await this.genPostCandidate(attr, canDependAttr, newEqInExpr);
+            pcList.push(... this.genPrioCandidate(attr, canDependAttr))
+            pcList = uniquifyList(pcList, (x)=>{
+                if(x.val !== -1){
+                    return x.val.toFixed(2);
+                } 
+                return randomID();
+            })
             // 检查是否满足
             // 只能局部检查的，因为可能会包含多个attr
             for(let rangeExpr of newRangeInExpr){
@@ -1659,7 +1798,9 @@ class Controller {
             if(!new_attr_values.has(missedInferAttr)){
                 console.warn(
                     `属性${missedInferAttr.name}_${missedInferAttr.element.id}没有符合要求的推荐。`
-                )
+                );
+
+                new_attr_values.set(missedInferAttr, 300); //predefined
             }
         })
 
@@ -1942,6 +2083,13 @@ class Controller {
         let pcComb: Array<PostResultCandidate[]> = [];
         for(let attr of inferChangeWithoutNewEq){
             let pcList = await this.genPostCandidate(attr, canDependAttr, newEqInExpr);
+            pcList.push(... this.genPrioCandidate(attr, canDependAttr));
+            pcList = uniquifyList(pcList, (x)=>{
+                if(x.val !== -1){
+                    return x.val.toFixed(2);
+                } 
+                return randomID();
+            })
             // pcComb.push(pcList);
             // continue;
             for(let rangeExpr of newRangeInExpr){

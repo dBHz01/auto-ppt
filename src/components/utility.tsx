@@ -60,7 +60,7 @@ function floatLe(f1: number, f2: number){
 }
 
 function randomID(){
-    return Math.random().toString(36).slice(-6);
+    return Math.random().toString(36);
 }
 
 function range(start:number, end:number) {
@@ -146,5 +146,34 @@ function listEq<T>(l1: T[], l2: T[]){
     return true;
 }
 
+function uniquifyList<T0, T1>(l: T0[], func: undefined | ((arg0: T0)=>T1)):T0[]{
+    if(func != undefined){
+        let numSet: Set<T1> = new Set();
+        let res: T0[] = [];
+        
+        for(let x of l){
+                let v = func(x)!;
+                if(numSet.has(v)){
+                    continue;
+                }
+                res.push(x);
+                numSet.add(v);
+        }
+        return res;
+    } else {
+        let set: Set<T0> = new Set();
+        let res: T0[] = [];
+        for(let x of l){
+                if(set.has(x)){
+                    continue;
+                }
+                res.push(x);
+                set.add(x);
+        }
+        return res;
+    }
+    
+}
+
 export {getAllCase, count, getTs, floatEq, 
-    randomID, reduceRowJs, listEq, floatGe, floatLe, floatGt, floatLt}
+    randomID, reduceRowJs, listEq, floatGe, floatLe, floatGt, floatLt, uniquifyList}

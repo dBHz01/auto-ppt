@@ -6,21 +6,15 @@ import { testBackend } from './components/test_backend';
 import { loadFile, parseNewEquation} from "./components/load_file";
 import { Button } from 'antd';
 import Konva from 'konva';
-import { getValue } from '@testing-library/user-event/dist/utils';
 
 const FILEINPUT = require("./components/sample-input.json");
-
-function delay(ms: number) {
-    let crt = Date.now();
-    while (Date.now() - crt < ms) { }
-}
 
 class AllComponents extends React.Component {
     controller: Controller;
     constructor(props: any) {
         super(props);
         this.controller = new Controller();
-        loadFile(this.controller, FILEINPUT);
+        // loadFile(this.controller, FILEINPUT);
         // this.controller.update_contents(new Map(), []);
     }
 
