@@ -940,6 +940,13 @@ class Controller {
             newArrow.addAttribute(new Attribute("text", new RawText(_text), newArrow));
         }
     }
+
+    addTextToEle(tgt: number, text: string){
+        let tgtEle = this.elements.get(tgt);
+        tgtEle?.attributes.set("text", 
+            new Attribute("text", new RawText(text), tgtEle));
+
+    }
     
     addEquation(_eq: Equation){
         this.equations.push(_eq);
@@ -2472,6 +2479,19 @@ class Controller {
         nextPosCdt.sort((a, b)=>a[2]-b[2]);
 
         return nextPosCdt;
+    }
+
+    addArrowByStr(s: string){
+        if(s.length === 0){
+            return;
+        }
+        s.split(';').forEach((ss)=>{
+            let ss_split = ss.split(' ').map((x)=>x.trim()).filter((x)=>x.length>0);
+            let source = Number(ss_split[0]);
+            let target = Number(ss_split[1]);
+            let text = ss_split[2];
+            this.addArrow(source, target, text);
+        })
     }
 }
 

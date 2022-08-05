@@ -7,7 +7,8 @@ import { testBackend } from './components/test_backend';
 import { Button } from 'antd';
 import Konva from 'konva';
 
-import { abs, sqrt } from 'mathjs';
+import { abs, number, sqrt } from 'mathjs';
+import { KonvaEventObject } from 'konva/lib/Node';
 
 const ALLCOLORS = require("./components/colors.json");
 
@@ -18,7 +19,12 @@ function delay(ms: number) {
 
 class AllComponents extends React.Component {
     controller: Controller;
-    state: {showCdt: boolean, nextCdt: [number, number, number][]};
+    state: {
+        showCdt: boolean, 
+        nextCdt: [number, number, number][],
+        selectedItemId: number,
+        showDebug: boolean
+    };
     static cdtColors = [
         '#144125', '#1e5f36', '#277d47', '#309b58', '#3ab969', '#51c97e'
     ]
@@ -31,7 +37,9 @@ class AllComponents extends React.Component {
 
         this.state = {
             nextCdt: [],
-            showCdt: false
+            showCdt: false,
+            selectedItemId: -1,
+            showDebug: true
         }
 
         this.controller.add_switch_cdt_idx_listener(async (idx)=>{
@@ -55,6 +63,12 @@ class AllComponents extends React.Component {
                 showCdt: false
             })
         }
+    }
+
+    updateDebug(showDebug=true){
+        this.setState({
+            showDebug,
+        })
     }
 
     create_drag_end_handler(ele: SingleElement) {
@@ -83,7 +97,9 @@ class AllComponents extends React.Component {
     render() {
         console.log("render all");
         let elements = [];
-        for (let i of this.controller.elements.values()) {
+        for (let it of this.controller.elements.entries()) {
+            let i = it[1];
+            let idx = it[0];
             switch (i.type) {
                 case ElementType.RECTANGLE:
                     let x_val = i.attributes.get("x")?.val.val;
@@ -100,21 +116,23 @@ class AllComponents extends React.Component {
                                 width={w_val}
                                 height={h_val}
                                 fill={ALLCOLORS[color]}
-                                shadowBlur={5}
+                                shadowBlur={this.state.selectedItemId === idx? 15:0}
                                 key={i.id}
                                 draggable={true}
                                 onDragEnd={this.create_drag_end_handler(i).bind(this)}
+                                idInController={`${idx}`}
                             />
                         );
-
-                        elements.push(<Text
-                            x={x_val}
-                            y={y_val}
-                            key={`pos-${i.id}`}
-                            text={`${i.id}\n${Math.round(x_val)},${Math.round(y_val)}`}
-                            fontSize={10}
-                            listening={false}
-                        />);
+                        if(this.state.showDebug){
+                            elements.push(<Text
+                                x={x_val}
+                                y={y_val}
+                                key={`pos-${i.id}`}
+                                text={`${i.id}\n${Math.round(x_val)},${Math.round(y_val)}`}
+                                fontSize={10}
+                                listening={false}
+                            />);
+                        }
                     }
                     if (text) {
                         elements.push(<Text
@@ -128,6 +146,7 @@ class AllComponents extends React.Component {
                             listening={false}
                             align={'center'}
                             verticalAlign={'middle'}
+                            
                         />);
                     }
                     break;
@@ -171,12 +190,12 @@ class AllComponents extends React.Component {
                         pointerLength={5}
                         pointerWidth={5}
                         fill={'black'}
-                        stroke={'black'}
+                        stroke={this.state.selectedItemId === idx? 'red': 'black'}
                         strokeWidth={3}
                         key={i.id}
-                    ></Arrow>);
+                        idInController={`${idx}`}/>);
                     let arrowText = i.getAttribute("text");
-                    if (arrowText) {
+                    if (arrowText && arrowText.val.val.length > 0) {
                         elements.push(<Rect
                             x={startCorners[startCornerIndex][0] + width / 20}
                             y={startCorners[startCornerIndex][1] + height / 2 + padding}
@@ -187,6 +206,7 @@ class AllComponents extends React.Component {
                             key={`text-rect-${i.id}`}
                             draggable={false}
                             shadowEnabled={false}
+                            idInController={`${idx}`}
                         />);
                         elements.push(<Text
                             x={startCorners[startCornerIndex][0] + width / 20}
@@ -228,17 +248,20 @@ class AllComponents extends React.Component {
 class HelperGUI extends React.Component {
     controller: Controller;
     static TAG_DISP_CDT = 'TAG_DISP_CDT'  // 展示候选内容
-    static TAG_DISP_RCM = 'TAG_DISP_RCM' // 展示推荐内容
+    static TAG_DISP_SET = 'TAG_DISP_SET' // 展示推荐内容
     static ratio = 1.0 / 3.0
-    state: {cdtIdx: number, selectedTag: string};
+    state: {cdtIdx: number, selectedTag: string, selectedItemId: number};
 
     showCdtRef: React.RefObject<HTMLInputElement>;
+    editTextRef: React.RefObject<HTMLInputElement>;
+    showDebugInfoRef: React.RefObject<HTMLInputElement>;
     constructor(props: any){
         super(props);
         this.controller = Controller.getInstance();
         this.state = {
             cdtIdx: 0,
-            selectedTag: HelperGUI.TAG_DISP_CDT
+            selectedTag: HelperGUI.TAG_DISP_CDT,
+            selectedItemId: -1
         }
 
         this.controller.add_switch_cdt_idx_listener((idx)=>{
@@ -248,6 +271,8 @@ class HelperGUI extends React.Component {
         })
 
         this.showCdtRef = React.createRef()
+        this.editTextRef = React.createRef()
+        this.showDebugInfoRef = React.createRef();
     }
 
     update(){
@@ -306,23 +331,80 @@ class HelperGUI extends React.Component {
         await App.instance.allComponentsRef.current?.updateCdt(e.target.checked);
     }
 
+    handleShowDebugInfoClicked(e: React.ChangeEvent<HTMLInputElement>){
+        App.instance.allComponentsRef.current?.updateDebug(e.target.checked);
+    }
+
+    genHandleTagSelected(selected: string){
+        return ()=>{
+            this.setState({
+                selectedTag: selected
+            })
+        }
+    }
+
+    renderMenu(){
+        return <div style={{display: 'flex'}}>
+            <div style={{flex: '1', 
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_CDT? "#d6d6d6": "#ffffff"}}
+                onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_CDT).bind(this)}>
+                候选方案{this.state.selectedTag === HelperGUI.TAG_DISP_CDT?"✍︎": ""}
+            </div>
+
+            <div style={{flex: '1', 
+            backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET? "#d6d6d6": "#ffffff"}}
+                onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET).bind(this)}>
+                设置{this.state.selectedTag === HelperGUI.TAG_DISP_SET?"✍︎": ""}
+            </div>
+        </div>
+    }
+
+
     renderTools(){
+        if(this.state.selectedTag !== HelperGUI.TAG_DISP_SET){
+            return null;
+        }
         return <div>
             <div>
                 <span style={{verticalAlign: '-webkit-baseline-middle'}}>显示后续位置？</span>
                 <label className="switch">
                     <input ref={this.showCdtRef} 
                         onChange={this.handleShowCdtClicked.bind(this)}
-                        type="checkbox"/>
+                        type="checkbox"
+                        defaultChecked={App.instance.allComponentsRef.current?.state.showCdt}
+                        />
                     <span className="slider round"></span>
                 </label>
             </div>
+            <div>
+                <span style={{verticalAlign: '-webkit-baseline-middle'}}>显示调试信息？</span>
+                <label className="switch">
+                    <input ref={this.showDebugInfoRef} 
+                        onChange={this.handleShowDebugInfoClicked.bind(this)}
+                        type="checkbox"
+                        defaultChecked={App.instance.allComponentsRef.current?.state.showDebug}
+                        />
+                    <span className="slider round"></span>
+                </label>
+            </div>
+            {this.state.selectedItemId >= 0? <div>
+                <input ref={this.editTextRef} type="text" 
+                    defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
+                /><button onClick={()=>{
+                    this.controller.addTextToEle(this.state.selectedItemId, this.editTextRef.current!.value);
+                    App.instance.allComponentsRef.current?.forceUpdate();
+                }}>修改文本</button>
+
+            </div>:
+                <div>选中界面元素以进行更加深入设置</div>}
         </div>
     }
 
-    renderMain(){
-        if(this.state['selectedTag'] === HelperGUI.TAG_DISP_CDT){
-            return <div style={{height: '100vh', overflow: 'scroll'}}>
+    renderCDT(){
+        if(this.state['selectedTag'] !== HelperGUI.TAG_DISP_CDT){
+            return null;
+        }
+        return <div style={{height: '100vh', overflow: 'scroll'}}>
             {this.controller.candidates.map((cdt, idx)=>{
                 return [<div  key={`${idx}-div`}
                     style={{backgroundColor: idx === this.state.cdtIdx? "#47bbf755": "#00000000"}}
@@ -338,19 +420,21 @@ class HelperGUI extends React.Component {
                 </Stage></div>, <hr key={`${idx}-hr`}/>]
             })}
         </div>
-        }
+        
     }
 
     render(){
         return <div>
+            {this.renderMenu()}
             {this.renderTools()}
-            {this.renderMain()}
+            {this.renderCDT()}
         </div>
     }
 }
 
 class App extends Component {
     allComponentsRef: React.RefObject<AllComponents>;
+    helpGUIRef: React.RefObject<HelperGUI>;
     forceUnchangedRef: React.RefObject<HTMLInputElement>;
     inferChangedRef: React.RefObject<HTMLInputElement>;
     traces: Array<Array<[number, number]>>;
@@ -361,6 +445,7 @@ class App extends Component {
 
     static colors: string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
     elemRangeRef: React.RefObject<HTMLInputElement>;
+    addArrowRef: React.RefObject<HTMLInputElement>
     static instance: App;
     constructor(props: any) {
         super(props);
@@ -376,7 +461,9 @@ class App extends Component {
         this.traceRelationRef = React.createRef();
         this.elemRelationRef = React.createRef();
         this.elemRangeRef = React.createRef();
+        this.helpGUIRef = React.createRef();
         App.instance = this;
+        this.addArrowRef = React.createRef();
     }
 
     nextSolution() {
@@ -427,6 +514,25 @@ class App extends Component {
         this.forceUpdate();
     }
 
+    handleCanvasClicked(e: KonvaEventObject<MouseEvent>){
+        if(e.target.attrs['idInController'] === undefined){
+            this.allComponentsRef.current?.setState({
+                selectedItemId: -1
+            })
+            this.helpGUIRef.current?.setState({
+                selectedItemId: -1
+            })
+            return;
+        }
+        this.allComponentsRef.current?.setState({
+            selectedItemId: Number(e.target.attrs['idInController'])
+        })
+        this.helpGUIRef.current?.setState({
+            selectedItemId: Number(e.target.attrs['idInController'])
+        })
+        return;
+    }
+
     render() {
         return (
             <div style={{display: 'flex', flexDirection: 'row'}}>
@@ -436,6 +542,7 @@ class App extends Component {
                         onMouseMove={this.handlePointerMove.bind(this)}
                         onMouseUp={this.handlePointerUp.bind(this)}
                         listening={true}
+                        onClick={this.handleCanvasClicked.bind(this)}
                         
                     >
                         <Layer >
@@ -467,9 +574,15 @@ class App extends Component {
                     type="primary"
                     onClick={this.nextSolution.bind(this)}
                     >下一个解</Button>
+                    <br/>
+                    添加箭头：<input ref={this.addArrowRef} type='text'/>
+                    <button onClick={()=>{
+                        this.allComponentsRef.current?.controller.addArrowByStr(this.addArrowRef.current!.value)
+                        this.allComponentsRef.current?.forceUpdate()
+                        }}>添加箭头</button>
                 </div>
                 <div style={{flex: '1'}}>
-                    <HelperGUI/>
+                    <HelperGUI ref={this.helpGUIRef}/>
                 </div>
             </div>
         );
