@@ -7,7 +7,7 @@ import { testBackend } from './components/test_backend';
 import { Button } from 'antd';
 import Konva from 'konva';
 
-import { abs, number, sqrt } from 'mathjs';
+import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
 
 const ALLCOLORS = require("./components/colors.json");
@@ -183,6 +183,7 @@ class AllComponents extends React.Component {
                     let width = endCorners[endCornerIndex][0] - startCorners[startCornerIndex][0];
                     let height = endCorners[endCornerIndex][1] - startCorners[startCornerIndex][1];
                     let padding = abs(height) < 1e-4 ? 5 : 0; // 水平状态下箭头文字需要轻微下移
+                    let slightHeight = 3; // 矩形框需要上移一定高度
                     elements.push(<Arrow
                         x={startCorners[startCornerIndex][0]}
                         y={startCorners[startCornerIndex][1]}
@@ -197,11 +198,11 @@ class AllComponents extends React.Component {
                     let arrowText = i.getAttribute("text");
                     if (arrowText && arrowText.val.val.length > 0) {
                         elements.push(<Rect
-                            x={startCorners[startCornerIndex][0] + width / 20}
-                            y={startCorners[startCornerIndex][1] + height / 2 + padding}
-                            width={width * 9 / 10}
+                            x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 20}
+                            y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding - slightHeight}
+                            width={abs(width) * 9 / 10}
                             height={14}
-                            fill={"white"}
+                            fill={"#f0f0f0"}
                             shadowBlur={5}
                             key={`text-rect-${i.id}`}
                             draggable={false}
@@ -209,9 +210,9 @@ class AllComponents extends React.Component {
                             idInController={`${idx}`}
                         />);
                         elements.push(<Text
-                            x={startCorners[startCornerIndex][0] + width / 20}
-                            y={startCorners[startCornerIndex][1] + height / 2 + padding}
-                            width={width * 9 / 10}
+                            x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 20}
+                            y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding}
+                            width={abs(width) * 9 / 10}
                             key={`text-${i.id}`}
                             text={arrowText.val.val}
                             fontSize={14}
