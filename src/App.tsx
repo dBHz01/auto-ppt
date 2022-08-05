@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Stage, Layer, Rect, Text, Group, Circle, Shape } from "react-konva";
+import { Stage, Layer, Rect, Text, Group, Circle, Arrow } from "react-konva";
 import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, SingleElement } from './components/backend';
@@ -7,6 +7,14 @@ import { testBackend } from './components/test_backend';
 import { Button } from 'antd';
 import Konva from 'konva';
 
+import { abs, sqrt } from 'mathjs';
+
+const ALLCOLORS = require("./components/colors.json");
+
+function delay(ms: number) {
+    let crt = Date.now();
+    while (Date.now() - crt < ms) { }
+}
 
 class AllComponents extends React.Component {
     controller: Controller;
@@ -49,15 +57,15 @@ class AllComponents extends React.Component {
         }
     }
 
-    create_drag_end_handler(ele: SingleElement){
-        return async (evt: Konva.KonvaEventObject<DragEvent>)=>{
+    create_drag_end_handler(ele: SingleElement) {
+        return async (evt: Konva.KonvaEventObject<DragEvent>) => {
             console.log(evt)
             console.log(ele)
 
             let newX = evt.target.attrs['x'] + evt.target.attrs['width'] / 2;
-            let newY = evt.target.attrs['y'] + evt.target.attrs['height'] / 2; 
+            let newY = evt.target.attrs['y'] + evt.target.attrs['height'] / 2;
 
-            let newAttrs:Map<Attribute, number> = new Map();
+            let newAttrs: Map<Attribute, number> = new Map();
 
             newAttrs.set(ele.getAttribute('x')!, newX);
             newAttrs.set(ele.getAttribute('y')!, newY);
@@ -66,7 +74,7 @@ class AllComponents extends React.Component {
         }
     }
 
-    async componentDidMount(){
+    async componentDidMount() {
         await this.controller.updateValsByEquations();
         this.forceUpdate()
     }
@@ -80,14 +88,18 @@ class AllComponents extends React.Component {
                 case ElementType.RECTANGLE:
                     let x_val = i.attributes.get("x")?.val.val;
                     let y_val = i.attributes.get("y")?.val.val;
-                    if (x_val != undefined && y_val != undefined) {
+                    let w_val = i.attributes.get("w")?.val.val;
+                    let h_val = i.attributes.get("h")?.val.val;
+                    let text = i.attributes.get("text")?.val.val;
+                    let color = i.getCertainAttribute("color").val.val + "-" + i.getCertainAttribute("lightness").val.val.toString()
+                    if (x_val && y_val && w_val && h_val) {
                         elements.push(
                             <Rect
-                                x={x_val - 25}
-                                y={y_val - 25}
-                                width={50}
-                                height={50}
-                                fill={"green"}
+                                x={x_val - w_val / 2}
+                                y={y_val - h_val / 2}
+                                width={w_val}
+                                height={h_val}
+                                fill={ALLCOLORS[color]}
                                 shadowBlur={5}
                                 key={i.id}
                                 draggable={true}
@@ -102,7 +114,90 @@ class AllComponents extends React.Component {
                             text={`${i.id}\n${Math.round(x_val)},${Math.round(y_val)}`}
                             fontSize={10}
                             listening={false}
-                        />)
+                        />);
+                    }
+                    if (text) {
+                        elements.push(<Text
+                            x={x_val - w_val / 2}
+                            y={y_val - h_val / 2}
+                            width={w_val}
+                            height={h_val}
+                            key={`text-${i.id}`}
+                            text={text}
+                            fontSize={14}
+                            listening={false}
+                            align={'center'}
+                            verticalAlign={'middle'}
+                        />);
+                    }
+                    break;
+
+                case ElementType.ARROW:
+                    // console.log(i);
+                    let startElemet = this.controller.getElement(Number(i.getCertainAttribute("startElement").val.val));
+                    let endElemet = this.controller.getElement(Number(i.getCertainAttribute("endElement").val.val));
+                    let startCenter = [startElemet.getAttribute("x")!.val.val, startElemet.getAttribute("y")!.val.val];
+                    let endCenter = [endElemet.getAttribute("x")!.val.val, endElemet.getAttribute("y")!.val.val];
+                    let startCornerIndex = 0;
+                    if (endCenter[0] - startCenter[0] === 0) {
+                        startCornerIndex = endCenter[1] < startCenter[1] ? 0 : 4;
+                    } else {
+                        let angle = (endCenter[1] - startCenter[1]) / abs(endCenter[0] - startCenter[0]);
+                        if (angle < -2) {
+                            startCornerIndex = 0;
+                        } else if (angle < -1 / 2) {
+                            startCornerIndex = 1;
+                        } else if (angle < 1 / 2) {
+                            startCornerIndex = 2;
+                        } else if (angle < 2) {
+                            startCornerIndex = 3;
+                        } else {
+                            startCornerIndex = 4;
+                        }
+                        if (endCenter[0] - startCenter[0] < 0) {
+                            startCornerIndex = (8 - startCornerIndex) % 8;
+                        }
+                    }
+                    let endCornerIndex = (startCornerIndex + 4) % 8
+                    let startCorners = startElemet.getCorner();
+                    let endCorners = endElemet.getCorner();
+                    let width = endCorners[endCornerIndex][0] - startCorners[startCornerIndex][0];
+                    let height = endCorners[endCornerIndex][1] - startCorners[startCornerIndex][1];
+                    let padding = abs(height) < 1e-4 ? 5 : 0; // 水平状态下箭头文字需要轻微下移
+                    elements.push(<Arrow
+                        x={startCorners[startCornerIndex][0]}
+                        y={startCorners[startCornerIndex][1]}
+                        points={[0, 0, width, height]}
+                        pointerLength={5}
+                        pointerWidth={5}
+                        fill={'black'}
+                        stroke={'black'}
+                        strokeWidth={3}
+                        key={i.id}
+                    ></Arrow>);
+                    let arrowText = i.getAttribute("text");
+                    if (arrowText) {
+                        elements.push(<Rect
+                            x={startCorners[startCornerIndex][0] + width / 20}
+                            y={startCorners[startCornerIndex][1] + height / 2 + padding}
+                            width={width * 9 / 10}
+                            height={14}
+                            fill={"white"}
+                            shadowBlur={5}
+                            key={`text-rect-${i.id}`}
+                            draggable={false}
+                            shadowEnabled={false}
+                        />);
+                        elements.push(<Text
+                            x={startCorners[startCornerIndex][0] + width / 20}
+                            y={startCorners[startCornerIndex][1] + height / 2 + padding}
+                            width={width * 9 / 10}
+                            key={`text-${i.id}`}
+                            text={arrowText.val.val}
+                            fontSize={14}
+                            listening={false}
+                            align={'center'}
+                        />);
                     }
                     break;
                 default:
@@ -264,7 +359,7 @@ class App extends Component {
     traceRelationRef: React.RefObject<HTMLInputElement>;
     elemRelationRef: React.RefObject<HTMLInputElement>;
 
-    static colors:string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
+    static colors: string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
     elemRangeRef: React.RefObject<HTMLInputElement>;
     static instance: App;
     constructor(props: any) {
@@ -278,36 +373,36 @@ class App extends Component {
         this.inferChangedRef = React.createRef();
 
         // new stage
-        this.traceRelationRef = React.createRef(); 
+        this.traceRelationRef = React.createRef();
         this.elemRelationRef = React.createRef();
         this.elemRangeRef = React.createRef();
         App.instance = this;
     }
 
-    nextSolution(){
+    nextSolution() {
         this.allComponentsRef.current?.controller.nextSolution()
         // this.forceUpdate();
     }
 
-    handlePointerDown(event:Konva.KonvaEventObject<MouseEvent>){
+    handlePointerDown(event: Konva.KonvaEventObject<MouseEvent>) {
         this.isDown = true;
-        let crtTrace:Array<[number, number]> = [[event.evt.clientX, event.evt.clientY]];
+        let crtTrace: Array<[number, number]> = [[event.evt.clientX, event.evt.clientY]];
         this.traces.push(crtTrace);
     }
 
-    handlePointerMove(event:Konva.KonvaEventObject<MouseEvent>){
-        if(!this.isDown){
+    handlePointerMove(event: Konva.KonvaEventObject<MouseEvent>) {
+        if (!this.isDown) {
             return;
         }
         let crtTrace = this.traces[this.traces.length - 1];
-        if(crtTrace == null){
+        if (crtTrace == null) {
             return;
         }
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
     }
 
-    handlePointerUp(event:Konva.KonvaEventObject<MouseEvent>){
-        if(!this.isDown){
+    handlePointerUp(event: Konva.KonvaEventObject<MouseEvent>) {
+        if (!this.isDown) {
             return;
         }
         let crtTrace = this.traces[this.traces.length - 1];
@@ -317,7 +412,7 @@ class App extends Component {
         this.forceUpdate()
     }
 
-    async applyCmd(){
+    async applyCmd() {
         let traceEleRelationStr = this.traceRelationRef.current!.value;
         let elemRelStr = this.elemRelationRef.current!.value;
         let unchangedStr = this.forceUnchangedRef.current!.value;
@@ -325,7 +420,7 @@ class App extends Component {
         let eleRangeStr = this.elemRangeRef.current!.value;
         await this.allComponentsRef.current!.
             controller.handleUserCommand(
-                this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr 
+                this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr
             );
 
         this.traces = [];

@@ -4,27 +4,42 @@
         "name": "first",
         "elementType": "RECTANGLE",
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 80,
+        "h": 80,
+        "text": "first element you see"
     },
     {
         "type": "element",
         "name": "second",
         "elementType": "RECTANGLE",
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 80,
+        "h": 80
     },
     {
         "type": "element",
         "name": "third",
         "elementType": "RECTANGLE",
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 160,
+        "h": 80
+    },
+    {
+        "type": "element",
+        "name": "arrow",
+        "elementType": "ARROW",
+        "startElement": 1,
+        "endElement": 2,
+        "text": "example"
     },
     {
         "type": "attribute",
         "element": 0,
         "name": "alpha",
-        "val": 140
+        "val": 300
     },
     {
         "type": "attribute",
