@@ -1,5 +1,5 @@
 import { parse, SymbolNode, AssignmentNode, ParenthesisNode, OperatorNode as MathOPNode, MathNode, OperatorNodeOp, OperatorNodeMap, string } from "mathjs";
-import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, AssignOp, Equation } from "./backend";
+import { Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Controller, Attribute, String2OP, AssignOp, Equation, RawText, RawNumberNoCal } from "./backend";
 
 function name2Attribute(controller: Controller, name: string): Attribute {
     // if (str2Attr?.has(name)) {
@@ -79,6 +79,10 @@ function loadFile(controller: Controller, fileInput: any) {
                             elementType = ElementType.RECTANGLE;
                             break;
 
+                        case "ARROW":
+                            elementType = ElementType.ARROW;
+                            break;
+
                         default:
                             throw Error("error element type");
                     }
@@ -96,11 +100,21 @@ function loadFile(controller: Controller, fileInput: any) {
 
                         default:
                             // add attributes to the new element
-                            // only accept number value now
+                            // accept number value now
                             if (typeof (key) == "string" && typeof (value) == "number") {
-                                controller.addAttribute(id, key, new RawNumber(value));
+                                if (key === "x" || key === "y") {
+                                    // 对于 x, y 坐标，可计算
+                                    controller.addAttribute(id, key, new RawNumber(value));
+                                } else {
+                                    // 其余不可计算
+                                    controller.addAttribute(id, key, new RawNumberNoCal(value));
+                                }
+                            } else if (typeof (key) == "string" && typeof (value) == "string") {
+                                if (key === "text") {
+                                    // 仅接受 text 为 string
+                                    controller.addAttribute(id, key, new RawText(value));
+                                }
                             }
-                            break;
                     }
                 }
                 break;
@@ -108,7 +122,7 @@ function loadFile(controller: Controller, fileInput: any) {
             case "attribute":
                 let baseElement: number;
                 let attributeName: string;
-                let attributeValue: number;
+                let attributeValue: number | string;
                 if (typeof (entry.element) == "number") {
                     baseElement = entry.element;
                 } else {
@@ -121,10 +135,13 @@ function loadFile(controller: Controller, fileInput: any) {
                 }
                 if (typeof (entry.val) == "number") {
                     attributeValue = entry.val;
+                    controller.addAttribute(baseElement, attributeName, new RawNumber(attributeValue as number));
+                } else if (typeof (entry.val) == "string"){
+                    attributeValue = entry.val;
+                    controller.addAttribute(baseElement, attributeName, new RawText(attributeValue as string));
                 } else {
                     throw Error("attribute value should be number");
                 }
-                controller.addAttribute(baseElement, attributeName, new RawNumber(attributeValue));
                 break;
             case "equation":
                 let newEquation = parseNewEquation(controller, entry.equation);
@@ -150,7 +167,7 @@ function parseNewEquation(controller: Controller, expr: string): Equation {
     })
 
     let exprs = expr.split("=");
-    console.log(exprs);
+    // console.log(exprs);
     let leftExpr: string = exprs[0];
     let rightExpr: string = exprs[1];
 
@@ -160,7 +177,7 @@ function parseNewEquation(controller: Controller, expr: string): Equation {
     // if (!(parsedFunc instanceof AssignmentNode)) {
     //     throw Error("relationship func should be assignment");
     // }
-    console.log(leftParsedFunc, rightParsedFunc);
+    // console.log(leftParsedFunc, rightParsedFunc);
 
     let MathNode2FuncTreeAndArgs = function(parsedFunc: MathNode): [FuncTree, Array<Attribute>] {
         let rootNode: OperatorNode;

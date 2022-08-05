@@ -128,6 +128,32 @@ class RawNumber implements Value {
     }
 }
 
+class RawText implements Value {
+    val: string;
+    constructor(_val: string) {
+        this.val = _val;
+    }
+    calculate(op: Operator, other: Value): Value {
+        switch (op) {
+            case Operator.PLUS:
+                return new RawText(this.val + other.val);
+
+            default:
+                throw Error("can not calculate raw text.")
+        }
+    }
+}
+
+class RawNumberNoCal implements Value {
+    val: number;
+    constructor(_val: number) {
+        this.val = _val;
+    }
+    calculate(op: Operator, other: Value): Value {
+        throw Error("can not calculate")
+    }
+}
+
 class Attribute {
     name: string;
     val: Value;
@@ -149,8 +175,11 @@ enum ElementType {
     CONST, // can not be edited, like two
     BASE, // can be edited, like alpha
     RECTANGLE,
+    ARROW,
     TMP
 }
+
+const displayElementTypes = [ElementType.RECTANGLE];
 
 class SingleElement {
     id: number;
@@ -170,6 +199,17 @@ class SingleElement {
     }
     getAttribute(name:string):Attribute|undefined{
         return this.attributes.get(name);
+    }
+    getCertainAttribute(name:string): Attribute {
+        let ans = this.attributes.get(name);
+        if (ans) {
+            return ans;
+        } else {
+            throw Error("attr not exist");
+        }
+    }
+    changeCertainAttribute<T>(name: string, val: T) {
+        this.getAttribute(name)!.val.val = val;
     }
 
     getAttrOrDefault(name:string, dft: Attribute | null):Attribute|null{
@@ -193,6 +233,46 @@ class SingleElement {
         }
         return false;
     }
+
+    getCorner(): Array<[number, number]> {
+        // 从上顺时针8个方向
+        switch (this.type) {
+            case ElementType.RECTANGLE:
+                let corners: Array<[number, number]> = new Array<[number, number]>();
+                let x = this.getAttribute("x")!.val.val;
+                let y = this.getAttribute("y")!.val.val;
+                let w = this.getAttribute("w")!.val.val;
+                let h = this.getAttribute("h")!.val.val;
+                corners.push([x, y - h / 2]);
+                corners.push([x + w / 2, y - h / 2]);
+                corners.push([x + w / 2, y]);
+                corners.push([x + w / 2, y + h / 2]);
+                corners.push([x, y + h / 2]);
+                corners.push([x - w / 2, y + h / 2]);
+                corners.push([x - w / 2, y]);
+                corners.push([x - w / 2, y - h / 2]);
+                return corners;
+        
+            default:
+                throw Error("error type");
+        }
+    }
+
+    changeColor(color: string) {
+        // red pink purple blue cyan teal green yellow orange brown grey bluegrey
+        assert(displayElementTypes.indexOf(this.type) >= 0);
+        this.changeCertainAttribute<String>("color", color);
+    }
+
+    changeLightness(lightness: number) {
+        // 相对变化 例如 1 表示 +100; -2 表示 -200
+        assert(displayElementTypes.indexOf(this.type) >= 0);
+        let oriLightness = this.getAttribute("lightness")!.val.val;
+        let newLightness = oriLightness + lightness * 100;
+        newLightness = newLightness < 0 ? 0 : (newLightness > 900 ? 900 : newLightness);
+        this.changeCertainAttribute<String>("lightness", newLightness);
+    }
+
 }
 
 const TMP = new SingleElement(-1, ElementType.TMP);
@@ -682,7 +762,7 @@ class PrioResultCandidate{
 const MAX_POST_DEPTH = 1
 class PostResultCandidate {
     oriEq:Equation;
-    newEq: Equation
+    newEq: Equation;
     target: Attribute;  // 这一个新增的
 
     val: number;
@@ -725,7 +805,7 @@ class PostResultCandidate {
         let newArgs = [...this.newEq.leftArgs, ...this.newEq.rightArgs];
 
         // 仍有前后使用元素数量带来的误差
-        let oriEqEle:Set<SingleElement> = new Set(oriArgs.map(x=>x.element));
+        let oriEqEle: Set<SingleElement> = new Set(oriArgs.map(x=>x.element));
         let newEqEle: Set<SingleElement> = new Set(newArgs.map(x=>x.element));
         factor *= (1 + Math.abs(oriEqEle.size - newEqEle.size) / Math.min(oriEqEle.size, newEqEle.size))
         return factor * (deltaT + deltaRelT + dis);
@@ -804,6 +884,15 @@ class Controller {
     createElement(_type: ElementType, _name?: string): number {
         // return element id
         let newElement = new SingleElement(this.idAllocator, _type, _name);
+        // 如果是实际元素需要建立坐标、长宽、颜色
+        if (displayElementTypes.indexOf(_type) >= 0){
+            newElement.addAttribute(new Attribute("x", new RawNumber(100), newElement));
+            newElement.addAttribute(new Attribute("y", new RawNumber(100), newElement));
+            newElement.addAttribute(new Attribute("w", new RawNumberNoCal(50), newElement));
+            newElement.addAttribute(new Attribute("h", new RawNumberNoCal(50), newElement));
+            newElement.addAttribute(new Attribute("color", new RawText("red"), newElement));
+            newElement.addAttribute(new Attribute("lightness", new RawNumberNoCal(400), newElement));
+        }
         this.idAllocator++;
         this.elements.set(this.idAllocator - 1, newElement);
         return this.idAllocator - 1;
@@ -836,6 +925,17 @@ class Controller {
             throw Error("not this attribute");
         }
     }
+
+    addArrow(_from: number, _to: number, _text?: string) {
+        let fromElement = this.getElement(_from);
+        let toElement = this.getElement(_to);
+        let newArrow = this.getElement(this.createElement(ElementType.ARROW, `arrow-${fromElement.name}-${toElement.name}`));
+        newArrow.addAttribute(new Attribute("startElement", new RawNumberNoCal(_from), newArrow));
+        newArrow.addAttribute(new Attribute("endElement", new RawNumberNoCal(_to), newArrow));
+        if (_text) {
+            newArrow.addAttribute(new Attribute("text", new RawText(_text), newArrow));
+        }
+    }
     
     addEquation(_eq: Equation){
         this.equations.push(_eq);
@@ -844,6 +944,9 @@ class Controller {
     async updateValsByEquations(){
         let attrList = this.get_all_attributes()
         let eq_mat = this.generate_equation_matrix(attrList, []);
+        // console.log(eq_mat);
+        // console.log(attrList);
+        // console.log(this.equations);
         let eq_coef = eq_mat[0];
         let eq_v = eq_mat[1];
         let baseAttrs = attrList.filter((x)=>(x.element.id <= 0));
@@ -1011,6 +1114,10 @@ class Controller {
             }
 
             for(let attr of ele.attributes.values()){
+                // skip text
+                if (attr.val instanceof RawText || attr.val instanceof RawNumberNoCal) {
+                    continue;
+                }
                 allAttrs.push(attr);
             }
         })
@@ -2193,4 +2300,4 @@ class TraceAttrRelation {
     }
 }
 
-export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, ElementType, SingleElement, Attribute, Controller, Equation, AssignOp};
+export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, RawText, RawNumberNoCal, ElementType, SingleElement, Attribute, Controller, Equation, AssignOp};
