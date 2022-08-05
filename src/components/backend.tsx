@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { abs, e, max, min, sqrt } from 'mathjs';
-import {parseNewEquation} from './load_file'
+import {loadFile, parseNewEquation} from './load_file'
 import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList} from './utility'
 enum Operator {
     PLUS,
@@ -725,7 +725,7 @@ class PostResultCandidate {
 
         let cal_res = await con.cal_contents(new_attr_values, 
             new_equations, unchangedAttr, inferChangedAttr
-            , false, false);
+            , false, false, [this.target]);
         // if(cal_res.length > 1){
         //     console.warn('理论上推测的内容应该可以直接求解')
         // }
@@ -751,6 +751,25 @@ class Controller {
     baseElement: SingleElement;
 
     constDisAttr: Attribute;
+
+    eventLisnter: Map<string, ((...arg0: any[])=>void)[]>;
+
+    static instance?: Controller = undefined;
+    static FILEINPUT = require("./sample-input.json");
+    static TYPE_SWITCH_CDT_IDX = 'TYPE_SWITCH_CDT_IDX';
+
+    nextPosCdtCache?: [number, number, number][];
+
+    static getInstance(): Controller{
+        if(Controller.instance != undefined){
+            return Controller.instance;
+        }
+
+        Controller.instance = new Controller();
+        // loadFile(Controller.instance!, Controller.FILEINPUT);
+        return Controller.instance!;
+    }
+
     constructor() {
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
@@ -769,6 +788,9 @@ class Controller {
         this.equations = [];
 
         this.tmpElement = new SingleElement(-3, ElementType.TMP, 'tmp');  // 用于存储一些临时的attribute
+        this.eventLisnter = new Map();
+
+        this.nextPosCdtCache = undefined;
     }
 
     getAttributeByStr(s:string): Attribute{
@@ -1214,12 +1236,18 @@ class Controller {
         unchangedAttr: Attribute[], 
         inferChangedAttr: Attribute[],
         applyFilter=true,
-        outputEq=true)
+        outputEq=true,
+        extra_attrs: Attribute[]=[])
         : Promise<Array<[Equation[], Attribute[], number[], number]>>{
         // 返回的内容：每一个元素都是一个可能的选项，分别对应于
         // 满足的方程、属性列表、属性取值、误差
 
         let attrList = this.get_all_attributes();
+        for(let a of extra_attrs){
+            if(!attrList.includes(a)){
+                attrList.push(a);
+            }
+        }
         let eq_res = this.generate_equation_matrix(attrList, new_equations);
         let val_res = this.generate_value_matrix(attrList, new_attr_values, inferChangedAttr);
 
@@ -1388,11 +1416,11 @@ class Controller {
             addedValues.add(valsId);
 
             let newEquations: Equation[] = [];
-            let freeAttrInfo = await this.getFreeAttrInfo(attrList, newEquations);
             if(outputEq) {
                 newEquations = [... this.equations, ...new_equations].filter((eq)=>{
                     return eq.judgeEquality(attrList, oneGroup);
                 })
+                let freeAttrInfo = await this.getFreeAttrInfo(attrList, newEquations);
                 freeAttrInfo[1].forEach((attr)=>{
                     let v = oneGroup[attrList.indexOf(attr)];
                     let tmpAttr = new Attribute(randomID(), new RawNumber(v), this.tmpElement);
@@ -1581,6 +1609,21 @@ class Controller {
             let newVal = newVals[idx];
             attr.val.val = newVal;
         })
+
+
+        this.eventLisnter.get(Controller.TYPE_SWITCH_CDT_IDX)?.forEach(async (cb)=>{
+            await cb(this.crtCdtIdx); 
+        })
+
+        this.nextPosCdtCache = undefined;
+    }
+
+    add_switch_cdt_idx_listener(cb: (idx:number)=>void){
+        if(!this.eventLisnter.has(Controller.TYPE_SWITCH_CDT_IDX)){
+            this.eventLisnter.set(Controller.TYPE_SWITCH_CDT_IDX, []);
+        }
+
+        this.eventLisnter.get(Controller.TYPE_SWITCH_CDT_IDX)!.push(cb);
     }
 
     nextSolution(){
@@ -2252,6 +2295,76 @@ class Controller {
                 alert('没有计算出给出指令的合适结果！请检查')
             }
         }
+    }
+
+    async recommandNext(){
+        if(this.nextPosCdtCache != undefined){
+            return this.nextPosCdtCache.slice();
+        }
+        // 推荐下一个元素位置
+        let tmpNextEle = new SingleElement(-100, ElementType.RECTANGLE);
+        let nextXAttr = new Attribute('x', new RawNumber(0), tmpNextEle);
+        let nextYAttr = new Attribute('y', new RawNumber(0), tmpNextEle);
+        tmpNextEle.addAttribute(nextXAttr);
+        tmpNextEle.addAttribute(nextYAttr);
+        let canDependAttr = [... new Set([... this.get_all_attributes(), ... this.get_all_val_const_attr()])];
+        let freeAttrs = [nextXAttr, nextYAttr];
+
+        let postCandidates: Array<PostResultCandidate[]> = []
+
+        for(let attr of freeAttrs){
+            let pcList = await this.genPostCandidate(attr, canDependAttr, []);
+            pcList.push(... this.genPrioCandidate(attr, canDependAttr))
+            pcList = uniquifyList(pcList, (x)=>{
+                if(x.val !== -1){
+                    return x.val.toFixed(2);
+                } 
+                return randomID();
+            })
+
+            postCandidates.push(pcList);
+        }
+
+        let allCandidateComb = getAllCase(postCandidates);
+        let nextPosCdt: [number, number, number][] = []; // x坐标、y坐标、损失
+        
+        let crtPosSet: Set<string> = new Set();
+        this.elements.forEach((ele)=>{ // 当前新建的tmp并没有加入到elements中
+            if(ele.id <= 0){
+                return;
+            }
+            crtPosSet.add(`${ele.getAttribute('x')?.val.val.toFixed(2)}-${ele.getAttribute('y')?.val.val.toFixed(2)}`);
+        })
+
+        for(let oneComb of allCandidateComb){
+            let x = 0;
+            let y = 0;
+            let err = 0;
+            for(let pc of oneComb){
+                if(pc.target.name === 'x'){
+                    x = await pc.calValue([], this);
+                    err += pc.calDis(-1);
+                }
+
+                if(pc.target.name === 'y'){
+                    y = await pc.calValue([], this);
+                    err += pc.calDis(-1);
+                }
+            }
+
+            let posStr = `${x.toFixed(2)}-${y.toFixed(2)}`;
+            if(crtPosSet.has(posStr)){
+                continue;
+            }
+            if(x <= 0 || y <= 0){
+                continue;
+            }
+            nextPosCdt.push([x, y, err]);
+        }
+
+        nextPosCdt.sort((a, b)=>a[2]-b[2]);
+
+        return nextPosCdt;
     }
 }
 
