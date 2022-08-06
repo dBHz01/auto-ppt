@@ -197,22 +197,22 @@ class AllComponents extends React.Component {
                         idInController={`${idx}`}/>);
                     let arrowText = i.getAttribute("text");
                     if (arrowText && arrowText.val.val.length > 0) {
-                        elements.push(<Rect
-                            x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 20}
-                            y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding - slightHeight}
-                            width={abs(width) * 9 / 10}
-                            height={14}
-                            fill={"#f0f0f0"}
-                            shadowBlur={5}
-                            key={`text-rect-${i.id}`}
-                            draggable={false}
-                            shadowEnabled={false}
-                            idInController={`${idx}`}
-                        />);
+                        // elements.push(<Rect
+                        //     x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 20}
+                        //     y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding - slightHeight}
+                        //     width={abs(width) * 9 / 10}
+                        //     height={14}
+                        //     fill={"#f0f0f0"}
+                        //     shadowBlur={5}
+                        //     key={`text-rect-${i.id}`}
+                        //     draggable={false}
+                        //     shadowEnabled={false}
+                        //     idInController={`${idx}`}
+                        // />);
                         elements.push(<Text
-                            x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 20}
+                            x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 2 - max(abs(width), 100) * 9 / 20}
                             y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding}
-                            width={abs(width) * 9 / 10}
+                            width={max(abs(width), 100) * 9 / 10}
                             key={`text-${i.id}`}
                             text={arrowText.val.val}
                             fontSize={14}
