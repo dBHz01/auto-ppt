@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Stage, Layer, Rect, Text, Group, Circle, Arrow } from "react-konva";
+import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag } from "react-konva";
 import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, SingleElement } from './components/backend';
@@ -211,7 +211,7 @@ class AllComponents extends React.Component {
                         //     shadowEnabled={false}
                         //     idInController={`${idx}`}
                         // />);
-                        elements.push(<Text
+                        /*elements.push(<Text
                             x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 2 - max(abs(width), 100) * 9 / 20}
                             y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding}
                             width={max(abs(width), 100) * 9 / 10}
@@ -220,7 +220,20 @@ class AllComponents extends React.Component {
                             fontSize={14}
                             listening={false}
                             align={'center'}
-                        />);
+                            // fill={'#f0f0f0'}
+                        />);*/
+                        elements.push(<Label
+                            key={`text-${i.id}`}
+                            x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 2 - max(abs(width), 100) * 9 / 20}
+                            y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding}>
+                            
+                            <Tag fill={"#f0f0f0"}></Tag>
+                            <Text
+                                text={arrowText.val.val}
+                                fontSize={14}
+                                align={'center'}
+                            />
+                        </Label>)
                     }
                     break;
                 default:
@@ -421,6 +434,17 @@ class HelperGUI extends React.Component {
         }
     }
 
+    downloadContent(){
+        let eleLink = document.createElement('a');
+        eleLink.download = `content.json`;
+        eleLink.style.display = 'none';
+        let blob = new Blob([JSON.stringify(this.controller.exportAsJson())], {"type": "text/json"});
+        eleLink.href = URL.createObjectURL(blob);
+
+        document.body.appendChild(eleLink);
+        eleLink.click();
+        document.body.removeChild(eleLink);
+    }
 
     renderTools(){
         if(this.state.selectedTag !== HelperGUI.TAG_DISP_SET){
@@ -429,6 +453,9 @@ class HelperGUI extends React.Component {
 
         let selectedItem = this.state.selectedItemId > 0? this.controller.getElement(this.state.selectedItemId): undefined;
         return <div>
+            <div>
+                <button onClick={this.downloadContent.bind(this)}>点击下载</button>
+            </div>
             <div>
                 <span style={{verticalAlign: '-webkit-baseline-middle'}}>显示后续位置？</span>
                 <label className="switch">

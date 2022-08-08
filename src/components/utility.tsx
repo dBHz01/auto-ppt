@@ -61,7 +61,7 @@ function floatLe(f1: number, f2: number){
 }
 
 function randomID(){
-    return Math.random().toString(36);
+    return Math.random().toString(36).slice(2);
 }
 
 function range(start:number, end:number) {

@@ -181,6 +181,10 @@ enum ElementType {
     TMP
 }
 
+let eleTypeToStr = new Map();
+eleTypeToStr.set(ElementType.RECTANGLE, 'RECTANGLE')
+eleTypeToStr.set(ElementType.ARROW, 'ARROW')
+
 const displayElementTypes = [ElementType.RECTANGLE];
 
 class SingleElement {
@@ -429,10 +433,14 @@ class Equation {
                 let leftout = "";
                 let rightout = "";
                 if (node.leftNode == null || typeof node.leftNode === "number") {
-                    if (args[pointer].element.name != null) {
+                    /*if (args[pointer].element.name != null) {
                         leftout = args[pointer].element.name + "." + args[pointer].name;
                     } else {
                         leftout = args[pointer].name;
+                    }*/
+                    leftout = args[pointer].name;
+                    if(args[pointer].element.id >= 0){
+                        leftout += `_${args[pointer].element.id}`
                     }
                     pointer++;
                 } else {
@@ -444,11 +452,18 @@ class Equation {
                 if (node.rightNode == null || typeof node.rightNode === "number") {
                     if(args[pointer] == null){
                         rightout = ""
-                    } else if (args[pointer].element.name != null) {
+                    } /*else if (args[pointer].element.name != null) {
                         rightout = args[pointer].element.name + "." + args[pointer].name;
                     } else {
                         rightout = args[pointer].name;
+                    }*/
+                    else {
+                        rightout = args[pointer].name;
+                        if(args[pointer].element.id >= 0){
+                            rightout += `_${args[pointer].element.id}`
+                        }
                     }
+                    
                     pointer++;
                 } else {
                     rightout = debugAtNode(node.rightNode);
@@ -847,7 +862,7 @@ class Controller {
     eventLisnter: Map<string, ((...arg0: any[])=>void)[]>;
 
     static instance?: Controller = undefined;
-    static FILEINPUT = require("./sample-input.json");
+    static FILEINPUT = require("./content.json");
     static TYPE_SWITCH_CDT_IDX = 'TYPE_SWITCH_CDT_IDX';
 
     nextPosCdtCache?: [number, number, number][];
@@ -858,7 +873,7 @@ class Controller {
         }
 
         Controller.instance = new Controller();
-        // loadFile(Controller.instance!, Controller.FILEINPUT);
+        loadFile(Controller.instance!, Controller.FILEINPUT);
         return Controller.instance!;
     }
 
@@ -1300,7 +1315,7 @@ class Controller {
         this.elements.forEach((ele, id)=>{
             if(id >= 0){ // const
                 return
-            }
+            } 
 
             for(let attr of ele.attributes.values()){
                 allAttrs.push(attr);
@@ -1385,7 +1400,7 @@ class Controller {
                 inferChangedAttr.push(attr)
             }
         })
-        
+
         let eq_res = this.generate_equation_matrix(attrList, new_equations);
         let val_res = this.generate_value_matrix(attrList, new_attr_values, inferChangedAttr);
         let rel_keep_idx = new_equations.map((x)=>eq_res[2].indexOf(x));
@@ -2518,6 +2533,53 @@ class Controller {
             let text = ss_split[2];
             this.addArrow(source, target, text);
         })
+    }
+
+    exportAsJson(){
+        let result = [];
+        for(let ele of this.elements.values()){
+            if(ele.id <= 0){
+                continue;
+            }
+            if(!eleTypeToStr.has(ele.type)){
+                continue;
+            }
+            let crtObj: any = {
+                "type": "element",
+                "name": ele.name,
+                "elementType": eleTypeToStr.get(ele.type)
+            }
+
+            for(let attr of ele.attributes){
+                crtObj[attr[0]] = attr[1].val.val;
+            }
+
+            result.push(crtObj);
+        }
+
+
+        // attr
+        [this.constElement, this.baseElement].map((ele)=>ele.attributes).forEach((mp)=>{
+            mp.forEach((attr, key)=>{
+                let crtObj: any = {
+                    "type": "attribute",
+                    "name": key,
+                    "element": attr.element.id,
+                    'val': attr.val.val
+                }
+                result.push(crtObj);
+            })
+        })
+
+        // eq
+        this.equations.forEach((x)=>{
+            result.push({
+                "type": "equation",
+                "equation": x.debug()
+            })
+        })
+
+        return result;
     }
 }
 
