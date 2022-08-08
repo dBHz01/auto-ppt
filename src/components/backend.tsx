@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { abs, e, max, min, sqrt } from 'mathjs';
 import {loadFile, parseNewEquation} from './load_file'
-import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList} from './utility'
+import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList, beamSolve, countTimeStart, countTimeEnd, countTimeFinish} from './utility'
+const IP = '192.168.3.125'
+
 enum Operator {
     PLUS,
     MINUS,
@@ -194,6 +196,16 @@ class SingleElement {
         this.attributes = new Map<string, Attribute>();
         this.timestamp = getTs();
     }
+
+    copyAttrMap(){
+        let res: Map<string, any> =  new Map();
+        this.attributes.forEach((v, k)=>{
+            res.set(k, v.val.val);
+        })
+
+        return res;
+    }
+
     addAttribute(attr: Attribute) {
         this.attributes.set(attr.name, attr);
     }
@@ -789,7 +801,7 @@ class PostResultCandidate {
         return factor * (deltaT + deltaRelT + dis);
     }
 
-    async calValue(newEquation: Equation[], con: Controller):Promise<number>{
+    calValue(newEquation: Equation[], con: Controller):number{
         if(this.val >= 0){
             return this.val;
         }
@@ -803,7 +815,7 @@ class PostResultCandidate {
         inferChangedAttr.push(this.target);
         new_equations.push(this.newEq);
 
-        let cal_res = await con.cal_contents(new_attr_values, 
+        let cal_res = con.cal_contents(new_attr_values, 
             new_equations, unchangedAttr, inferChangedAttr
             , false, false, [this.target]);
         // if(cal_res.length > 1){
@@ -952,7 +964,7 @@ class Controller {
         this.equations.push(_eq);
     }
 
-    async updateValsByEquations(){
+    updateValsByEquations(){
         let attrList = this.get_all_attributes()
         let eq_mat = this.generate_equation_matrix(attrList, []);
         // console.log(eq_mat);
@@ -970,13 +982,15 @@ class Controller {
             v_v.push(baseAttr.val.val);
         }
 
-        let res = await axios.post("http://localhost:12345/solve", {
-            attr_number: attrList.length,
-            rel_coef: eq_coef,
-            rel_res: eq_v,
-            val_coef: v_coef,
-            val_res: v_v
-        })
+        // let res = await axios.post(`http://${IP}:12345/solve`, {
+        //     attr_number: attrList.length,
+        //     rel_coef: eq_coef,
+        //     rel_res: eq_v,
+        //     val_coef: v_coef,
+        //     val_res: v_v
+        // })
+
+        let res = beamSolve(eq_coef, eq_v, v_coef, v_v);
 
         if(res.data['res'].length > 1){
             console.warn('错误！方程应该可以直接求解')
@@ -1128,7 +1142,8 @@ class Controller {
         return genRes;
     }
     
-    async genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[], userGivenNewEq: Equation[]):Promise<PostResultCandidate[]>{
+    genPostCandidate(tgtAttr: Attribute, canDependAttr:Attribute[], userGivenNewEq: Equation[]):PostResultCandidate[]{
+        countTimeFinish('beamSolve')
         let genRes:PostResultCandidate[] = [];
         for(let equation of this.equations){
             let possibleTgtIdxLeft: number[] = [];
@@ -1213,13 +1228,16 @@ class Controller {
                         }
                         let newEq = new Equation(equation.leftFunc, equation.rightFunc, leftArgList, rightArgList)
                         let pc = new PostResultCandidate(equation, newEq, tgtAttr);
-                        await pc.calValue(userGivenNewEq, this);
+                        pc.calValue(userGivenNewEq, this);
                         genRes.push(pc);
                     }
                 }
 
             }
         }
+
+        let timeResultSolve = countTimeFinish('beamSolve')
+        console.log(timeResultSolve)
 
         genRes = genRes.sort((pc1, pc2)=>{
             let dis1 = pc1.calDis(-1);
@@ -1345,14 +1363,14 @@ class Controller {
         return [A, B]
     }
 
-    async cal_contents(new_attr_values: Map<Attribute, number>, 
+    cal_contents(new_attr_values: Map<Attribute, number>, 
         new_equations: Equation[],
         unchangedAttr: Attribute[], 
         inferChangedAttr: Attribute[],
         applyFilter=true,
         outputEq=true,
         extra_attrs: Attribute[]=[])
-        : Promise<Array<[Equation[], Attribute[], number[], number]>>{
+        : Array<[Equation[], Attribute[], number[], number]>{
         // 返回的内容：每一个元素都是一个可能的选项，分别对应于
         // 满足的方程、属性列表、属性取值、误差
 
@@ -1362,9 +1380,14 @@ class Controller {
                 attrList.push(a);
             }
         }
+        attrList.forEach((attr)=>{
+            if(attr.val.val <= 0 && !inferChangedAttr.includes(attr)){
+                inferChangedAttr.push(attr)
+            }
+        })
+        
         let eq_res = this.generate_equation_matrix(attrList, new_equations);
         let val_res = this.generate_value_matrix(attrList, new_attr_values, inferChangedAttr);
-
         let rel_keep_idx = new_equations.map((x)=>eq_res[2].indexOf(x));
         let rel_ignore_idx: number[] = [] // 暂时不包含
         let val_keep_idx = unchangedAttr.map((x)=>attrList.indexOf(x));
@@ -1452,7 +1475,7 @@ class Controller {
         })
 
         
-        let res = await axios.post("http://localhost:12345/solve", {
+        /*let res = await axios.post(`http://${IP}:12345/solve`, {
             attr_number: attrList.length,
             rel_coef: eq_res[0],
             rel_res: eq_res[1],
@@ -1462,8 +1485,11 @@ class Controller {
             rel_ignore_idx,
             val_keep_idx,
             val_ignore_idx,
-        })
+        })*/
 
+        
+        let res = beamSolve(eq_res[0], eq_res[1],val_res[0],val_res[1],
+            rel_keep_idx, rel_ignore_idx, val_keep_idx, val_ignore_idx)
         // console.log(res.data)
         let err: number[] = res.data['err'];
         let newVals: number[][] = res.data['res'];
@@ -1534,7 +1560,7 @@ class Controller {
                 newEquations = [... this.equations, ...new_equations].filter((eq)=>{
                     return eq.judgeEquality(attrList, oneGroup);
                 })
-                let freeAttrInfo = await this.getFreeAttrInfo(attrList, newEquations);
+                let freeAttrInfo = this.getFreeAttrInfo(attrList, newEquations);
                 freeAttrInfo[1].forEach((attr)=>{
                     let v = oneGroup[attrList.indexOf(attr)];
                     let tmpAttr = new Attribute(randomID(), new RawNumber(v), this.tmpElement);
@@ -1578,7 +1604,7 @@ class Controller {
         return resultToKeep;
     }
 
-    async rowReduce(mat: number[][]): Promise<number[][]>{
+    rowReduce(mat: number[][]): number[][]{
         // let resPy = await axios.post('http://localhost:12345/row_reduction', {
         //     coef: mat
         // })
@@ -1641,12 +1667,12 @@ class Controller {
 
     }
 
-    async update_contents(new_attr_values: Map<Attribute, number>, 
+    update_contents(new_attr_values: Map<Attribute, number>, 
         new_equations: Equation[],
         unchangedAttr: Attribute[], 
         inferChangedAttr: Attribute[]){
         
-        let res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+        let res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
         this.candidates = res;
         this.crtCdtIdx = 0;
         // 更新基础的取值
@@ -1725,8 +1751,8 @@ class Controller {
         })
 
 
-        this.eventLisnter.get(Controller.TYPE_SWITCH_CDT_IDX)?.forEach(async (cb)=>{
-            await cb(this.crtCdtIdx); 
+        this.eventLisnter.get(Controller.TYPE_SWITCH_CDT_IDX)?.forEach((cb)=>{
+            cb(this.crtCdtIdx); 
         })
 
         this.nextPosCdtCache = undefined;
@@ -1746,7 +1772,7 @@ class Controller {
         this.update_attr()
     }
 
-    async handleUserCommand(
+    handleUserCommand(
         trace: Array<Array<[number, number]>>, 
         traceEleRelation: string, 
         newEleRel: string,
@@ -1757,11 +1783,11 @@ class Controller {
             || newEleRel.includes('new')
             || newEleRange.includes('new') || 
             (traceEleRelation.length + newEleRel.length + newEleRange.length === 0 )){
-            await this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
+            this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
             return;
         }
 
-        await this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
+        this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
             newEleRange, trace, traceEleRelation);
 
 
@@ -1796,8 +1822,8 @@ class Controller {
         return ele2pos.size === posOccupy.size;
     }
 
-    async getFreeAttrInfo(attrList: Attribute[], equations: Equation[]):
-     Promise<[Attribute[], Attribute[], Attribute[]]>{
+    getFreeAttrInfo(attrList: Attribute[], equations: Equation[]):
+     [Attribute[], Attribute[], Attribute[]]{
         let coef_matrix: number[][] = equations.map((eqt)=>{
             return eqt.convertToVector(attrList);
         })
@@ -1816,7 +1842,7 @@ class Controller {
             return [[], elementAttrList, []]
         }
 
-        let reducedRes = await this.rowReduce(coef_matrix);
+        let reducedRes = this.rowReduce(coef_matrix);
         let freeIndexInfo = this.getFreeIndex(reducedRes);
 
         return [
@@ -1826,15 +1852,15 @@ class Controller {
         ]
     }
 
-    async handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
+    handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
         traceEleRelation: string, newEleEq: string,
         newEleRange:string){
 
         let traces = RawTraces.map(rt=>new Trace(rt));
 
         let nextElementId = this.createElement(ElementType.RECTANGLE);
-        this.addAttribute(nextElementId, 'x', new RawNumber(0));
-        this.addAttribute(nextElementId, 'y', new RawNumber(0));
+        this.addAttribute(nextElementId, 'x', new RawNumber(-1));
+        this.addAttribute(nextElementId, 'y', new RawNumber(-1));
         
         let nextElement = this.getElement(nextElementId);
         nextElement.name = `${nextElementId}`
@@ -1877,7 +1903,7 @@ class Controller {
         let attrList = this.get_all_attributes()
         // 判断哪些元素需要进行推测，结合现在所有的关系进行判断
 
-        let freeAttrInfo = await this.getFreeAttrInfo(attrList, [...this.equations, ...newEqInExpr])
+        let freeAttrInfo = this.getFreeAttrInfo(attrList, [...this.equations, ...newEqInExpr])
         
         let freeAttrs = freeAttrInfo[1];
         let canDependAttr = freeAttrInfo[2];
@@ -1889,7 +1915,7 @@ class Controller {
         
         // 根据用户指令进行的调整可以在此进行
         for(let attr of freeAttrs){
-            let pcList = await this.genPostCandidate(attr, canDependAttr, newEqInExpr);
+            let pcList = this.genPostCandidate(attr, canDependAttr, newEqInExpr);
             pcList.push(... this.genPrioCandidate(attr, canDependAttr))
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
@@ -1978,7 +2004,7 @@ class Controller {
                     new_equations.push(oneNewCandidate.newEq);
                 }
     
-                let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+                let cal_res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
                 if(cal_res.length > 1){
                     console.warn('理论上在推测过程中应该直接求解')
                 }
@@ -2028,7 +2054,7 @@ class Controller {
             let unchangedAttr: Attribute[] = [];
             let inferChangedAttr: Attribute[] =  [xAttr, yAttr]; 
 
-            let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+            let cal_res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
             combCandidate.push(... cal_res)
 
             // 指令本身充分的情况下需要筛选吗？
@@ -2124,7 +2150,7 @@ class Controller {
 
     }
 
-    async handleUserModify(newEleEq: string, 
+    handleUserModify(newEleEq: string, 
         forceUnchangeStr: string, 
         inferChangeStr: string, 
         newEleRange: string, 
@@ -2239,7 +2265,7 @@ class Controller {
         
         let pcComb: Array<PostResultCandidate[]> = [];
         for(let attr of inferChangeWithoutNewEq){
-            let pcList = await this.genPostCandidate(attr, canDependAttr, newEqInExpr);
+            let pcList = this.genPostCandidate(attr, canDependAttr, newEqInExpr);
             pcList.push(... this.genPrioCandidate(attr, canDependAttr));
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
@@ -2322,7 +2348,7 @@ class Controller {
                     new_equations.push(oneNewCandidate.newEq);
                 }
     
-                let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+                let cal_res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
 
                 cal_res.forEach((v)=>{
                     // v[3] += combErrors;
@@ -2339,7 +2365,7 @@ class Controller {
             let new_attr_values: Map<Attribute, number> = new Map();
             let new_equations: Equation[] = [...newEqInExpr];
 
-            let cal_res = await this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
+            let cal_res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
             combCandidate.push(... cal_res)
         }
 
@@ -2404,14 +2430,14 @@ class Controller {
             if(newEleRange.length > 0){
                 let newRangeStr = newEleRange.replaceAll(/[><]/g, '=').replaceAll('==', '=')
                 let newEqStr = `${newEleEq};${newRangeStr}`;
-                await this.handleUserModify(newEqStr, forceUnchangeStr, inferChangeStr, "", RawTraces, traceEleRelation);
+                this.handleUserModify(newEqStr, forceUnchangeStr, inferChangeStr, "", RawTraces, traceEleRelation);
             } else {
                 alert('没有计算出给出指令的合适结果！请检查')
             }
         }
     }
 
-    async recommandNext(){
+    recommandNext(){
         if(this.nextPosCdtCache != undefined){
             return this.nextPosCdtCache.slice();
         }
@@ -2427,7 +2453,7 @@ class Controller {
         let postCandidates: Array<PostResultCandidate[]> = []
 
         for(let attr of freeAttrs){
-            let pcList = await this.genPostCandidate(attr, canDependAttr, []);
+            let pcList = this.genPostCandidate(attr, canDependAttr, []);
             pcList.push(... this.genPrioCandidate(attr, canDependAttr))
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
@@ -2456,12 +2482,12 @@ class Controller {
             let err = 0;
             for(let pc of oneComb){
                 if(pc.target.name === 'x'){
-                    x = await pc.calValue([], this);
+                    x = pc.calValue([], this);
                     err += pc.calDis(-1);
                 }
 
                 if(pc.target.name === 'y'){
-                    y = await pc.calValue([], this);
+                    y = pc.calValue([], this);
                     err += pc.calDis(-1);
                 }
             }

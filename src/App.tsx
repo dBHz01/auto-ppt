@@ -11,6 +11,8 @@ import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
 
 const ALLCOLORS = require("./components/colors.json");
+const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
+const ColorNamesCN = '红 粉 紫 蓝 青 青绿 绿 黄 橙 棕 灰 蓝灰'.split(' ');
 
 function delay(ms: number) {
     let crt = Date.now();
@@ -42,19 +44,19 @@ class AllComponents extends React.Component {
             showDebug: true
         }
 
-        this.controller.add_switch_cdt_idx_listener(async (idx)=>{
-            await this.updateCdt();
+        this.controller.add_switch_cdt_idx_listener( (idx)=>{
+             this.updateCdt();
         })
     }
 
-    async updateCdt(showCdt? : boolean){
+     updateCdt(showCdt? : boolean){
         if(showCdt == undefined){
             showCdt = this.state.showCdt;
         }
 
         if(showCdt){
             this.setState({
-                nextCdt: await this.controller.recommandNext(),
+                nextCdt:  this.controller.recommandNext(),
                 showCdt: true
             })
         } else {
@@ -72,7 +74,7 @@ class AllComponents extends React.Component {
     }
 
     create_drag_end_handler(ele: SingleElement) {
-        return async (evt: Konva.KonvaEventObject<DragEvent>) => {
+        return  (evt: Konva.KonvaEventObject<DragEvent>) => {
             console.log(evt)
             console.log(ele)
 
@@ -83,13 +85,13 @@ class AllComponents extends React.Component {
 
             newAttrs.set(ele.getAttribute('x')!, newX);
             newAttrs.set(ele.getAttribute('y')!, newY);
-            await this.controller.update_contents(newAttrs, [], [], []);
+             this.controller.update_contents(newAttrs, [], [], []);
             this.forceUpdate()
         }
     }
 
-    async componentDidMount() {
-        await this.controller.updateValsByEquations();
+     componentDidMount() {
+         this.controller.updateValsByEquations();
         this.forceUpdate()
     }
 
@@ -251,7 +253,9 @@ class HelperGUI extends React.Component {
     static TAG_DISP_CDT = 'TAG_DISP_CDT'  // 展示候选内容
     static TAG_DISP_SET = 'TAG_DISP_SET' // 展示推荐内容
     static ratio = 1.0 / 3.0
-    state: {cdtIdx: number, selectedTag: string, selectedItemId: number};
+    state: {cdtIdx: number, selectedTag: string, 
+        selectedItemId: number,
+        itemAttrObj: Map<string, any>};
 
     showCdtRef: React.RefObject<HTMLInputElement>;
     editTextRef: React.RefObject<HTMLInputElement>;
@@ -262,7 +266,8 @@ class HelperGUI extends React.Component {
         this.state = {
             cdtIdx: 0,
             selectedTag: HelperGUI.TAG_DISP_CDT,
-            selectedItemId: -1
+            selectedItemId: -1,
+            itemAttrObj: new Map(),
         }
 
         this.controller.add_switch_cdt_idx_listener((idx)=>{
@@ -274,6 +279,26 @@ class HelperGUI extends React.Component {
         this.showCdtRef = React.createRef()
         this.editTextRef = React.createRef()
         this.showDebugInfoRef = React.createRef();
+    }
+
+    updateSelectedItem(itemId?: number){
+        if(itemId == undefined){
+            itemId = this.state.selectedItemId;
+        }
+        if(itemId < 0){
+            this.setState({
+                selectedItemId: -1,
+                itemAttrObj: new Map(),
+            })
+            return;
+        }
+
+        let ele = this.controller.getElement(itemId);
+        this.setState({
+            selectedItemId: itemId,
+            itemAttrObj: ele.copyAttrMap(),
+        })
+        return;
     }
 
     update(){
@@ -328,8 +353,15 @@ class HelperGUI extends React.Component {
         }
     }
 
-    async handleShowCdtClicked(e: React.ChangeEvent<HTMLInputElement>){
-        await App.instance.allComponentsRef.current?.updateCdt(e.target.checked);
+    genCdtDispClickedKonva(idx:number){
+        return (e: KonvaEventObject<MouseEvent>)=>{
+            this.controller.crtCdtIdx = idx;
+            this.controller.update_attr();
+        }
+    }
+
+     handleShowCdtClicked(e: React.ChangeEvent<HTMLInputElement>){
+         App.instance.allComponentsRef.current?.updateCdt(e.target.checked);
     }
 
     handleShowDebugInfoClicked(e: React.ChangeEvent<HTMLInputElement>){
@@ -353,11 +385,40 @@ class HelperGUI extends React.Component {
             </div>
 
             <div style={{flex: '1', 
-            backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET? "#d6d6d6": "#ffffff"}}
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET? "#d6d6d6": "#ffffff"}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET).bind(this)}>
                 设置{this.state.selectedTag === HelperGUI.TAG_DISP_SET?"✍︎": ""}
             </div>
         </div>
+    }
+
+    handleLigntnessInc(){
+        if(!this.state.itemAttrObj.has('lightness')){
+            return;
+        }
+        this.controller.getElement(this.state.selectedItemId).changeLightness(1);
+        App.instance.allComponentsRef.current?.forceUpdate()
+        this.updateSelectedItem();
+    }
+
+    handleLigntnessDec(){
+        if(!this.state.itemAttrObj.has('lightness')){
+            return;
+        }
+        this.controller.getElement(this.state.selectedItemId).changeLightness(-1);
+        App.instance.allComponentsRef.current?.forceUpdate()
+        this.updateSelectedItem();
+    }
+
+    genColorSelect(cn: string){
+        return ()=>{
+            if(!this.state.itemAttrObj.has('color')){
+                return;
+            }
+            this.controller.getElement(this.state.selectedItemId).changeColor(cn);
+            App.instance.allComponentsRef.current?.forceUpdate()
+            this.updateSelectedItem();
+        }
     }
 
 
@@ -365,6 +426,8 @@ class HelperGUI extends React.Component {
         if(this.state.selectedTag !== HelperGUI.TAG_DISP_SET){
             return null;
         }
+
+        let selectedItem = this.state.selectedItemId > 0? this.controller.getElement(this.state.selectedItemId): undefined;
         return <div>
             <div>
                 <span style={{verticalAlign: '-webkit-baseline-middle'}}>显示后续位置？</span>
@@ -389,12 +452,54 @@ class HelperGUI extends React.Component {
                 </label>
             </div>
             {this.state.selectedItemId >= 0? <div>
-                <input ref={this.editTextRef} type="text" 
-                    defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
-                /><button onClick={()=>{
-                    this.controller.addTextToEle(this.state.selectedItemId, this.editTextRef.current!.value);
-                    App.instance.allComponentsRef.current?.forceUpdate();
-                }}>修改文本</button>
+                
+                <div>
+                    <input ref={this.editTextRef} type="text" 
+                        defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
+                    /><button onClick={()=>{
+                        this.controller.addTextToEle(this.state.selectedItemId, this.editTextRef.current!.value);
+                        App.instance.allComponentsRef.current?.forceUpdate();
+                    }}>修改文本</button>
+                </div>
+
+                {this.state.itemAttrObj.get('color') == undefined?null: <div>
+                    <div style={{display: 'flex', height: '50px'}}>
+                        <div style={{flex: 'none', verticalAlign: '-webkit-baseline-middle'}}>
+                            深浅设置：
+                        </div>
+                        <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}
+                            onClick={this.handleLigntnessInc.bind(this)}>
+                            变深
+                        </div>
+                        <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}>
+                            {this.state.itemAttrObj.get('lightness')}
+                        </div>
+                        <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}
+                            onClick={this.handleLigntnessDec.bind(this)}>
+                            变浅
+                        </div>
+                    </div>
+
+                    <div style={{display: 'flex', flexWrap: 'wrap'}}>
+                            {ColorNames.map((cn, idx)=>{
+                                return <div style={{
+                                    textAlign: 'center',
+                                    verticalAlign: '-webkit-baseline-middle',
+                                    flex: '50px',
+                                    height: '50px',
+                                    backgroundColor: ALLCOLORS[`${cn}-${this.state.itemAttrObj.get('lightness')}`]}}
+                                    onClick={this.genColorSelect(cn).bind(this)}
+                                    key={`cdt-color-${cn}`}>
+                                        <span style={{textAlign: 'center', verticalAlign: '-webkit-baseline-middle'}}>
+                                            {ColorNamesCN[idx]}{this.state.itemAttrObj.get('color') === cn? '\n✅': ''}
+                                            </span>
+                                </div>
+                            })}
+
+
+                        </div>
+                
+                </div>}
 
             </div>:
                 <div>选中界面元素以进行更加深入设置</div>}
@@ -405,14 +510,17 @@ class HelperGUI extends React.Component {
         if(this.state['selectedTag'] !== HelperGUI.TAG_DISP_CDT){
             return null;
         }
-        return <div style={{height: '100vh', overflow: 'scroll'}}>
+        return <div style={{height: '95vh', overflow: 'scroll'}}>
             {this.controller.candidates.map((cdt, idx)=>{
                 return [<div  key={`${idx}-div`}
-                    style={{backgroundColor: idx === this.state.cdtIdx? "#47bbf755": "#00000000"}}
+                    style={{backgroundColor: idx === this.state.cdtIdx? "#47bbf755": "#00000000", cursor: 'pointer'}}
                     onClick={this.genCdtDispClicked(idx).bind(this)}
+                    
                 ><Stage key={`${idx}-stage`}
                     width={window.innerWidth / 4.0} 
-                    height={window.innerHeight / 4.0}>
+                    height={window.innerHeight / 4.0}
+                    listening={true}
+                    onTap={this.genCdtDispClickedKonva(idx).bind(this)}>
                     <Layer>
                         <Group>
                             {this.genShapes(cdt[1], cdt[2])}
@@ -478,6 +586,12 @@ class App extends Component {
         this.traces.push(crtTrace);
     }
 
+    handleTouchDown(event: Konva.KonvaEventObject<TouchEvent>) {
+        this.isDown = true;
+        let crtTrace: Array<[number, number]> = [[event.evt.touches[event.evt.touches.length-1].clientX, event.evt.touches[event.evt.touches.length-1].clientY]];
+        this.traces.push(crtTrace);
+    }
+
     handlePointerMove(event: Konva.KonvaEventObject<MouseEvent>) {
         if (!this.isDown) {
             return;
@@ -487,6 +601,17 @@ class App extends Component {
             return;
         }
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
+    }
+
+    handleTouchMove(event: Konva.KonvaEventObject<TouchEvent>) {
+        if (!this.isDown) {
+            return;
+        }
+        let crtTrace = this.traces[this.traces.length - 1];
+        if (crtTrace == null) {
+            return;
+        }
+        crtTrace.push([event.evt.touches[event.evt.touches.length-1].clientX, event.evt.touches[event.evt.touches.length-1].clientY]);
     }
 
     handlePointerUp(event: Konva.KonvaEventObject<MouseEvent>) {
@@ -500,17 +625,27 @@ class App extends Component {
         this.forceUpdate()
     }
 
-    async applyCmd() {
+    handleTouchUp(event: Konva.KonvaEventObject<TouchEvent>) {
+        if (!this.isDown) {
+            return;
+        }
+        // let crtTrace = this.traces[this.traces.length - 1];
+        // crtTrace.push([event.evt.touches[event.evt.touches.length-1].clientX, event.evt.touches[event.evt.touches.length-1].clientY]);
+        this.isDown = false;
+        // console.log(crtTrace)
+        this.forceUpdate()
+    }
+
+     applyCmd() {
         let traceEleRelationStr = this.traceRelationRef.current!.value;
         let elemRelStr = this.elemRelationRef.current!.value;
         let unchangedStr = this.forceUnchangedRef.current!.value;
         let inferChangeStr = this.inferChangedRef.current!.value;
         let eleRangeStr = this.elemRangeRef.current!.value;
-        await this.allComponentsRef.current!.
+        this.allComponentsRef.current!.
             controller.handleUserCommand(
                 this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr
             );
-
         this.traces = [];
         this.forceUpdate();
     }
@@ -520,31 +655,39 @@ class App extends Component {
             this.allComponentsRef.current?.setState({
                 selectedItemId: -1
             })
-            this.helpGUIRef.current?.setState({
-                selectedItemId: -1
-            })
+            // this.helpGUIRef.current?.setState({
+            //     selectedItemId: -1
+            // })
+            this.helpGUIRef.current?.updateSelectedItem(-1)
             return;
         }
         this.allComponentsRef.current?.setState({
             selectedItemId: Number(e.target.attrs['idInController'])
         })
-        this.helpGUIRef.current?.setState({
-            selectedItemId: Number(e.target.attrs['idInController'])
-        })
+        // this.helpGUIRef.current?.setState({
+        //     selectedItemId: Number(e.target.attrs['idInController'])
+        // })
+        this.helpGUIRef.current?.updateSelectedItem(Number(e.target.attrs['idInController']))
         return;
     }
 
     render() {
         return (
-            <div style={{display: 'flex', flexDirection: 'row'}}>
+            <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
                 <div style={{flex: '3', backgroundColor: '#f0f0f0'}}>
-                    <Stage width={window.innerWidth / 4.0 * 3.0} height={window.innerHeight - 200}
+                    <Stage width={window.innerWidth / 4.0 * 3.0} 
+                        height={window.innerHeight - 200}
                         onMouseDown={this.handlePointerDown.bind(this)}
                         onMouseMove={this.handlePointerMove.bind(this)}
                         onMouseUp={this.handlePointerUp.bind(this)}
+
+                        onTouchStart={this.handleTouchDown.bind(this)}
+                        onTouchMove={this.handleTouchMove.bind(this)}
+                        onTouchEnd={this.handleTouchUp.bind(this)}
+
                         listening={true}
                         onClick={this.handleCanvasClicked.bind(this)}
-                        
+                        onTap={this.handleCanvasClicked.bind(this)}
                     >
                         <Layer >
                             <AllComponents ref={this.allComponentsRef}></AllComponents>
