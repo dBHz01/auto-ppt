@@ -78,6 +78,9 @@ function loadFile(controller: Controller, fileInput: any) {
                         case "RECTANGLE":
                             elementType = ElementType.RECTANGLE;
                             break;
+                        case "CIRCLE":
+                            elementType = ElementType.CIRCLE;
+                            break;
 
                         case "ARROW":
                             elementType = ElementType.ARROW;
@@ -101,10 +104,12 @@ function loadFile(controller: Controller, fileInput: any) {
                         default:
                             // add attributes to the new element
                             // accept number value now
-                            if (typeof (key) == "string" && typeof (value) == "number") {
+                            if (typeof (key) == "string" && (typeof (value) == "number"
+                                || typeof (value) == "boolean"
+                            )) {
                                 if (key === "x" || key === "y") {
                                     // 对于 x, y 坐标，可计算
-                                    controller.addAttribute(id, key, new RawNumber(value));
+                                    controller.addAttribute(id, key, new RawNumber(Number(value)));
                                 } else {
                                     // 其余不可计算
                                     controller.addAttribute(id, key, new RawNumberNoCal(value));
@@ -112,6 +117,9 @@ function loadFile(controller: Controller, fileInput: any) {
                             } else if (typeof (key) == "string" && typeof (value) == "string") {
                                 if (key === "text") {
                                     // 仅接受 text 为 string
+                                    controller.addAttribute(id, key, new RawText(value));
+                                }
+                                if(key === "color") {
                                     controller.addAttribute(id, key, new RawText(value));
                                 }
                             }

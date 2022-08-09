@@ -61,7 +61,7 @@ function floatLe(f1: number, f2: number){
 }
 
 function randomID(){
-    return Math.random().toString(36).slice(2);
+    return 'rand' + Math.random().toString(36).slice(2);
 }
 
 function range(start:number, end:number) {
@@ -376,7 +376,14 @@ function countTimeFinish(name: string){
     return [timeList.length, mean(timeList)];
 }
 
+function getOrDefault<T1, T2>(mp: Map<T1, T2>, key: T1, dft: T2){
+    if(mp.has(key)){
+        return mp.get(key);
+    }
+    return dft;
+}
+
 export {getAllCase, count, getTs, floatEq, 
     randomID, reduceRowJs, listEq, floatGe, 
     floatLe, floatGt, floatLt, uniquifyList, 
-    beamSolve, countTimeStart, countTimeEnd, countTimeFinish}
+    beamSolve, countTimeStart, countTimeEnd, countTimeFinish, getOrDefault}

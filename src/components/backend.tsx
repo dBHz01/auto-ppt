@@ -1,5 +1,7 @@
+import { typeList } from 'antd/lib/message';
 import axios from 'axios';
 import { abs, e, max, min, sqrt } from 'mathjs';
+import { ControllerCloner } from './ControllerCloner';
 import {loadFile, parseNewEquation} from './load_file'
 import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList, beamSolve, countTimeStart, countTimeEnd, countTimeFinish} from './utility'
 const IP = '192.168.3.125'
@@ -89,6 +91,7 @@ function OPLevel(op: Operator): number {
 interface Value {
     val: any;
     calculate(op: Operator, other: Value): Value;
+    clone(): Value;
 }
 
 function assert(cond: boolean){
@@ -101,6 +104,9 @@ class RawNumber implements Value {
     val: number;
     constructor(_val: number) {
         this.val = _val;
+    }
+    clone(): Value {
+        return new RawNumber(this.val);
     }
     calculate(op: Operator, other: Value): Value {
         switch (op) {
@@ -135,6 +141,9 @@ class RawText implements Value {
     constructor(_val: string) {
         this.val = _val;
     }
+    clone(): Value {
+        return new RawText(this.val);
+    }
     calculate(op: Operator, other: Value): Value {
         switch (op) {
             case Operator.PLUS:
@@ -147,9 +156,12 @@ class RawText implements Value {
 }
 
 class RawNumberNoCal implements Value {
-    val: number;
-    constructor(_val: number) {
+    val: any;
+    constructor(_val: any) {
         this.val = _val;
+    }
+    clone(): Value {
+        return new RawNumberNoCal(this.val);
     }
     calculate(op: Operator, other: Value): Value {
         throw Error("can not calculate")
@@ -177,15 +189,17 @@ enum ElementType {
     CONST, // can not be edited, like two
     BASE, // can be edited, like alpha
     RECTANGLE,
+    CIRCLE,
     ARROW,
     TMP
 }
 
 let eleTypeToStr = new Map();
 eleTypeToStr.set(ElementType.RECTANGLE, 'RECTANGLE')
+eleTypeToStr.set(ElementType.CIRCLE, 'CIRCLE')
 eleTypeToStr.set(ElementType.ARROW, 'ARROW')
 
-const displayElementTypes = [ElementType.RECTANGLE];
+const displayElementTypes = [ElementType.RECTANGLE, ElementType.CIRCLE];
 
 class SingleElement {
     id: number;
@@ -216,6 +230,14 @@ class SingleElement {
     getAttribute(name:string):Attribute|undefined{
         return this.attributes.get(name);
     }
+
+    getAttrVal(name: string, dft: any){
+        if(this.attributes.has(name)){
+            return this.attributes.get(name)?.val.val;
+        }
+        return dft;
+    }
+    
     getCertainAttribute(name:string): Attribute {
         let ans = this.attributes.get(name);
         if (ans) {
@@ -224,8 +246,24 @@ class SingleElement {
             throw Error("attr not exist");
         }
     }
+    
     changeCertainAttribute<T>(name: string, val: T) {
-        this.getAttribute(name)!.val.val = val;
+        if(!this.attributes.has(name)){
+            this.addAttribute(new Attribute(
+                name, new RawNumberNoCal(val), this
+            ))
+        } else {
+            this.getAttribute(name)!.val.val = val;
+        }
+
+        if(Controller.getInstance().attrNameToDefault.has(name)){
+            Controller.getInstance().attrNameToDefault.set(name, val);
+        }
+    }
+
+    changeElementType(type: ElementType){
+        this.type = type;
+        Controller.getInstance().attrNameToDefault.set('elementType', type);
     }
 
     getAttrOrDefault(name:string, dft: Attribute | null):Attribute|null{
@@ -254,7 +292,7 @@ class SingleElement {
         // 从上顺时针8个方向
         switch (this.type) {
             case ElementType.RECTANGLE:
-                let corners: Array<[number, number]> = new Array<[number, number]>();
+                {let corners: Array<[number, number]> = new Array<[number, number]>();
                 let x = this.getAttribute("x")!.val.val;
                 let y = this.getAttribute("y")!.val.val;
                 let w = this.getAttribute("w")!.val.val;
@@ -267,7 +305,22 @@ class SingleElement {
                 corners.push([x - w / 2, y + h / 2]);
                 corners.push([x - w / 2, y]);
                 corners.push([x - w / 2, y - h / 2]);
-                return corners;
+                return corners;}
+            case ElementType.CIRCLE:
+                {let corners: Array<[number, number]> = new Array<[number, number]>();
+                let x = this.getAttribute("x")!.val.val;
+                let y = this.getAttribute("y")!.val.val;
+                let w = this.getAttribute("w")!.val.val;
+                let h = this.getAttribute("h")!.val.val;
+                corners.push([x, y - h / 2]);
+                corners.push([x + w / 2 / sqrt(2), y - h / 2/ sqrt(2)]);
+                corners.push([x + w / 2, y]);
+                corners.push([x + w / 2/ sqrt(2), y + h / 2/ sqrt(2)]);
+                corners.push([x, y + h / 2]);
+                corners.push([x - w / 2/ sqrt(2), y + h / 2/ sqrt(2)]);
+                corners.push([x - w / 2, y]);
+                corners.push([x - w / 2/ sqrt(2), y - h / 2/ sqrt(2)]);
+                return corners;}
         
             default:
                 throw Error("error type");
@@ -857,15 +910,18 @@ class Controller {
     constElement: SingleElement;
     baseElement: SingleElement;
 
-    constDisAttr: Attribute;
+    // constDisAttr: Attribute;
 
     eventLisnter: Map<string, ((...arg0: any[])=>void)[]>;
 
     static instance?: Controller = undefined;
-    static FILEINPUT = require("./content.json");
+    static FILEINPUT = require("./content_cube.json");
     static TYPE_SWITCH_CDT_IDX = 'TYPE_SWITCH_CDT_IDX';
+    static clonerStack: ControllerCloner[] = [];
+    static crtPointer: number = -1;
 
     nextPosCdtCache?: [number, number, number][];
+    attrNameToDefault: Map<string, any>;
 
     static getInstance(): Controller{
         if(Controller.instance != undefined){
@@ -873,11 +929,64 @@ class Controller {
         }
 
         Controller.instance = new Controller();
+        Controller.saveToStack()
         loadFile(Controller.instance!, Controller.FILEINPUT);
+        Controller.saveToStack()
+        
         return Controller.instance!;
     }
 
+    static saveIfSuccess(func:()=>boolean){        
+        let res = func();
+        if(res){
+            Controller.saveToStack()
+        }
+    }
+
+    static saveToStack(){
+        Controller.clonerStack = Controller.clonerStack.slice(0, Controller.crtPointer + 1)
+        assert(Controller.crtPointer + 1 === Controller.clonerStack.length)
+        Controller.clonerStack.push(new ControllerCloner(Controller.instance!));
+        Controller.crtPointer += 1;
+    }
+
+    static canUndo(): boolean{
+        return Controller.crtPointer > 0;
+    }
+
+    static undo(): boolean {
+        if(Controller.crtPointer <= 0){
+            return false;
+        }
+        Controller.crtPointer -= 1;
+        Controller.clonerStack[Controller.crtPointer].assign();
+        return true;
+    }
+
+    static canRedo(): boolean{
+        return Controller.crtPointer < Controller.clonerStack.length - 1;
+    }
+
+    static redo(): boolean{
+        if(!Controller.canRedo){
+            return false;
+        }
+        Controller.crtPointer += 1;
+        Controller.clonerStack[Controller.crtPointer].assign();
+        return true;
+    }
+
     constructor() {
+        this.attrNameToDefault = new Map();
+        this.attrNameToDefault.set('w', 10)
+        this.attrNameToDefault.set('h', 10)
+        this.attrNameToDefault.set('pointerAtBeginning', false)
+        this.attrNameToDefault.set('pointerAtEnding', true)
+        this.attrNameToDefault.set('dashEnabled', false)
+        this.attrNameToDefault.set('color', 'grey')
+        this.attrNameToDefault.set('lightness', 900)
+        this.attrNameToDefault.set('elementType', ElementType.CIRCLE)
+
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
         this.constElement = new SingleElement(-2, ElementType.CONST, "const");
@@ -887,7 +996,7 @@ class Controller {
         this.idAllocator = 1;
         this.constAllocator = 0;
         this.addAttribute(0, 'const_dis', new RawNumber(PREDEFINE_DIS));
-        this.constDisAttr = this.getAttribute(0, 'const_dis');
+        // this.constDisAttr = this.getAttribute(0, 'const_dis');
 
         this.candidates = [];
         this.crtCdtIdx = -1
@@ -898,6 +1007,10 @@ class Controller {
         this.eventLisnter = new Map();
 
         this.nextPosCdtCache = undefined;
+    }
+
+    getConstDisAttr(){
+        return this.getAttribute(0, 'const_dis');
     }
 
     getAttributeByStr(s:string): Attribute{
@@ -919,10 +1032,15 @@ class Controller {
         if (displayElementTypes.indexOf(_type) >= 0){
             newElement.addAttribute(new Attribute("x", new RawNumber(100), newElement));
             newElement.addAttribute(new Attribute("y", new RawNumber(100), newElement));
-            newElement.addAttribute(new Attribute("w", new RawNumberNoCal(50), newElement));
-            newElement.addAttribute(new Attribute("h", new RawNumberNoCal(50), newElement));
-            newElement.addAttribute(new Attribute("color", new RawText("red"), newElement));
-            newElement.addAttribute(new Attribute("lightness", new RawNumberNoCal(400), newElement));
+            newElement.addAttribute(new Attribute("w", new RawNumberNoCal(this.attrNameToDefault.get('w')), newElement));
+            newElement.addAttribute(new Attribute("h", new RawNumberNoCal(this.attrNameToDefault.get('h')), newElement));
+            newElement.addAttribute(new Attribute("color", new RawText(this.attrNameToDefault.get('color')), newElement));
+            newElement.addAttribute(new Attribute("lightness", new RawNumberNoCal(this.attrNameToDefault.get('lightness')), newElement));
+        }
+        if(_type === ElementType.ARROW){
+            newElement.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtBeginning')), newElement));
+            newElement.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtEnding')), newElement));
+            newElement.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.attrNameToDefault.get('dashEnabled')), newElement));
         }
         this.idAllocator++;
         this.elements.set(this.idAllocator - 1, newElement);
@@ -946,6 +1064,9 @@ class Controller {
     addAttribute(_id: number, _name: string, _val: Value) {
         let newAttribute = new Attribute(_name, _val, this.elements.get(_id)!);
         this.elements.get(_id)!.addAttribute(newAttribute);
+        if(this.attrNameToDefault.has(_name)){
+            this.attrNameToDefault.set(_name, _val.val);
+        }
     }
 
     getAttribute(_id: number, _name: string): Attribute {
@@ -963,6 +1084,9 @@ class Controller {
         let newArrow = this.getElement(this.createElement(ElementType.ARROW, `arrow-${fromElement.name}-${toElement.name}`));
         newArrow.addAttribute(new Attribute("startElement", new RawNumberNoCal(_from), newArrow));
         newArrow.addAttribute(new Attribute("endElement", new RawNumberNoCal(_to), newArrow));
+        newArrow.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtBeginning')), newArrow));
+        newArrow.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtEnding')), newArrow));
+        newArrow.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.attrNameToDefault.get('dashEnabled')), newArrow));
         if (_text) {
             newArrow.addAttribute(new Attribute("text", new RawText(_text), newArrow));
         }
@@ -1135,7 +1259,7 @@ class Controller {
                 let minusRes = dependAttr.val.val - PREDEFINE_DIS;
                 if(minusRes > 0 && minusRes < crtMin){
                     let minusEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleMinus(), 
-                        [tgtAttr], [dependAttr, this.constDisAttr]);
+                        [tgtAttr], [dependAttr, this.getConstDisAttr()]);
                     let minusCdt = new PostResultCandidate(minusEq, minusEq, tgtAttr, EstimateType.CONST_DIS);
                     minusCdt.val = minusRes;
                     genRes.push(minusCdt);
@@ -1144,7 +1268,7 @@ class Controller {
                 let plusRes = dependAttr.val.val + PREDEFINE_DIS;
                 if(plusRes > crtMax){
                     let plusEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleAdd(), 
-                        [tgtAttr], [dependAttr, this.constDisAttr]);
+                        [tgtAttr], [dependAttr, this.getConstDisAttr()]);
                     let plusCdt = new PostResultCandidate(plusEq, plusEq, tgtAttr, EstimateType.CONST_DIS);
                     plusCdt.val = plusRes;
                     genRes.push(plusCdt);
@@ -1692,6 +1816,7 @@ class Controller {
         this.crtCdtIdx = 0;
         // 更新基础的取值
         this.update_attr()
+        return true;
         // todo: 对整体的取值进行更新
     }
 
@@ -1733,7 +1858,7 @@ class Controller {
         }
         
         // 检查现在的baseAttr中不再在equation中使用的；并将其删除
-        let usedBaseAttrNames: Set<string> = new Set([this.constDisAttr.name]);
+        let usedBaseAttrNames: Set<string> = new Set([this.getConstDisAttr().name]);
         this.equations.forEach((eq)=>{
             [... eq.leftArgs, ...eq.rightArgs].forEach((attr)=>{
                 if(attr.element === this.baseElement){
@@ -1793,19 +1918,17 @@ class Controller {
         newEleRel: string,
         newEleRange: string,
         forceUnchangeStr:string,
-        inferChangeStr:string){
+        inferChangeStr:string): boolean{
+        
         if(traceEleRelation.includes('new') 
             || newEleRel.includes('new')
             || newEleRange.includes('new') || 
             (traceEleRelation.length + newEleRel.length + newEleRange.length === 0 )){
-            this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
-            return;
+            return this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
         }
 
-        this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
+        return this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
             newEleRange, trace, traceEleRelation);
-
-
     }
 
     isValid(attrList: Attribute[], attrValues:  number[]){
@@ -1869,11 +1992,11 @@ class Controller {
 
     handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
         traceEleRelation: string, newEleEq: string,
-        newEleRange:string){
+        newEleRange:string): boolean{
 
         let traces = RawTraces.map(rt=>new Trace(rt));
 
-        let nextElementId = this.createElement(ElementType.RECTANGLE);
+        let nextElementId = this.createElement(this.attrNameToDefault.get('elementType')); // 后续接受更多内容
         this.addAttribute(nextElementId, 'x', new RawNumber(-1));
         this.addAttribute(nextElementId, 'y', new RawNumber(-1));
         
@@ -2084,6 +2207,11 @@ class Controller {
             }
             return 1;
         })
+        
+        if(combCandidate.length === 0){
+            alert('无法创建，请检查给出的指令是否合理')
+            return false;
+        }
 
         // this.attrList = combCandidate[0][0];
         // this.candidateValues = combCandidate.map(x=>x[1]);
@@ -2103,6 +2231,8 @@ class Controller {
         // 更新基础的取值
         this.update_attr()
         // todo: 对整体的取值进行更新
+
+        return true;
     }
 
     calAttrRangeDistance(range: Equation, attrList: Attribute[], 
@@ -2170,7 +2300,7 @@ class Controller {
         inferChangeStr: string, 
         newEleRange: string, 
         RawTraces: Array<Array<[number, number]>>, 
-        traceEleRelation: string){
+        traceEleRelation: string): boolean{
         
         let traces = RawTraces.map(rt=>new Trace(rt));
         let unchangedAttr: Attribute[] = [];
@@ -2267,7 +2397,8 @@ class Controller {
 
 
         if(newEqInExpr.length === 0 && newRangeInExpr.length === 0 && traceRelations.length === 0){
-            return;
+            alert('没有识别出任何操作意图')
+            return false;
         }
 
         // 检查：所有的inferChanges都有对应的newEleEq；筛选出那些没有对应的
@@ -2445,11 +2576,14 @@ class Controller {
             if(newEleRange.length > 0){
                 let newRangeStr = newEleRange.replaceAll(/[><]/g, '=').replaceAll('==', '=')
                 let newEqStr = `${newEleEq};${newRangeStr}`;
-                this.handleUserModify(newEqStr, forceUnchangeStr, inferChangeStr, "", RawTraces, traceEleRelation);
+                return this.handleUserModify(newEqStr, forceUnchangeStr, inferChangeStr, "", RawTraces, traceEleRelation);
             } else {
                 alert('没有计算出给出指令的合适结果！请检查')
+                return false;
             }
         }
+
+        return true;
     }
 
     recommandNext(){

@@ -1,1 +1,126 @@
-[{"type":"element","name":"1","elementType":"RECTANGLE","x":400.9999999994839,"y":300.00000000332136,"w":50,"h":50,"color":"red","lightness":400},{"type":"element","name":"2","elementType":"RECTANGLE","x":235.00000002785407,"y":300.000000003747,"w":50,"h":50,"color":"red","lightness":400},{"type":"element","name":"3","elementType":"RECTANGLE","x":318.0000000136847,"y":217.00000001784457,"w":50,"h":50,"color":"red","lightness":400},{"type":"element","name":"4","elementType":"RECTANGLE","x":235.00000002778245,"y":134.0000000320142,"w":50,"h":50,"color":"red","lightness":400},{"type":"element","name":"arrow-4-2","elementType":"ARROW","startElement":4,"endElement":2,"text":"124"},{"type":"attribute","name":"const_dis","element":0,"val":165.9999999716127},{"type":"attribute","name":"hvoq4prgmqu","element":0,"val":400.999999999479},{"type":"attribute","name":"iddegkaooqj","element":0,"val":300.00000000356926},{"type":"equation","equation":"x_1  =hvoq4prgmqu_0  "},{"type":"equation","equation":"y_1  =iddegkaooqj_0  "},{"type":"equation","equation":"x_2  =x_1 - const_dis_0"},{"type":"equation","equation":"y_2  =iddegkaooqj_0  "},{"type":"equation","equation":"x_3 - x_2=x_1 - x_3"},{"type":"equation","equation":"y_3 - y_2=x_2 - x_3"},{"type":"equation","equation":"y_2 - y_3=x_3 - x_4"},{"type":"equation","equation":"y_3 - y_4=x_3 - x_2"}]
+[
+    {
+        "type": "element",
+        "name": "1",
+        "elementType": "RECTANGLE",
+        "x": 400.9999999995288,
+        "y": 300.00000000373916,
+        "w": 50,
+        "h": 50,
+        "color": "red",
+        "lightness": 400
+    },
+    {
+        "type": "element",
+        "name": "2",
+        "elementType": "RECTANGLE",
+        "x": 235.0000000279718,
+        "y": 300.00000000330414,
+        "w": 50,
+        "h": 50,
+        "color": "red",
+        "lightness": 400
+    },
+    {
+        "type": "element",
+        "name": "3",
+        "elementType": "RECTANGLE",
+        "x": 318.0000000135931,
+        "y": 217.00000001773697,
+        "w": 50,
+        "h": 50,
+        "color": "red",
+        "lightness": 400
+    },
+    {
+        "type": "element",
+        "name": "4",
+        "elementType": "RECTANGLE",
+        "x": 235.00000002789082,
+        "y": 134.00000003200415,
+        "w": 50,
+        "h": 50,
+        "color": "red",
+        "lightness": 400
+    },
+    {
+        "type": "element",
+        "name": "arrow-4-2",
+        "elementType": "ARROW",
+        "startElement": 4,
+        "endElement": 2,
+        "text": "124",
+        "pointerAtEnding": true,
+        "pointerAtBeginning": true,
+        "dashEnabled": true
+    },
+    {
+        "type": "element",
+        "name": "6",
+        "elementType": "RECTANGLE",
+        "x": 152.0000000421579,
+        "y": 217.0000000177065,
+        "w": 50,
+        "h": 50,
+        "color": "red",
+        "lightness": 400
+    },
+    {
+        "type": "attribute",
+        "name": "const_dis",
+        "element": 0,
+        "val": 165.9999999715853
+    },
+    {
+        "type": "attribute",
+        "name": "hvoq4prgmqu",
+        "element": 0,
+        "val": 400.99999999936017
+    },
+    {
+        "type": "attribute",
+        "name": "iddegkaooqj",
+        "element": 0,
+        "val": 300.00000000358773
+    },
+    {
+        "type": "equation",
+        "equation": "x_1  =hvoq4prgmqu_0  "
+    },
+    {
+        "type": "equation",
+        "equation": "y_1  =iddegkaooqj_0  "
+    },
+    {
+        "type": "equation",
+        "equation": "x_2  =x_1 - const_dis_0"
+    },
+    {
+        "type": "equation",
+        "equation": "y_2  =iddegkaooqj_0  "
+    },
+    {
+        "type": "equation",
+        "equation": "x_3 - x_2=x_1 - x_3"
+    },
+    {
+        "type": "equation",
+        "equation": "y_3 - y_2=x_2 - x_3"
+    },
+    {
+        "type": "equation",
+        "equation": "y_2 - y_3=x_3 - x_4"
+    },
+    {
+        "type": "equation",
+        "equation": "y_3 - y_4=x_3 - x_2"
+    },
+    {
+        "type": "equation",
+        "equation": "y_3 - y_4=x_4 - x_6"
+    },
+    {
+        "type": "equation",
+        "equation": "y_4 - y_6=x_4 - x_3"
+    }
+]

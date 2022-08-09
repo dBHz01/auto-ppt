@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag } from "react-konva";
+import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse} from "react-konva";
 import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, SingleElement } from './components/backend';
@@ -9,6 +9,7 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
+import { getOrDefault } from './components/utility';
 
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
@@ -18,6 +19,7 @@ function delay(ms: number) {
     let crt = Date.now();
     while (Date.now() - crt < ms) { }
 }
+
 
 class AllComponents extends React.Component {
     controller: Controller;
@@ -78,15 +80,25 @@ class AllComponents extends React.Component {
             console.log(evt)
             console.log(ele)
 
-            let newX = evt.target.attrs['x'] + evt.target.attrs['width'] / 2;
-            let newY = evt.target.attrs['y'] + evt.target.attrs['height'] / 2;
+            let newX = evt.target.attrs['x']
+            let newY = evt.target.attrs['y']
+            if(ele.type === ElementType.RECTANGLE){
+                newX += evt.target.attrs['width'] / 2;
+                newY += evt.target.attrs['height'] / 2;
+            }
 
             let newAttrs: Map<Attribute, number> = new Map();
 
             newAttrs.set(ele.getAttribute('x')!, newX);
             newAttrs.set(ele.getAttribute('y')!, newY);
-             this.controller.update_contents(newAttrs, [], [], []);
-            this.forceUpdate()
+            Controller.saveIfSuccess(()=>{
+                let res = this.controller.update_contents(newAttrs, [], [], []);
+                if(res){
+                    this.forceUpdate()
+                }
+                return res;
+            })
+            
         }
     }
 
@@ -104,6 +116,7 @@ class AllComponents extends React.Component {
             let idx = it[0];
             switch (i.type) {
                 case ElementType.RECTANGLE:
+                case ElementType.CIRCLE:
                     let x_val = i.attributes.get("x")?.val.val;
                     let y_val = i.attributes.get("y")?.val.val;
                     let w_val = i.attributes.get("w")?.val.val;
@@ -111,20 +124,48 @@ class AllComponents extends React.Component {
                     let text = i.attributes.get("text")?.val.val;
                     let color = i.getCertainAttribute("color").val.val + "-" + i.getCertainAttribute("lightness").val.val.toString()
                     if (x_val && y_val && w_val && h_val) {
-                        elements.push(
-                            <Rect
-                                x={x_val - w_val / 2}
-                                y={y_val - h_val / 2}
-                                width={w_val}
-                                height={h_val}
-                                fill={ALLCOLORS[color]}
-                                shadowBlur={this.state.selectedItemId === idx? 15:0}
-                                key={i.id}
-                                draggable={true}
-                                onDragEnd={this.create_drag_end_handler(i).bind(this)}
-                                idInController={`${idx}`}
-                            />
-                        );
+                        if(i.type === ElementType.RECTANGLE){
+                            x_val -= w_val / 2;
+                            y_val -= h_val / 2
+                        }
+                        if(i.type === ElementType.CIRCLE){
+                            w_val /= 2;
+                            h_val /= 2;
+                        }
+                        if(i.type === ElementType.RECTANGLE){
+                            elements.push(
+                                <Rect
+                                    x={x_val}
+                                    y={y_val}
+                                    width={w_val}
+                                    height={h_val}
+                                    fill={ALLCOLORS[color]}
+                                    shadowBlur={this.state.selectedItemId === idx? 15:0}
+                                    key={i.id}
+                                    draggable={true}
+                                    onDragEnd={this.create_drag_end_handler(i).bind(this)}
+                                    idInController={`${idx}`}
+                                    strokeWidth={0}
+                                />
+                            );
+                        } else if(i.type === ElementType.CIRCLE){
+                            elements.push(
+                                <Ellipse
+                                    x={x_val}
+                                    y={y_val}
+                                    radiusX={w_val}
+                                    radiusY={h_val}
+                                    fill={ALLCOLORS[color]}
+                                    shadowBlur={this.state.selectedItemId === idx? 15:0}
+                                    key={i.id}
+                                    draggable={true}
+                                    onDragEnd={this.create_drag_end_handler(i).bind(this)}
+                                    idInController={`${idx}`}
+                                    strokeWidth={0}
+                                />
+                            );
+                        }
+                        
                         if(this.state.showDebug){
                             elements.push(<Text
                                 x={x_val}
@@ -186,6 +227,11 @@ class AllComponents extends React.Component {
                     let height = endCorners[endCornerIndex][1] - startCorners[startCornerIndex][1];
                     let padding = abs(height) < 1e-4 ? 5 : 0; // 水平状态下箭头文字需要轻微下移
                     let slightHeight = 3; // 矩形框需要上移一定高度
+
+                    let pointerAtBeginning = i.getAttrVal('pointerAtBeginning', this.controller.attrNameToDefault.get('pointerAtBeginning'));
+                    let pointerAtEnding = i.getAttrVal('pointerAtEnding', this.controller.attrNameToDefault.get('pointerAtEnding'));
+                    let dashEnabled = i.getAttrVal('dashEnabled', this.controller.attrNameToDefault.get('dashEnabled'));
+
                     elements.push(<Arrow
                         x={startCorners[startCornerIndex][0]}
                         y={startCorners[startCornerIndex][1]}
@@ -196,7 +242,13 @@ class AllComponents extends React.Component {
                         stroke={this.state.selectedItemId === idx? 'red': 'black'}
                         strokeWidth={3}
                         key={i.id}
-                        idInController={`${idx}`}/>);
+                        idInController={`${idx}`}
+                        pointerAtBeginning={pointerAtBeginning}
+                        pointerAtEnding={pointerAtEnding}
+                        dashEnabled={dashEnabled}
+                        dash={[3, 3]}
+                        
+                        />);
                     let arrowText = i.getAttribute("text");
                     if (arrowText && arrowText.val.val.length > 0) {
                         // elements.push(<Rect
@@ -361,8 +413,11 @@ class HelperGUI extends React.Component {
 
     genCdtDispClicked(idx:number){
         return ()=>{
-            this.controller.crtCdtIdx = idx;
-            this.controller.update_attr();
+            Controller.saveIfSuccess(()=>{
+                this.controller.crtCdtIdx = idx;
+                this.controller.update_attr();
+                return true;
+            })
         }
     }
 
@@ -379,6 +434,16 @@ class HelperGUI extends React.Component {
 
     handleShowDebugInfoClicked(e: React.ChangeEvent<HTMLInputElement>){
         App.instance.allComponentsRef.current?.updateDebug(e.target.checked);
+    }
+
+    genPointerClicked(start: boolean){
+        let attrName = start? 'pointerAtBeginning': 'pointerAtEnding'
+        return (e: React.ChangeEvent<HTMLInputElement>)=>{
+            this.controller.getElement(this.state.selectedItemId)
+                .changeCertainAttribute<boolean>(attrName, e.target.checked);
+            App.instance.allComponentsRef.current?.forceUpdate();
+            this.updateSelectedItem();
+        }
     }
 
     genHandleTagSelected(selected: string){
@@ -446,6 +511,11 @@ class HelperGUI extends React.Component {
         document.body.removeChild(eleLink);
     }
 
+    clearTrace(){
+        App.instance.traces = [];
+        App.instance.forceUpdate()
+    }
+
     renderTools(){
         if(this.state.selectedTag !== HelperGUI.TAG_DISP_SET){
             return null;
@@ -455,6 +525,19 @@ class HelperGUI extends React.Component {
         return <div>
             <div>
                 <button onClick={this.downloadContent.bind(this)}>点击下载</button>
+                <button onClick={this.clearTrace.bind(this)}>清空路径</button>
+            </div>
+            <div>
+                <button onClick={()=>{
+                    Controller.undo();
+                    this.updateSelectedItem(-1)
+                    App.instance.forceUpdate(); // 全局刷新
+                }} disabled={!Controller.canUndo()}>撤销 {'<-'}</button>
+                <button onClick={()=>{
+                    Controller.redo();
+                    this.updateSelectedItem(-1)
+                    App.instance.forceUpdate(); // 全局刷新
+                }} disabled={!Controller.canRedo()}>重做 {'->'}</button>
             </div>
             <div>
                 <span style={{verticalAlign: '-webkit-baseline-middle'}}>显示后续位置？</span>
@@ -479,7 +562,6 @@ class HelperGUI extends React.Component {
                 </label>
             </div>
             {this.state.selectedItemId >= 0? <div>
-                
                 <div>
                     <input ref={this.editTextRef} type="text" 
                         defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
@@ -527,6 +609,51 @@ class HelperGUI extends React.Component {
                         </div>
                 
                 </div>}
+
+                {selectedItem!.type === ElementType.ARROW?<div>
+                    <div>
+                        <span style={{verticalAlign: '-webkit-baseline-middle'}}>起点箭头？</span>
+                        <label className="switch">
+                            <input 
+                                onChange={this.genPointerClicked(true).bind(this)}
+                                type="checkbox"
+                                defaultChecked={
+                                    getOrDefault(this.state.itemAttrObj, 'pointerAtBeginning', this.controller.attrNameToDefault.get('pointerAtBeginning'))}
+                                />
+                            <span className="slider round"></span>
+                        </label>
+                    </div>
+                    <div>
+                        <span style={{verticalAlign: '-webkit-baseline-middle'}}>终点箭头？</span>
+                        <label className="switch">
+                            <input 
+                                onChange={this.genPointerClicked(false).bind(this)}
+                                type="checkbox"
+                                defaultChecked={
+                                    getOrDefault(this.state.itemAttrObj, 'pointerAtEnding', this.controller.attrNameToDefault.get('pointerAtEnding'))}
+                                />
+                            <span className="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <span style={{verticalAlign: '-webkit-baseline-middle'}}>虚线？</span>
+                        <label className="switch">
+                            <input 
+                                onChange={(e)=>{
+                                    this.controller.getElement(this.state.selectedItemId)
+                                        .changeCertainAttribute('dashEnabled', e.target.checked)
+                                    this.updateSelectedItem()
+                                    App.instance.allComponentsRef.current?.forceUpdate()
+                                }}
+                                type="checkbox"
+                                defaultChecked={
+                                    getOrDefault(this.state.itemAttrObj, 'dashEnabled', this.controller.attrNameToDefault.get('dashEnabled'))}
+                                />
+                            <span className="slider round"></span>
+                        </label>
+                    </div>
+                </div>: null}
 
             </div>:
                 <div>选中界面元素以进行更加深入设置</div>}
@@ -603,7 +730,11 @@ class App extends Component {
     }
 
     nextSolution() {
-        this.allComponentsRef.current?.controller.nextSolution()
+        Controller.saveIfSuccess(()=>{
+            this.allComponentsRef.current?.controller.nextSolution()
+            return true;
+        })
+        
         // this.forceUpdate();
     }
 
@@ -669,12 +800,24 @@ class App extends Component {
         let unchangedStr = this.forceUnchangedRef.current!.value;
         let inferChangeStr = this.inferChangedRef.current!.value;
         let eleRangeStr = this.elemRangeRef.current!.value;
-        this.allComponentsRef.current!.
-            controller.handleUserCommand(
-                this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr
-            );
-        this.traces = [];
-        this.forceUpdate();
+        
+        Controller.saveIfSuccess(()=>{
+            try{
+                let res = this.allComponentsRef.current!.controller.handleUserCommand(
+                    this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr
+                );
+                if(res){
+                    this.traces = [];
+                    this.forceUpdate();
+                }
+                return res;
+            } catch(error){
+                console.error(error);
+                alert('运行出错，请检查指令')
+                return false;
+            }
+            
+        })
     }
 
     handleCanvasClicked(e: KonvaEventObject<MouseEvent>){
@@ -748,8 +891,11 @@ class App extends Component {
                     <br/>
                     添加箭头：<input ref={this.addArrowRef} type='text'/>
                     <button onClick={()=>{
-                        this.allComponentsRef.current?.controller.addArrowByStr(this.addArrowRef.current!.value)
-                        this.allComponentsRef.current?.forceUpdate()
+                        Controller.saveIfSuccess(()=>{
+                            this.allComponentsRef.current?.controller.addArrowByStr(this.addArrowRef.current!.value);
+                            this.allComponentsRef.current?.forceUpdate()
+                            return true;
+                        })
                         }}>添加箭头</button>
                 </div>
                 <div style={{flex: '1'}}>
