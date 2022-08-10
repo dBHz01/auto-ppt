@@ -1,10 +1,9 @@
 import { typeList } from 'antd/lib/message';
 import axios from 'axios';
-import { abs, e, max, min, sqrt } from 'mathjs';
+import { abs, e, max, min, number, sqrt } from 'mathjs';
 import { ControllerCloner } from './ControllerCloner';
 import {loadFile, parseNewEquation} from './load_file'
 import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList, beamSolve, countTimeStart, countTimeEnd, countTimeFinish} from './utility'
-const IP = '192.168.3.125'
 
 enum Operator {
     PLUS,
@@ -796,14 +795,16 @@ class FuncTree {
 }
 
 enum EstimateType {
-    CONST_DIS,
-    SAME_DIS,
-    HISTORY_EQ
+    CONST_DIS, // 固定距离
+    SAME_DIS, // 等距
+    HISTORY_EQ, // 历史
+    VAL_EQ, // 对齐
 }
 const estType2Factor:Map<EstimateType, number> = new Map();
-estType2Factor.set(EstimateType.CONST_DIS, 8);
-estType2Factor.set(EstimateType.SAME_DIS, 4);
-estType2Factor.set(EstimateType.HISTORY_EQ, 0);
+estType2Factor.set(EstimateType.CONST_DIS, 4);
+estType2Factor.set(EstimateType.HISTORY_EQ, 2);
+estType2Factor.set(EstimateType.SAME_DIS, 1);
+estType2Factor.set(EstimateType.VAL_EQ, 0.5);
 
 
 const PREDEFINE_DIS = 15+50; // 预设的先验距离。
@@ -869,10 +870,36 @@ class PostResultCandidate {
         return factor * (deltaT + deltaRelT + dis);
     }
 
+    calValByNewEqOnly(con: Controller){
+        let attrList = con.get_all_attributes();
+        if(!attrList.includes(this.target)){
+            attrList.push(this.target);
+        }
+
+        let eqVec = this.newEq.convertToVector(attrList);
+        let sum = 0;
+        let tgtConf = 0;
+        attrList.forEach((attr, idx)=>{
+            if(attr === this.target){
+                tgtConf = eqVec[idx];
+            } else {
+                sum += (eqVec[idx] * attr.val.val);
+            }
+        })
+
+        assert(tgtConf !== 0)
+        return - sum / tgtConf;
+    }
+
     calValue(newEquation: Equation[], con: Controller):number{
         if(this.val >= 0){
             return this.val;
         }
+        if(newEquation.length === 0){
+            this.val = this.calValByNewEqOnly(con)
+            return this.val;
+        }
+
         let new_attr_values: Map<Attribute, number> = new Map();
         let new_equations: Equation[] = [...newEquation];
         let unchangedAttr: Attribute[] = 
@@ -892,6 +919,9 @@ class PostResultCandidate {
 
         let firstRes = cal_res[0];
         this.val = firstRes[2][firstRes[1].indexOf(this.target)];
+        // if(newEquation.length === 0){
+        //     assert(floatEq(this.val, this.calValByNewEqOnly(con)))
+        // }
         return this.val;
 
     }
@@ -915,7 +945,6 @@ class Controller {
     eventLisnter: Map<string, ((...arg0: any[])=>void)[]>;
 
     static instance?: Controller = undefined;
-    static FILEINPUT = require("./content_cube.json");
     static TYPE_SWITCH_CDT_IDX = 'TYPE_SWITCH_CDT_IDX';
     static clonerStack: ControllerCloner[] = [];
     static crtPointer: number = -1;
@@ -930,14 +959,22 @@ class Controller {
 
         Controller.instance = new Controller();
         Controller.saveToStack()
-        loadFile(Controller.instance!, Controller.FILEINPUT);
-        Controller.saveToStack()
+
+        // loadFile(Controller.instance!, require("./diagram_data/content.json"));
+        // Controller.saveToStack()
         
         return Controller.instance!;
     }
 
     static saveIfSuccess(func:()=>boolean){        
         let res = func();
+        if(res){
+            Controller.saveToStack()
+        }
+    }
+
+    static async saveIfSuccessAsync(func:()=>Promise<boolean>){        
+        let res = await func();
         if(res){
             Controller.saveToStack()
         }
@@ -978,14 +1015,14 @@ class Controller {
 
     constructor() {
         this.attrNameToDefault = new Map();
-        this.attrNameToDefault.set('w', 10)
-        this.attrNameToDefault.set('h', 10)
+        this.attrNameToDefault.set('w', 100)
+        this.attrNameToDefault.set('h', 30)
         this.attrNameToDefault.set('pointerAtBeginning', false)
         this.attrNameToDefault.set('pointerAtEnding', true)
         this.attrNameToDefault.set('dashEnabled', false)
-        this.attrNameToDefault.set('color', 'grey')
-        this.attrNameToDefault.set('lightness', 900)
-        this.attrNameToDefault.set('elementType', ElementType.CIRCLE)
+        this.attrNameToDefault.set('color', 'red')
+        this.attrNameToDefault.set('lightness', 400)
+        this.attrNameToDefault.set('elementType', ElementType.RECTANGLE)
 
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
@@ -1025,17 +1062,69 @@ class Controller {
         return this.getAttribute(0, name);
     }
 
-    createElement(_type: ElementType, _name?: string): number {
+    searchSimilarByHistory(_type: ElementType, _inAttrs: Attribute[]): SingleElement{
+        let ele2SameAttrNum: Map<SingleElement, number> = new Map();
+        function getSameValAttrNum(ele: SingleElement): number{
+            if(ele2SameAttrNum.has(ele)){
+                return ele2SameAttrNum.get(ele)!;
+            }
+            let count = 0;
+            for(let inAttr of _inAttrs){
+                let eleAttr = ele.getAttribute(inAttr.name);
+                if(eleAttr == undefined){
+                    continue;
+                }
+                if(eleAttr.val.val === inAttr.val.val){
+                    count += 1;
+                }
+            }
+            ele2SameAttrNum.set(ele, count);
+            return count;
+        }
+        // 完全根据时间
+        let eles = [... this.elements.values()].filter((x)=>x.id > 0 && x.type != ElementType.ARROW && (_type == null || x.type === _type)).sort((ele1, ele2)=>{
+            let s1 = getSameValAttrNum(ele1);
+            let s2 = getSameValAttrNum(ele2);
+            if(s1 != s2){
+                return s2 - s1;
+            }
+            return ele2.timestamp - ele1.timestamp;
+        })
+        return eles[0];
+        
+    }
+
+    createElement(_type: ElementType, _name?: string, _text?: string): number {
         // return element id
         let newElement = new SingleElement(this.idAllocator, _type, _name);
         // 如果是实际元素需要建立坐标、长宽、颜色
         if (displayElementTypes.indexOf(_type) >= 0){
             newElement.addAttribute(new Attribute("x", new RawNumber(100), newElement));
             newElement.addAttribute(new Attribute("y", new RawNumber(100), newElement));
-            newElement.addAttribute(new Attribute("w", new RawNumberNoCal(this.attrNameToDefault.get('w')), newElement));
-            newElement.addAttribute(new Attribute("h", new RawNumberNoCal(this.attrNameToDefault.get('h')), newElement));
-            newElement.addAttribute(new Attribute("color", new RawText(this.attrNameToDefault.get('color')), newElement));
-            newElement.addAttribute(new Attribute("lightness", new RawNumberNoCal(this.attrNameToDefault.get('lightness')), newElement));
+            let searchAttr = [];
+            if(_text != undefined){
+                let textAttr = new Attribute("text", new RawText(_text), newElement)
+                newElement.addAttribute(textAttr);
+                searchAttr.push(textAttr);
+            }
+            let mostSimilarEle = this.searchSimilarByHistory(_type, searchAttr);
+            
+            for(let attrName of ["w", "h", "color", "lightness"]){
+                if(newElement.getAttribute(attrName) !== undefined){
+                    continue;
+                }
+                if(mostSimilarEle == undefined || mostSimilarEle.getAttribute(attrName) == undefined){
+                    let attrVal = this.attrNameToDefault.get(attrName);
+                    if(typeof(attrVal) === 'number'){
+                        newElement.addAttribute(new Attribute(attrName, new RawNumberNoCal(attrVal), newElement));
+                    } else {
+                        newElement.addAttribute(new Attribute(attrName, new RawText(attrVal), newElement));
+                    }
+                } else {
+                    newElement.addAttribute(new Attribute(attrName, mostSimilarEle.getAttribute(attrName)!.val.clone(), newElement));
+                }
+            }
+
         }
         if(_type === ElementType.ARROW){
             newElement.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtBeginning')), newElement));
@@ -1085,11 +1174,21 @@ class Controller {
         newArrow.addAttribute(new Attribute("startElement", new RawNumberNoCal(_from), newArrow));
         newArrow.addAttribute(new Attribute("endElement", new RawNumberNoCal(_to), newArrow));
         newArrow.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtBeginning')), newArrow));
-        newArrow.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtEnding')), newArrow));
+        newArrow.addAttribute(new Attribute('pointerAtEnding', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtEnding')), newArrow));
         newArrow.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.attrNameToDefault.get('dashEnabled')), newArrow));
         if (_text) {
             newArrow.addAttribute(new Attribute("text", new RawText(_text), newArrow));
         }
+    }
+
+    deleteArrow(eleId: number){
+        let ele = this.getElement(eleId);
+        if(ele.type !== ElementType.ARROW){
+            return false;
+        }
+
+        this.elements.delete(eleId);
+        return true;
     }
 
     addTextToEle(tgt: number, text: string){
@@ -1166,10 +1265,22 @@ class Controller {
 
     genPrioCandidate(tgtAttr: Attribute, canDependAttr:Attribute[]):PostResultCandidate[]{
         // 先验经验
-        // 1. 对齐，这个不需要在这里处理，必然会在post candidate中涉及的；
+        // 1. 对齐
         // 2. 等距。仅考虑跨模态（x/y）的等距关系
         // 3. 给定的距离。
         let genRes:PostResultCandidate[] = [];
+        // 对齐，直接和相同属性的attr进行相等
+        canDependAttr.forEach((oneAttr)=>{
+            if(oneAttr.name !== tgtAttr.name){
+                return;
+            }
+
+            let eq = new Equation(FuncTree.simpleEq(), FuncTree.simpleEq(),
+                [tgtAttr], [oneAttr])
+            let pc = new PostResultCandidate(eq, eq, tgtAttr, EstimateType.VAL_EQ);
+            pc.val = oneAttr.val.val;
+            genRes.push(pc); // 之后可以再进行去重的
+        })
 
         // 确定可用的等距方案：元素之间没有任何其他的属性
         let xAttrs = canDependAttr.filter((x)=>(x.name==='x'))
@@ -1222,10 +1333,17 @@ class Controller {
                     continue;
                 }
 
-                // 剪枝1：必须有重叠的元素
+                // 剪枝1：必须有重叠的元素，或者depend attr至少和两个元素中的一个是没有中间元素的
                 if(dependAttr.element !== attr1.element && dependAttr.element !== attr2.element
                     && tgtAttr.element !== attr1.element && tgtAttr.element !== attr2.element){
-                    continue;
+                    if(dependAttr.name !== attr1.name){
+                        continue; // 属性不同要求必须有重复的元素
+                    }
+                    let anyBetweenD1 = this.anyEleBetween(dependAttr.val.val, attr1.val.val, canDependAttr, dependAttr.name === 'x');
+                    let anyBetweenD2 = this.anyEleBetween(dependAttr.val.val, attr2.val.val, canDependAttr, dependAttr.name === 'x');
+                    if(anyBetweenD1 && anyBetweenD2){
+                        continue;
+                    }
                 }
 
                 // 剪枝2：中间不能有新的元素（否则大概率可以用其他方法完成）
@@ -1918,13 +2036,14 @@ class Controller {
         newEleRel: string,
         newEleRange: string,
         forceUnchangeStr:string,
-        inferChangeStr:string): boolean{
+        inferChangeStr:string,
+        newEleText: string): boolean{
         
         if(traceEleRelation.includes('new') 
             || newEleRel.includes('new')
             || newEleRange.includes('new') || 
             (traceEleRelation.length + newEleRel.length + newEleRange.length === 0 )){
-            return this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange);
+            return this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange, newEleText);
         }
 
         return this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
@@ -1992,11 +2111,14 @@ class Controller {
 
     handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
         traceEleRelation: string, newEleEq: string,
-        newEleRange:string): boolean{
+        newEleRange:string, newEleText: string): boolean{
 
         let traces = RawTraces.map(rt=>new Trace(rt));
 
-        let nextElementId = this.createElement(this.attrNameToDefault.get('elementType')); // 后续接受更多内容
+        let nextElementId = this.createElement(
+            this.attrNameToDefault.get('elementType'),
+            undefined, newEleText
+            ); // 后续接受更多内容
         this.addAttribute(nextElementId, 'x', new RawNumber(-1));
         this.addAttribute(nextElementId, 'y', new RawNumber(-1));
         
@@ -2055,6 +2177,7 @@ class Controller {
         for(let attr of freeAttrs){
             let pcList = this.genPostCandidate(attr, canDependAttr, newEqInExpr);
             pcList.push(... this.genPrioCandidate(attr, canDependAttr))
+            pcList.sort((a, b)=>(a.calDis(-1)-b.calDis(-1)))
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
                     return x.val.toFixed(2);
@@ -2413,6 +2536,7 @@ class Controller {
         for(let attr of inferChangeWithoutNewEq){
             let pcList = this.genPostCandidate(attr, canDependAttr, newEqInExpr);
             pcList.push(... this.genPrioCandidate(attr, canDependAttr));
+            pcList.sort((a, b)=>(a.calDis(-1)-b.calDis(-1)))
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
                     return x.val.toFixed(2);

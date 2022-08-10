@@ -9,7 +9,8 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { getOrDefault } from './components/utility';
+import { getOrDefault, reader } from './components/utility';
+import { loadFile } from './components/load_file';
 
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
@@ -124,10 +125,10 @@ class AllComponents extends React.Component {
                     let text = i.attributes.get("text")?.val.val;
                     let color = i.getCertainAttribute("color").val.val + "-" + i.getCertainAttribute("lightness").val.val.toString()
                     if (x_val && y_val && w_val && h_val) {
-                        if(i.type === ElementType.RECTANGLE){
-                            x_val -= w_val / 2;
-                            y_val -= h_val / 2
-                        }
+                        // if(i.type === ElementType.RECTANGLE){
+                        //     x_val -= w_val / 2;
+                        //     y_val -= h_val / 2
+                        // }
                         if(i.type === ElementType.CIRCLE){
                             w_val /= 2;
                             h_val /= 2;
@@ -135,8 +136,8 @@ class AllComponents extends React.Component {
                         if(i.type === ElementType.RECTANGLE){
                             elements.push(
                                 <Rect
-                                    x={x_val}
-                                    y={y_val}
+                                    x={x_val - w_val / 2}
+                                    y={y_val - h_val / 2}
                                     width={w_val}
                                     height={h_val}
                                     fill={ALLCOLORS[color]}
@@ -168,8 +169,8 @@ class AllComponents extends React.Component {
                         
                         if(this.state.showDebug){
                             elements.push(<Text
-                                x={x_val}
-                                y={y_val}
+                                x={x_val + w_val / 4}
+                                y={y_val + h_val / 4}
                                 key={`pos-${i.id}`}
                                 text={`${i.id}\n${Math.round(x_val)},${Math.round(y_val)}`}
                                 fontSize={10}
@@ -325,6 +326,7 @@ class HelperGUI extends React.Component {
     showCdtRef: React.RefObject<HTMLInputElement>;
     editTextRef: React.RefObject<HTMLInputElement>;
     showDebugInfoRef: React.RefObject<HTMLInputElement>;
+    uploadFileRef: React.RefObject<HTMLInputElement>;
     constructor(props: any){
         super(props);
         this.controller = Controller.getInstance();
@@ -344,6 +346,7 @@ class HelperGUI extends React.Component {
         this.showCdtRef = React.createRef()
         this.editTextRef = React.createRef()
         this.showDebugInfoRef = React.createRef();
+        this.uploadFileRef = React.createRef();
     }
 
     updateSelectedItem(itemId?: number){
@@ -446,6 +449,17 @@ class HelperGUI extends React.Component {
         }
     }
 
+    handleDeleteArrow(){
+        Controller.saveIfSuccess(()=>{
+            let res = this.controller.deleteArrow(this.state.selectedItemId)
+            if(res){
+                this.updateSelectedItem(-1);
+                App.instance.allComponentsRef.current?.forceUpdate()
+            }
+            return res;
+        })
+    }
+
     genHandleTagSelected(selected: string){
         return ()=>{
             this.setState({
@@ -480,22 +494,29 @@ class HelperGUI extends React.Component {
     }
 
     handleLigntnessDec(){
-        if(!this.state.itemAttrObj.has('lightness')){
-            return;
-        }
-        this.controller.getElement(this.state.selectedItemId).changeLightness(-1);
-        App.instance.allComponentsRef.current?.forceUpdate()
-        this.updateSelectedItem();
+        Controller.saveIfSuccess(()=>{
+            if(!this.state.itemAttrObj.has('lightness')){
+                return false;
+            }
+            this.controller.getElement(this.state.selectedItemId).changeLightness(-1);
+            App.instance.allComponentsRef.current?.forceUpdate()
+            this.updateSelectedItem();
+            return true
+        })
     }
 
     genColorSelect(cn: string){
         return ()=>{
-            if(!this.state.itemAttrObj.has('color')){
-                return;
-            }
-            this.controller.getElement(this.state.selectedItemId).changeColor(cn);
-            App.instance.allComponentsRef.current?.forceUpdate()
-            this.updateSelectedItem();
+            Controller.saveIfSuccess(()=>{
+                if(!this.state.itemAttrObj.has('color')){
+                    return false;
+                }
+                this.controller.getElement(this.state.selectedItemId).changeColor(cn);
+                App.instance.allComponentsRef.current?.forceUpdate()
+                this.updateSelectedItem();
+                return true;
+            })
+            
         }
     }
 
@@ -516,6 +537,20 @@ class HelperGUI extends React.Component {
         App.instance.forceUpdate()
     }
 
+    async handleUploadFileClick(){
+        await Controller.saveIfSuccessAsync(async()=>{
+            try{
+                let fileData = await reader(this.uploadFileRef.current!.files![0])
+                loadFile(Controller.getInstance(), JSON.parse(fileData));
+                App.instance.forceUpdate()
+                return true;
+            } catch(error) {
+                alert('文件载入出错')
+                return false;
+            }
+        })
+    }
+
     renderTools(){
         if(this.state.selectedTag !== HelperGUI.TAG_DISP_SET){
             return null;
@@ -526,6 +561,11 @@ class HelperGUI extends React.Component {
             <div>
                 <button onClick={this.downloadContent.bind(this)}>点击下载</button>
                 <button onClick={this.clearTrace.bind(this)}>清空路径</button>
+
+                <div>
+                    <input type="file" name="file" ref={this.uploadFileRef} ></input>
+                    <button onClick={this.handleUploadFileClick.bind(this)}>上传文件</button>    
+                </div>
             </div>
             <div>
                 <button onClick={()=>{
@@ -566,8 +606,11 @@ class HelperGUI extends React.Component {
                     <input ref={this.editTextRef} type="text" 
                         defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
                     /><button onClick={()=>{
-                        this.controller.addTextToEle(this.state.selectedItemId, this.editTextRef.current!.value);
-                        App.instance.allComponentsRef.current?.forceUpdate();
+                        Controller.saveIfSuccess(()=>{
+                            this.controller.addTextToEle(this.state.selectedItemId, this.editTextRef.current!.value);
+                            App.instance.allComponentsRef.current?.forceUpdate();
+                            return true;
+                        })
                     }}>修改文本</button>
                 </div>
 
@@ -653,6 +696,9 @@ class HelperGUI extends React.Component {
                             <span className="slider round"></span>
                         </label>
                     </div>
+                    <div>
+                        <button onClick={this.handleDeleteArrow.bind(this)}>删除箭头</button>
+                    </div>
                 </div>: null}
 
             </div>:
@@ -708,7 +754,8 @@ class App extends Component {
 
     static colors: string[] = ['red', 'green', 'blue', 'orange', 'magenta', 'cyan', 'purple'];
     elemRangeRef: React.RefObject<HTMLInputElement>;
-    addArrowRef: React.RefObject<HTMLInputElement>
+    addArrowRef: React.RefObject<HTMLInputElement>;
+    textForNewEleRef: React.RefObject<HTMLInputElement>;
     static instance: App;
     constructor(props: any) {
         super(props);
@@ -727,6 +774,7 @@ class App extends Component {
         this.helpGUIRef = React.createRef();
         App.instance = this;
         this.addArrowRef = React.createRef();
+        this.textForNewEleRef = React.createRef()
     }
 
     nextSolution() {
@@ -800,11 +848,11 @@ class App extends Component {
         let unchangedStr = this.forceUnchangedRef.current!.value;
         let inferChangeStr = this.inferChangedRef.current!.value;
         let eleRangeStr = this.elemRangeRef.current!.value;
-        
+        let newEleText = this.textForNewEleRef.current!.value;
         Controller.saveIfSuccess(()=>{
             try{
                 let res = this.allComponentsRef.current!.controller.handleUserCommand(
-                    this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr
+                    this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr, newEleText
                 );
                 if(res){
                     this.traces = [];
@@ -882,6 +930,7 @@ class App extends Component {
                     <hr/>
                     推测发生变化（;分隔）：<input ref={this.inferChangedRef} type='text'/>
                     强制保持不变（;分隔）：<input ref={this.forceUnchangedRef} type='text'/>
+                    新元素文本：<input ref={this.textForNewEleRef} type='text'/>
                     <hr/>
                     <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
                     <Button

@@ -383,7 +383,28 @@ function getOrDefault<T1, T2>(mp: Map<T1, T2>, key: T1, dft: T2){
     return dft;
 }
 
+function reader(file: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        try {
+            var reader = new FileReader()
+            if (file) {
+                reader.onloadend = function(e) {
+                    resolve(reader.result as any as string)
+                }
+                reader.onerror = function() {
+                   reject("load file error")
+                }
+                reader.readAsText(file)
+            } else {
+                reject("file not found")
+            }
+        } catch (e) {
+            reject("file not found")
+        }
+    })
+}
+
 export {getAllCase, count, getTs, floatEq, 
     randomID, reduceRowJs, listEq, floatGe, 
     floatLe, floatGt, floatLt, uniquifyList, 
-    beamSolve, countTimeStart, countTimeEnd, countTimeFinish, getOrDefault}
+    beamSolve, countTimeStart, countTimeEnd, countTimeFinish, getOrDefault, reader}
