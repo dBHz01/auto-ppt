@@ -4,6 +4,7 @@ import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
+import { Parser } from './jison/inputParser';
 import { Button } from 'antd';
 import Konva from 'konva';
 
@@ -452,6 +453,7 @@ class App extends Component {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         testBackend();
+        Parser.prototype.parse("新建一个矩形为它的大小为");
         this.traces = [];
         this.isDown = false;
 
