@@ -4,6 +4,7 @@ import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
+import { Parser } from './jison/inputParser';
 import { Button } from 'antd';
 import Konva from 'konva';
 
@@ -773,6 +774,7 @@ class App extends Component {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         testBackend();
+        Parser.prototype.parse("修改这个矩形的大小为这个矩形的大小和那个矩形的大小的差的三分之一使");
         this.traces = [];
         this.isDown = false;
 
