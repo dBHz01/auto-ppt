@@ -47,9 +47,11 @@
 "差"                     return 'DIFF'
 "使得"                   return 'FOR'
 "使"                     return 'FOR'
+"且"                     return 'ALSO'
 
-[\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为])            return 'OBJ'
+[\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小])            return 'OBJ'
 
+"一点"                   return 'BIT'
 "分之一"                 return 'FRACTION'
 "一"                     return 'ONE'
 "二"                     return 'TWO'
@@ -61,6 +63,9 @@
 "八"                     return 'EIGHT'
 "九"                     return 'NINE'
 "十"                     return 'TEN'
+"等于"                   return 'EQUAL'
+"大于"                   return 'GEQ'
+"小于"                   return 'LEQ'
 
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
@@ -81,11 +86,11 @@
 %% /* language grammar */
 
 expressions
-    : predicate target adverbial conditions EOF
+    : relation EOF
         { console.log($1);
-          console.log($2);
-          console.log($3);
-          console.log($4);
+        //   console.log($2);
+        //   console.log($3);
+        //   console.log($4);
           return {"predicate": $1}; }
     ;
 
@@ -201,6 +206,17 @@ value
         {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "val": $5};}
     ;
 
+relation
+    : value EQUAL value
+        {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "="};}
+    | value LEQ value
+        {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "<"};}
+    | value GEQ value
+        {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": ">"};}
+    | object AT object D direction
+        {$$ = {"type": "direction", "obj_1": $1, "obj_1": $3, "direction": $5};}
+    ;
+
 predicate
     : NEW
         {$$ = "new";}
@@ -231,6 +247,8 @@ adverbial
     ;
 
 conditions
-    : FOR
+    : conditions ALSO relation
+        { $$ = $1; }
+    | relation
         { $$ = $1; }
     ;
