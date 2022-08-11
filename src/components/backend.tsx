@@ -3011,4 +3011,6 @@ class TraceAttrRelation {
     }
 }
 
-export { String2OP, Operator, OperatorNode, FuncTree, RawNumber, RawText, RawNumberNoCal, ElementType, SingleElement, Attribute, Controller, Equation, AssignOp};
+export { String2OP, Operator, OperatorNode, 
+    FuncTree, RawNumber, RawText, RawNumberNoCal, ElementType, SingleElement, Attribute, Controller, 
+    Equation, AssignOp, str2AssignOp};
