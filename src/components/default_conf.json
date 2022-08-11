@@ -1,0 +1,35 @@
+{
+    "cube": {
+        "w": 10,
+        "h": 10,
+        "color": "grey",
+        "lightness": 900,
+        "elementType": "CIRCLE",
+        "pointerAtBeginning": false,
+        "pointerAtEnding": false,
+        "dashEnabled": false,
+        "const_dis": 65
+    }, 
+    "transformer": {
+        "w": 100,
+        "h": 30,
+        "color": "red",
+        "lightness": 400,
+        "elementType": "RECTANGLE",
+        "pointerAtBeginning": false,
+        "pointerAtEnding": true,
+        "dashEnabled": false,
+        "const_dis": 65
+    },
+    "matrix": {
+        "w": 40,
+        "h": 40,
+        "color": "red",
+        "lightness": 400,
+        "elementType": "RECTANGLE",
+        "pointerAtBeginning": false,
+        "pointerAtEnding": true,
+        "dashEnabled": false,
+        "const_dis": 40
+    }
+}

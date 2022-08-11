@@ -92,8 +92,16 @@ class AllComponents extends React.Component {
 
             newAttrs.set(ele.getAttribute('x')!, newX);
             newAttrs.set(ele.getAttribute('y')!, newY);
+            
+            let inferChangedStr = App.instance.inferChangedRef.current!.value;
+            let inferChangedAttr = this.controller.parseAttrListByStr(inferChangedStr);
+            
+            let forceUnchangStr = App.instance.forceUnchangedRef.current!.value;
+            let forceUnchangAttr = this.controller.parseAttrListByStr(forceUnchangStr);
+
+
             Controller.saveIfSuccess(()=>{
-                let res = this.controller.update_contents(newAttrs, [], [], []);
+                let res = this.controller.update_contents(newAttrs, [], forceUnchangAttr, inferChangedAttr);
                 if(res){
                     this.forceUpdate()
                 }
@@ -431,8 +439,8 @@ class HelperGUI extends React.Component {
         }
     }
 
-     handleShowCdtClicked(e: React.ChangeEvent<HTMLInputElement>){
-         App.instance.allComponentsRef.current?.updateCdt(e.target.checked);
+    handleShowCdtClicked(e: React.ChangeEvent<HTMLInputElement>){
+        App.instance.allComponentsRef.current?.updateCdt(e.target.checked);
     }
 
     handleShowDebugInfoClicked(e: React.ChangeEvent<HTMLInputElement>){
@@ -571,11 +579,15 @@ class HelperGUI extends React.Component {
                 <button onClick={()=>{
                     Controller.undo();
                     this.updateSelectedItem(-1)
+                    App.instance.allComponentsRef.current?.updateCdt(false);
+                    this.showCdtRef.current!.checked = false;
                     App.instance.forceUpdate(); // 全局刷新
                 }} disabled={!Controller.canUndo()}>撤销 {'<-'}</button>
                 <button onClick={()=>{
                     Controller.redo();
                     this.updateSelectedItem(-1)
+                    App.instance.allComponentsRef.current?.updateCdt(false);
+                    this.showCdtRef.current!.checked = false;
                     App.instance.forceUpdate(); // 全局刷新
                 }} disabled={!Controller.canRedo()}>重做 {'->'}</button>
             </div>

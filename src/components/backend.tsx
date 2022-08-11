@@ -193,10 +193,16 @@ enum ElementType {
     TMP
 }
 
+
+
 let eleTypeToStr = new Map();
 eleTypeToStr.set(ElementType.RECTANGLE, 'RECTANGLE')
 eleTypeToStr.set(ElementType.CIRCLE, 'CIRCLE')
 eleTypeToStr.set(ElementType.ARROW, 'ARROW')
+
+let str2eleType = new Map();
+str2eleType.set('CIRCLE', ElementType.CIRCLE);
+str2eleType.set('RECTANGLE', ElementType.RECTANGLE);
 
 const displayElementTypes = [ElementType.RECTANGLE, ElementType.CIRCLE];
 
@@ -806,8 +812,6 @@ estType2Factor.set(EstimateType.HISTORY_EQ, 2);
 estType2Factor.set(EstimateType.SAME_DIS, 1);
 estType2Factor.set(EstimateType.VAL_EQ, 0.5);
 
-
-const PREDEFINE_DIS = 15+50; // 预设的先验距离。
 const MAX_POST_DEPTH = 1
 class PostResultCandidate {
     oriEq:Equation;
@@ -948,6 +952,7 @@ class Controller {
     static TYPE_SWITCH_CDT_IDX = 'TYPE_SWITCH_CDT_IDX';
     static clonerStack: ControllerCloner[] = [];
     static crtPointer: number = -1;
+    static PREDEFINE_DIS: number = 65;
 
     nextPosCdtCache?: [number, number, number][];
     attrNameToDefault: Map<string, any>;
@@ -1013,16 +1018,28 @@ class Controller {
         return true;
     }
 
+    loadDefaultFromFile(task?:string){
+        let conf: any = {};
+        if(task != undefined){
+            conf = require('./default_conf.json')[task] || {};
+        }
+        this.attrNameToDefault.set('w', conf['w'] || 100)
+        this.attrNameToDefault.set('h', conf['h'] || 30)
+        this.attrNameToDefault.set('pointerAtBeginning', conf['pointerAtBeginning'] || false)
+        this.attrNameToDefault.set('pointerAtEnding', conf['pointerAtEnding'] || true)
+        this.attrNameToDefault.set('dashEnabled', conf['dashEnabled'] || false)
+        this.attrNameToDefault.set('color', conf['color'] || 'red')
+        this.attrNameToDefault.set('lightness', conf['lightness'] || 400)
+        this.attrNameToDefault.set('elementType', str2eleType.get(conf['elementType']) || ElementType.RECTANGLE)
+
+        Controller.PREDEFINE_DIS = conf['const_dis'] || 65;
+    }
+
     constructor() {
         this.attrNameToDefault = new Map();
-        this.attrNameToDefault.set('w', 100)
-        this.attrNameToDefault.set('h', 30)
-        this.attrNameToDefault.set('pointerAtBeginning', false)
-        this.attrNameToDefault.set('pointerAtEnding', true)
-        this.attrNameToDefault.set('dashEnabled', false)
-        this.attrNameToDefault.set('color', 'red')
-        this.attrNameToDefault.set('lightness', 400)
-        this.attrNameToDefault.set('elementType', ElementType.RECTANGLE)
+        // this.loadDefaultFromFile('matrix')
+        this.loadDefaultFromFile('cube')
+
 
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
@@ -1032,7 +1049,7 @@ class Controller {
         this.elements.set(0, this.baseElement);
         this.idAllocator = 1;
         this.constAllocator = 0;
-        this.addAttribute(0, 'const_dis', new RawNumber(PREDEFINE_DIS));
+        this.addAttribute(0, 'const_dis', new RawNumber(Controller.PREDEFINE_DIS));
         // this.constDisAttr = this.getAttribute(0, 'const_dis');
 
         this.candidates = [];
@@ -1056,6 +1073,14 @@ class Controller {
         let _id = parseInt(splitRes[1]);
         let _name = splitRes[0].trim();
         return this.getAttribute(_id, _name);
+    }
+
+    parseAttrListByStr(s?: string) : Attribute[]{
+        if(s == undefined || s.trim().length === 0){
+            return [];
+        }
+
+        return s.split(';').map((x)=>this.getAttributeByStr(x));
     }
 
     getConstAttr(name: string): Attribute{
@@ -1318,6 +1343,21 @@ class Controller {
             }
         }
 
+        // 等距，其实是居中
+        let candidatePairs = tgtAttr.name === 'x'? xAttrPairs: yAttrPairs;
+        for(let pair of candidatePairs){
+            let attr1 = pair[0];
+            let attr2 = pair[1];
+            // tgt - attr1 = attr2 - tgt
+            let nextVal = (attr1.val.val + attr2.val.val) / 2;
+            let eq = new Equation(FuncTree.simpleMinus(), 
+                    FuncTree.simpleMinus(), [tgtAttr, attr1], [attr2, tgtAttr]);
+            let crtPrio = new PostResultCandidate(eq, eq, tgtAttr, EstimateType.SAME_DIS);
+            crtPrio.val = nextVal;
+
+            genRes.push(crtPrio);
+        }
+
         for(let pair of [... xAttrPairs, ... yAttrPairs]){
             let attr1 = pair[0];
             let attr2 = pair[1];
@@ -1374,7 +1414,7 @@ class Controller {
             let crtMin = min(dependValSameName)
             let crtMax = max(dependValSameName);
             for(let dependAttr of dependAttrSameName){
-                let minusRes = dependAttr.val.val - PREDEFINE_DIS;
+                let minusRes = dependAttr.val.val - this.getConstDisAttr().val.val;
                 if(minusRes > 0 && minusRes < crtMin){
                     let minusEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleMinus(), 
                         [tgtAttr], [dependAttr, this.getConstDisAttr()]);
@@ -1383,7 +1423,7 @@ class Controller {
                     genRes.push(minusCdt);
                 }
 
-                let plusRes = dependAttr.val.val + PREDEFINE_DIS;
+                let plusRes = dependAttr.val.val + this.getConstDisAttr().val.val;
                 if(plusRes > crtMax){
                     let plusEq = new Equation(FuncTree.simpleEq(), FuncTree.simpleAdd(), 
                         [tgtAttr], [dependAttr, this.getConstDisAttr()]);
@@ -1842,6 +1882,9 @@ class Controller {
             }
             return 0;
         })
+
+        return finalResult;
+
         if(finalResult.length === 0){
             return finalResult;
         }
@@ -2173,10 +2216,29 @@ class Controller {
 
         let postCandidates: Array<PostResultCandidate[]> = []
         
+
         // 根据用户指令进行的调整可以在此进行
         for(let attr of freeAttrs){
-            let pcList = this.genPostCandidate(attr, canDependAttr, newEqInExpr);
-            pcList.push(... this.genPrioCandidate(attr, canDependAttr))
+            // 对 canDependAttr 进行去重复
+            let uniquifyMap: Map<string, Attribute> = new Map(); // name-val to attr
+            for(let attrDpd of canDependAttr){
+                let info = `${attrDpd.name}=${attrDpd.val.val.toFixed(2)}`;
+                if(!uniquifyMap.has(info)){
+                    uniquifyMap.set(info, attrDpd);
+                    continue;
+                }
+
+                let ts1 = uniquifyMap.get(info)!.timestamp;
+                let ts2 = attrDpd.timestamp;
+                if(abs(ts2 - attr.timestamp) < abs(ts1 - attr.timestamp)){
+                    uniquifyMap.set(info, attrDpd);
+                }
+            }
+
+            let canDependAttr_ = [... uniquifyMap.values()]
+
+            let pcList = this.genPostCandidate(attr, canDependAttr_, newEqInExpr);
+            pcList.push(... this.genPrioCandidate(attr, canDependAttr_))
             pcList.sort((a, b)=>(a.calDis(-1)-b.calDis(-1)))
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
@@ -2297,7 +2359,13 @@ class Controller {
                     // 距离权重1：和路径之间的距离
                     for(let attrTraceRel of traceRelations){
                         let val = attrVals[attrList.indexOf(attrTraceRel.atttibute)]
-                        v[3] *= (1 + attrTraceRel.calDis(val) / 100);
+                        let cmpDis = 50;
+                        if(attrTraceRel.atttibute.name === 'x'){
+                            cmpDis = attrTraceRel.atttibute.element.getAttribute('w')?.val.val || cmpDis;
+                        } else if(attrTraceRel.atttibute.name === 'y'){
+                            cmpDis = attrTraceRel.atttibute.element.getAttribute('h')?.val.val || cmpDis;
+                        }
+                        v[3] *= (1 + attrTraceRel.calDis(val) / cmpDis);
                     }
                     // 距离权重2：所有freeAttr和关系中最近的非freeAttr之间的距离
                     let disRange = 0;
@@ -2671,7 +2739,14 @@ class Controller {
             // 距离权重1：和路径之间的距离
             for(let attrTraceRel of traceRelations){
                 let val = attrVals[attrList.indexOf(attrTraceRel.atttibute)]
-                v[3] *= (1 + attrTraceRel.calDis(val) / 100);
+                
+                let cmpDis = 50;
+                if(attrTraceRel.atttibute.name === 'x'){
+                    cmpDis = attrTraceRel.atttibute.element.getAttribute('w')?.val.val || cmpDis;
+                } else if(attrTraceRel.atttibute.name === 'y'){
+                    cmpDis = attrTraceRel.atttibute.element.getAttribute('h')?.val.val || cmpDis;
+                }
+                v[3] *= (1 + attrTraceRel.calDis(val) / cmpDis);
             }
             // 距离权重2：所有freeAttr和关系中最近的非freeAttr之间的距离
             let disRange = 0;
@@ -2862,11 +2937,20 @@ class Trace{
         this.maxY = max(this.rawTrace.map((x)=>x[1]));
     }
 
-    isInside(p: number, isX:boolean){
+    isInside(p: number, isX:boolean, tgtAttr: Attribute){
+        let delta = Trace.ALLOW_DELTA;
+        if(tgtAttr.name === 'x'){
+            delta = tgtAttr.element.getAttribute('w')?.val.val || delta;
+        }
+
+        if(tgtAttr.name === 'y'){
+            delta = tgtAttr.element.getAttribute('h')?.val.val || delta;
+        }
+
         if(isX){
-            return (p >= this.minX - Trace.ALLOW_DELTA) && (p <= this.maxX + Trace.ALLOW_DELTA);
+            return (p >= this.minX - delta) && (p <= this.maxX + delta);
         } else {
-            return (p >= this.minY - Trace.ALLOW_DELTA) && (p <= this.maxY + Trace.ALLOW_DELTA);
+            return (p >= this.minY - delta) && (p <= this.maxY + delta);
         }
     }
 }
@@ -2903,7 +2987,7 @@ class TraceAttrRelation {
         }
         switch(this.op){
             case AssignOp.eq:
-                return this.trace.isInside(val!, this.isX);
+                return this.trace.isInside(val!, this.isX, this.atttibute);
             case AssignOp.ge:
             case AssignOp.gt:
                 return op2func(this.op)(val!, this.isX?this.trace.minX: this.trace.minY);
