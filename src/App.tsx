@@ -453,7 +453,7 @@ class App extends Component {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         testBackend();
-        Parser.prototype.parse("新建一个矩形为它的大小为");
+        Parser.prototype.parse("修改这个矩形的大小为这个矩形的大小和那个矩形的大小的差的三分之一使");
         this.traces = [];
         this.isDown = false;
 

@@ -43,11 +43,14 @@
 "在"                     return 'AT'
 "往"                     return 'WANG'
 "为"                     return 'IS'
-
-[\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
-
 "倍"                     return 'TIME'
 "差"                     return 'DIFF'
+"使得"                   return 'FOR'
+"使"                     return 'FOR'
+
+// [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
+[\u4e00-\u9fa5]+?(?=[和的到在为深浅大小])            return 'OBJ'
+
 "分之一"                 return 'FRACTION'
 "一"                     return 'ONE'
 "二"                     return 'TWO'
@@ -185,11 +188,7 @@ const
     ;
 
 value
-    : object D attribute
-        {$$ = {"obj": $1, "type": "single", "val": $3};}
-    | object AND object D doubleAttribute
-        {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "val": $5};}
-    | value D const TIME
+    : value D const TIME
         {$$ = {"val": $1, "const": $3, "type": "time"};}
     | value D const FRACTION
         {$$ = {"val": $1, "const": $3, "type": "fraction"};}
@@ -197,6 +196,10 @@ value
         {$$ = {"val_1": $1, "val_2": $3, "type": "diff"};}
     | value AND value D AND
         {$$ = {"val_1": $1, "val_2": $3, "type": "sum"};}
+    | object D attribute
+        {$$ = {"obj": $1, "type": "single", "val": $3};}
+    | object AND object D doubleAttribute
+        {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "val": $5};}
     ;
 
 predicate
@@ -229,6 +232,6 @@ adverbial
     ;
 
 conditions
-    : IS
+    : FOR
         { $$ = $1; }
     ;

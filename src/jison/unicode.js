@@ -72,29 +72,169 @@
   }
 */
 var unicode = (function(){
-var o=function(k,v,o,l){for(o=o||{},l=k.length;l--;o[k[l]]=v);return o};
+var o=function(k,v,o,l){for(o=o||{},l=k.length;l--;o[k[l]]=v);return o},$V0=[1,8],$V1=[1,9],$V2=[1,10],$V3=[10,11,12],$V4=[60,61,62,63],$V5=[40,41,60,61,62,63],$V6=[1,23],$V7=[1,24],$V8=[1,28],$V9=[1,29],$Va=[1,30],$Vb=[1,31],$Vc=[1,35],$Vd=[1,36],$Ve=[1,37],$Vf=[1,38],$Vg=[1,39],$Vh=[1,40],$Vi=[1,41],$Vj=[1,42],$Vk=[40,60,61,62,63,64],$Vl=[1,67],$Vm=[1,68],$Vn=[1,69],$Vo=[55,56],$Vp=[40,64];
 var parser = {trace: function trace () { },
 yy: {},
-symbols_: {"error":2,"expressions":3,"NEW":4,"THIS":5,"OBJ":6,"WANG":7,"LEFT":8,"IS":9,"EOF":10,"$accept":0,"$end":1},
-terminals_: {2:"error",4:"NEW",5:"THIS",6:"OBJ",7:"WANG",8:"LEFT",9:"IS",10:"EOF"},
-productions_: [0,[3,7]],
+symbols_: {"error":2,"expressions":3,"predicate":4,"target":5,"adverbial":6,"conditions":7,"EOF":8,"object":9,"OBJ":10,"THIS":11,"THAT":12,"attribute":13,"SIZE":14,"HEIGHT":15,"WIDTH":16,"COLOR":17,"TEXT":18,"HORILOC":19,"VERTILOC":20,"LOC":21,"doubleAttribute":22,"HORIDIST":23,"VERTIDIST":24,"DISTANCE":25,"adverb":26,"DEEP":27,"一点":28,"SHALLOW":29,"BIG":30,"SMALL":31,"direction":32,"LEFT":33,"RIGHT":34,"UP":35,"DOWN":36,"location":37,"HERE":38,"THERE":39,"D":40,"AND":41,"MIDDLE":42,"const":43,"ONE":44,"TWO":45,"THREE":46,"FOUR":47,"FIVE":48,"SIX":49,"SEVEN":50,"EIGHT":51,"NINE":52,"TEN":53,"value":54,"TIME":55,"FRACTION":56,"NEW":57,"MOVE":58,"CHANGE":59,"DAO":60,"AT":61,"WANG":62,"IS":63,"FOR":64,"$accept":0,"$end":1},
+terminals_: {2:"error",8:"EOF",10:"OBJ",11:"THIS",12:"THAT",14:"SIZE",15:"HEIGHT",16:"WIDTH",17:"COLOR",18:"TEXT",19:"HORILOC",20:"VERTILOC",21:"LOC",23:"HORIDIST",24:"VERTIDIST",25:"DISTANCE",27:"DEEP",28:"一点",29:"SHALLOW",30:"BIG",31:"SMALL",33:"LEFT",34:"RIGHT",35:"UP",36:"DOWN",38:"HERE",39:"THERE",40:"D",41:"AND",42:"MIDDLE",44:"ONE",45:"TWO",46:"THREE",47:"FOUR",48:"FIVE",49:"SIX",50:"SEVEN",51:"EIGHT",52:"NINE",53:"TEN",55:"TIME",56:"FRACTION",57:"NEW",58:"MOVE",59:"CHANGE",60:"DAO",61:"AT",62:"WANG",63:"IS",64:"FOR"},
+productions_: [0,[3,5],[9,1],[9,1],[9,1],[9,2],[9,2],[13,1],[13,1],[13,1],[13,1],[13,1],[13,1],[13,1],[13,1],[22,1],[22,1],[22,1],[26,2],[26,2],[26,2],[26,2],[32,1],[32,1],[32,1],[32,1],[37,1],[37,1],[37,3],[37,5],[43,1],[43,1],[43,1],[43,1],[43,1],[43,1],[43,1],[43,1],[43,1],[43,1],[54,4],[54,4],[54,3],[54,5],[4,1],[4,1],[4,1],[5,1],[5,3],[5,5],[6,2],[6,2],[6,2],[6,2],[7,1]],
 performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
 /* this == yyval */
 
 var $0 = $$.length - 1;
 switch (yystate) {
 case 1:
- console.log($$[$0-6]);
-          console.log($$[$0-5]);
-          console.log($$[$0-4]);
+ console.log($$[$0-4]);
           console.log($$[$0-3]);
           console.log($$[$0-2]);
-          return $$[$0-6]; 
+          console.log($$[$0-1]);
+          return {"predicate": $$[$0-4]}; 
+break;
+case 2:
+this.$ = {"name": $$[$0], "type": "obj"};
+break;
+case 3: case 4: case 5: case 6:
+this.$ = {"name": $$[$0], "type": "ref"};
+break;
+case 7:
+this.$ = "size"
+break;
+case 8:
+this.$ = "height"
+break;
+case 9:
+this.$ = "width"
+break;
+case 10:
+this.$ = "color"
+break;
+case 11:
+this.$ = "text"
+break;
+case 12:
+this.$ = "horiloc"
+break;
+case 13:
+this.$ = "vertiloc"
+break;
+case 14:
+this.$ = "loc"
+break;
+case 15:
+this.$ = "horidist"
+break;
+case 16:
+this.$ = "vertidist"
+break;
+case 17:
+this.$ = "dist"
+break;
+case 18:
+this.$ = "deep"
+break;
+case 19:
+this.$ = "shallow"
+break;
+case 20:
+this.$ = "big"
+break;
+case 21:
+this.$ = "small"
+break;
+case 22:
+this.$ = "left"
+break;
+case 23:
+this.$ = "right"
+break;
+case 24:
+this.$ = "up"
+break;
+case 25:
+this.$ = "down"
+break;
+case 26:
+this.$ = {"loc": "here", "type": "ref"}
+break;
+case 27:
+this.$ = {"loc": "there", "type": "ref"}
+break;
+case 28:
+this.$ = {"obj": $$[$0-2], "type": "single", "direction": $$[$0]}
+break;
+case 29:
+this.$ = {"obj_1": $$[$0-4], "obj_2": $$[$0-2], "type": "double", "loc": "middle"}
+break;
+case 30:
+this.$ = 1
+break;
+case 31:
+this.$ = 2
+break;
+case 32:
+this.$ = 3
+break;
+case 33:
+this.$ = 4
+break;
+case 34:
+this.$ = 5
+break;
+case 35:
+this.$ = 6
+break;
+case 36:
+this.$ = 7
+break;
+case 37:
+this.$ = 8
+break;
+case 38:
+this.$ = 9
+break;
+case 39:
+this.$ = 10
+break;
+case 40:
+this.$ = {"val": $$[$0-3], "const": $$[$0-1], "type": "time"};
+break;
+case 41:
+this.$ = {"val": $$[$0-3], "const": $$[$0-1], "type": "fraction"};
+break;
+case 42: case 48:
+this.$ = {"obj": $$[$0-2], "type": "single", "val": $$[$0]};
+break;
+case 43: case 49:
+this.$ = {"obj_1": $$[$0-4], "obj_2": $$[$0-2], "type": "double", "val": $$[$0]};
+break;
+case 44:
+this.$ = "new";
+break;
+case 45:
+this.$ = "move";
+break;
+case 46:
+this.$ = "change";
+break;
+case 47:
+this.$ = {"obj": $$[$0], "type": "single", "val": "loc"};
+break;
+case 50: case 51:
+this.$ = {"type": "loc", "loc": $$[$0]};
+break;
+case 52:
+this.$ = {"type": "direction", "direction": $$[$0]};
+break;
+case 53:
+this.$ = {"type": "value", "value": $$[$0]};
+break;
+case 54:
+ this.$ = $$[$0]; 
 break;
 }
 },
-table: [{3:1,4:[1,2]},{1:[3]},{5:[1,3]},{6:[1,4]},{7:[1,5]},{8:[1,6]},{9:[1,7]},{10:[1,8]},{1:[2,1]}],
-defaultActions: {8:[2,1]},
+table: [{3:1,4:2,57:[1,3],58:[1,4],59:[1,5]},{1:[3]},{5:6,9:7,10:$V0,11:$V1,12:$V2},o($V3,[2,44]),o($V3,[2,45]),o($V3,[2,46]),{6:11,60:[1,12],61:[1,13],62:[1,14],63:[1,15]},o($V4,[2,47],{40:[1,16],41:[1,17]}),o($V5,[2,2]),o($V5,[2,3],{10:[1,18]}),o($V5,[2,4],{10:[1,19]}),{7:20,64:[1,21]},{9:25,10:$V0,11:$V1,12:$V2,37:22,38:$V6,39:$V7},{9:25,10:$V0,11:$V1,12:$V2,37:26,38:$V6,39:$V7},{32:27,33:$V8,34:$V9,35:$Va,36:$Vb},{9:33,10:$V0,11:$V1,12:$V2,54:32},{13:34,14:$Vc,15:$Vd,16:$Ve,17:$Vf,18:$Vg,19:$Vh,20:$Vi,21:$Vj},{9:43,10:$V0,11:$V1,12:$V2},o($V5,[2,5]),o($V5,[2,6]),{8:[1,44]},{8:[2,54]},{64:[2,50]},{64:[2,26]},{64:[2,27]},{40:[1,45],41:[1,46]},{64:[2,51]},{64:[2,52]},{64:[2,22]},{64:[2,23]},{64:[2,24]},{64:[2,25]},{40:[1,47],64:[2,53]},{40:[1,48],41:[1,49]},o($V4,[2,48]),o($Vk,[2,7]),o($Vk,[2,8]),o($Vk,[2,9]),o($Vk,[2,10]),o($Vk,[2,11]),o($Vk,[2,12]),o($Vk,[2,13]),o($Vk,[2,14]),{40:[1,50]},{1:[2,1]},{32:51,33:$V8,34:$V9,35:$Va,36:$Vb},{9:52,10:$V0,11:$V1,12:$V2},{43:53,44:[1,54],45:[1,55],46:[1,56],47:[1,57],48:[1,58],49:[1,59],50:[1,60],51:[1,61],52:[1,62],53:[1,63]},{13:64,14:$Vc,15:$Vd,16:$Ve,17:$Vf,18:$Vg,19:$Vh,20:$Vi,21:$Vj},{9:65,10:$V0,11:$V1,12:$V2},{22:66,23:$Vl,24:$Vm,25:$Vn},{64:[2,28]},{40:[1,70]},{55:[1,71],56:[1,72]},o($Vo,[2,30]),o($Vo,[2,31]),o($Vo,[2,32]),o($Vo,[2,33]),o($Vo,[2,34]),o($Vo,[2,35]),o($Vo,[2,36]),o($Vo,[2,37]),o($Vo,[2,38]),o($Vo,[2,39]),o($Vp,[2,42]),{40:[1,73]},o($V4,[2,49]),o($Vk,[2,15]),o($Vk,[2,16]),o($Vk,[2,17]),{42:[1,74]},o($Vp,[2,40]),o($Vp,[2,41]),{22:75,23:$Vl,24:$Vm,25:$Vn},{64:[2,29]},o($Vp,[2,43])],
+defaultActions: {21:[2,54],22:[2,50],23:[2,26],24:[2,27],26:[2,51],27:[2,52],28:[2,22],29:[2,23],30:[2,24],31:[2,25],44:[2,1],51:[2,28],74:[2,29]},
 parseError: function parseError (str, hash) {
     if (hash.recoverable) {
         this.trace(str);
@@ -571,86 +711,120 @@ var YYSTATE=YY_START;
 switch($avoiding_name_collisions) {
 case 0:/* skip whitespace */
 break;
-case 1:return 4
+case 1:return 57
 break;
-case 2:return 'MOVE'
+case 2:return 58
 break;
-case 3:return 'CHANGE'
+case 3:return 59
 break;
-case 4:return 5
+case 4:return 11
 break;
-case 5:return 'THAT'
+case 5:return 12
 break;
-case 6:return 'HERE'
+case 6:return 38
 break;
-case 7:return 'THERE'
+case 7:return 39
 break;
-case 8:return 'SIZE'
+case 8:return 14
 break;
-case 9:return 'HEIGHT'
+case 9:return 15
 break;
-case 10:return 'WIDTH'
+case 10:return 16
 break;
-case 11:return 'COLOR'
+case 11:return 17
 break;
-case 12:return 'TEXT'
+case 12:return 18
 break;
-case 13:return 'HORILOCA'
+case 13:return 19
 break;
-case 14:return 'VERTILOVA'
+case 14:return 20
 break;
-case 15:return 'HORIDIST'
+case 15:return 21
 break;
-case 16:return 'VERTIDIST'
+case 16:return 23
 break;
-case 17:return 'DISTANCE'
+case 17:return 24
 break;
-case 18:return 'DEEP'
+case 18:return 25
 break;
-case 19:return 'SHALLOW'
+case 19:return 27
 break;
-case 20:return 'BIG'
+case 20:return 29
 break;
-case 21:return 'SMALL'
+case 21:return 30
 break;
-case 22:return 8
+case 22:return 31
 break;
-case 23:return 'RIGHT'
+case 23:return 33
 break;
-case 24:return 'UP'
+case 24:return 34
 break;
-case 25:return 'DOWN'
+case 25:return 35
 break;
-case 26:return 8
+case 26:return 36
 break;
-case 27:return 'RIGHT'
+case 27:return 33
 break;
-case 28:return 'UP'
+case 28:return 34
 break;
-case 29:return 'DOWN'
+case 29:return 35
 break;
-case 30:return 'D'
+case 30:return 36 
 break;
-case 31:return 'AND'
+case 31:return 42 
 break;
-case 32:return 'DAO'
+case 32:return 40
 break;
-case 33:return 'AT'
+case 33:return 41
 break;
-case 34:return 7
+case 34:return 60
 break;
-case 35:return 9
+case 35:return 61
 break;
-case 36:return 6
+case 36:return 62
 break;
-case 37:return 10
+case 37:return 63
 break;
-case 38:return 'INVALID'
+case 38:return 55
+break;
+case 39:return 'DIFF'
+break;
+case 40:return 64
+break;
+case 41:return 64
+break;
+case 42:return 10
+break;
+case 43:return 56
+break;
+case 44:return 44
+break;
+case 45:return 45
+break;
+case 46:return 46
+break;
+case 47:return 47
+break;
+case 48:return 48
+break;
+case 49:return 49
+break;
+case 50:return 50
+break;
+case 51:return 51
+break;
+case 52:return 52
+break;
+case 53:return 53
+break;
+case 54:return 8
+break;
+case 55:return 'INVALID'
 break;
 }
 },
-rules: [/^(?:\s+)/,/^(?:新建)/,/^(?:移动)/,/^(?:修改)/,/^(?:这个)/,/^(?:那个)/,/^(?:这里)/,/^(?:那里)/,/^(?:大小)/,/^(?:高度)/,/^(?:宽度)/,/^(?:颜色)/,/^(?:文字)/,/^(?:水平位置)/,/^(?:竖直位置)/,/^(?:水平距离)/,/^(?:竖直距离)/,/^(?:距离)/,/^(?:深)/,/^(?:浅)/,/^(?:大)/,/^(?:小)/,/^(?:左边)/,/^(?:右边)/,/^(?:上边)/,/^(?:下边)/,/^(?:左方)/,/^(?:右方)/,/^(?:上方)/,/^(?:下方)/,/^(?:的)/,/^(?:和)/,/^(?:到)/,/^(?:在)/,/^(?:往)/,/^(?:为)/,/^(?:[\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为]))/,/^(?:$)/,/^(?:.)/],
-conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38],"inclusive":true}}
+rules: [/^(?:\s+)/,/^(?:新建)/,/^(?:移动)/,/^(?:修改)/,/^(?:这个)/,/^(?:那个)/,/^(?:这里)/,/^(?:那里)/,/^(?:大小)/,/^(?:高度)/,/^(?:宽度)/,/^(?:颜色)/,/^(?:文字)/,/^(?:水平位置)/,/^(?:竖直位置)/,/^(?:位置)/,/^(?:水平距离)/,/^(?:竖直距离)/,/^(?:距离)/,/^(?:深)/,/^(?:浅)/,/^(?:大)/,/^(?:小)/,/^(?:左边)/,/^(?:右边)/,/^(?:上边)/,/^(?:下边)/,/^(?:左方)/,/^(?:右方)/,/^(?:上方)/,/^(?:下方)/,/^(?:中点)/,/^(?:的)/,/^(?:和)/,/^(?:到)/,/^(?:在)/,/^(?:往)/,/^(?:为)/,/^(?:倍)/,/^(?:差)/,/^(?:使得)/,/^(?:使)/,/^(?:[\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为]))/,/^(?:分之一)/,/^(?:一)/,/^(?:二)/,/^(?:三)/,/^(?:四)/,/^(?:五)/,/^(?:六)/,/^(?:七)/,/^(?:八)/,/^(?:九)/,/^(?:十)/,/^(?:$)/,/^(?:.)/],
+conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55],"inclusive":true}}
 });
 return lexer;
 })();
