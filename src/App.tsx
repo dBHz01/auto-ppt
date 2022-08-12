@@ -786,7 +786,7 @@ class App extends Component {
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
         // Parser.prototype.parse("修改C的颜色为红色");
-        // Parser.prototype.parse("修改C的大小为C的二分之一");
+        // Parser.prototype.parse("修改C的大小为B的大小的二分之一");
         // Parser.prototype.parse("移动C到B的右方");
         // Parser.prototype.parse("修改B的颜色深一点");
         // Parser.prototype.parse("修改C的大小大一点");

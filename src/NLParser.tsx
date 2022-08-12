@@ -141,7 +141,7 @@ class ControllerOp {
             throw Error(`未知的target类型 ${obj['target']['val']}`);
         }
 
-        // 解析元素的目标新建/移动方向
+        // 解析元素的目标新建/移动到的位置
         if(obj['adverbial'] != undefined && obj['adverbial']['type'] === 'loc'){
             this.pos = new PosToElement();
             let locObj = obj['adverbial']['loc'];
@@ -155,6 +155,12 @@ class ControllerOp {
                     nlParser.convertObjToElement(locObj['obj_2'])]
                 this.pos.pos = PosToElement.CENTER;
             }
+        }
+
+        // 解析元素的上下左右的微调
+        if(obj['adverbial'] != undefined && obj['adverbial']['type'] === "direction"){
+            this.inc = obj['adverbial']['direction'] === 'right' || obj['adverbial']['direction'] === 'down';
+            this.dec = obj['adverbial']['direction'] === 'left' || obj['adverbial']['direction'] === 'up';
         }
 
         // 解析副词

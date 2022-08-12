@@ -36,6 +36,10 @@
 "右方"                   return 'RIGHT'
 "上方"                   return 'UP'
 "下方"                   return 'DOWN' 
+"左"                     return 'LEFT'
+"右"                     return 'RIGHT'
+"上"                     return 'UP'
+"下"                     return 'DOWN' 
 "中点"                   return 'MIDDLE' 
 "的"                     return 'D'
 "和"                     return 'AND'
@@ -53,7 +57,7 @@
 "小于"                   return 'LEQ'
 
 // [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
-[\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小])            return 'OBJ'
+[\u4e00-\u9fa5A-Za-z]+?(?=[和的到往在为深浅大小])            return 'OBJ'
 
 "一点"                   return 'BIT'
 "分之一"                 return 'FRACTION'
@@ -94,6 +98,9 @@ expressions
     | predicate target adverbial FOR conditions EOF
         { console.log({"predicate": $1, "target": $2, "adverbial": $3, "conditions": $5});
           return {"predicate": $1, "target": $2, "adverbial": $3, "conditions": $5}; }
+    | predicate target EOF
+        { console.log({"predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined});
+          return {"predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined}; }
     ;
 
 object
