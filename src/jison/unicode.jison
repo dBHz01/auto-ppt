@@ -48,7 +48,11 @@
 "使得"                   return 'FOR'
 "使"                     return 'FOR'
 "且"                     return 'ALSO'
+"等于"                   return 'EQUAL'
+"大于"                   return 'GEQ'
+"小于"                   return 'LEQ'
 
+// [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
 [\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小])            return 'OBJ'
 
 "一点"                   return 'BIT'
@@ -63,9 +67,7 @@
 "八"                     return 'EIGHT'
 "九"                     return 'NINE'
 "十"                     return 'TEN'
-"等于"                   return 'EQUAL'
-"大于"                   return 'GEQ'
-"小于"                   return 'LEQ'
+
 
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
@@ -88,9 +90,6 @@
 expressions
     : relation EOF
         { console.log($1);
-        //   console.log($2);
-        //   console.log($3);
-        //   console.log($4);
           return {"predicate": $1}; }
     ;
 
@@ -135,38 +134,6 @@ doubleAttribute
         {$$ = "dist"}
     ;
 
-adverb
-    : DEEP '一点'
-        {$$ = "deep"}
-    | SHALLOW '一点'
-        {$$ = "shallow"}
-    | BIG '一点'
-        {$$ = "big"}
-    | SMALL '一点'
-        {$$ = "small"}
-    ;
-
-direction
-    : LEFT
-        {$$ = "left"}
-    | RIGHT
-        {$$ = "right"}
-    | UP
-        {$$ = "up"}
-    | DOWN
-        {$$ = "down"}
-    ;
-
-location
-    : HERE
-        {$$ = {"loc": "here", "type": "ref"}}
-    | THERE
-        {$$ = {"loc": "there", "type": "ref"}}
-    | object D direction
-        {$$ = {"obj": $1, "type": "single", "direction": $3}}
-    | object AND object D MIDDLE
-        {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "loc": "middle"}}
-    ;
 
 const
     : ONE
@@ -192,58 +159,31 @@ const
     ;
 
 value
-    : value D const TIME
-        {$$ = {"val": $1, "const": $3, "type": "time"};}
-    | value D const FRACTION
-        {$$ = {"val": $1, "const": $3, "type": "fraction"};}
+    // : value D const TIME
+    //     {$$ = {"val": $1, "const": $3, "type": "time"};}
+    // | value D const FRACTION
+    //     {$$ = {"val": $1, "const": $3, "type": "fraction"};}
     // | value AND value D DIFF
     //     {$$ = {"val_1": $1, "val_2": $3, "type": "diff"};}
     // | value AND value D AND
-        // {$$ = {"val_1": $1, "val_2": $3, "type": "sum"};}
-    | object D attribute
+    //     {$$ = {"val_1": $1, "val_2": $3, "type": "sum"};}
+    : object D attribute
         {$$ = {"obj": $1, "type": "single", "val": $3};}
     | object AND object D doubleAttribute
         {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "val": $5};}
     ;
 
 relation
-    : value EQUAL value
+    : object D attribute EQUAL object D attribute
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "="};}
-    | value LEQ value
+    | object D attribute AND object D attribute
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "<"};}
-    | value GEQ value
-        {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": ">"};}
-    | object AT object D direction
-        {$$ = {"type": "direction", "obj_1": $1, "obj_1": $3, "direction": $5};}
-    ;
-
-predicate
-    : NEW
-        {$$ = "new";}
-    | MOVE
-        {$$ = "move";}
-    | CHANGE
-        {$$ = "change";}
-    ;
-
-target
-    : object
-        {$$ = {"obj": $1, "type": "single", "val": "loc"};}
-    | object D attribute
-        {$$ = {"obj": $1, "type": "single", "val": $3};}
-    | object AND object D doubleAttribute
-        {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "val": $5};}
-    ;
-
-adverbial
-    : DAO location
-        {$$ = {"type": "loc", "loc": $2};}
-    | AT location
-        {$$ = {"type": "loc", "loc": $2};}
-    | WANG direction
-        {$$ = {"type": "direction", "direction": $2};}
-    | IS value
-        {$$ = {"type": "value", "value": $2};}
+    // | value LEQ value
+    //     {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "<"};}
+    // | value GEQ value
+    //     {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": ">"};}
+    // | value EQUAL
+    //     {$$ = {"type": "equation", "val_1": $1, "val_2": $2, "op": ">"};}
     ;
 
 conditions
