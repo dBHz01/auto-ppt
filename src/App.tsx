@@ -780,7 +780,9 @@ class App extends Component {
         // Parser.prototype.parse("A的大小");
         // Parser.prototype.parse("A的大小等于B的大小");
         // Parser.prototype.parse("A和B的水平距离等于A和C的竖直距离");
-        Parser.prototype.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离");
+        let p = new Parser()
+        let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离");
+        console.log(x)
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
         // Parser.prototype.parse("修改C的颜色为红色");
