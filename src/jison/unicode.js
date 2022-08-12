@@ -72,12 +72,12 @@
   }
 */
 var unicode = (function(){
-var o=function(k,v,o,l){for(o=o||{},l=k.length;l--;o[k[l]]=v);return o},$V0=[1,5],$V1=[1,6],$V2=[1,7],$V3=[1,12],$V4=[1,14],$V5=[1,15],$V6=[37,38,57],$V7=[52,53],$V8=[5,37,54,55,56];
+var o=function(k,v,o,l){for(o=o||{},l=k.length;l--;o[k[l]]=v);return o},$V0=[1,4],$V1=[1,5],$V2=[1,6],$V3=[1,12],$V4=[1,13],$V5=[1,14],$V6=[1,15],$V7=[1,16],$V8=[1,17],$V9=[1,18],$Va=[1,19],$Vb=[5,36,37];
 var parser = {trace: function trace () { },
 yy: {},
-symbols_: {"error":2,"expressions":3,"relation":4,"EOF":5,"object":6,"OBJ":7,"THIS":8,"THAT":9,"attribute":10,"SIZE":11,"HEIGHT":12,"WIDTH":13,"COLOR":14,"TEXT":15,"HORILOC":16,"VERTILOC":17,"LOC":18,"doubleAttribute":19,"HORIDIST":20,"VERTIDIST":21,"DISTANCE":22,"adverb":23,"DEEP":24,"一点":25,"SHALLOW":26,"BIG":27,"SMALL":28,"direction":29,"LEFT":30,"RIGHT":31,"UP":32,"DOWN":33,"location":34,"HERE":35,"THERE":36,"D":37,"AND":38,"MIDDLE":39,"const":40,"ONE":41,"TWO":42,"THREE":43,"FOUR":44,"FIVE":45,"SIX":46,"SEVEN":47,"EIGHT":48,"NINE":49,"TEN":50,"value":51,"TIME":52,"FRACTION":53,"EQUAL":54,"LEQ":55,"GEQ":56,"AT":57,"predicate":58,"NEW":59,"MOVE":60,"CHANGE":61,"target":62,"adverbial":63,"DAO":64,"WANG":65,"IS":66,"conditions":67,"ALSO":68,"$accept":0,"$end":1},
-terminals_: {2:"error",5:"EOF",7:"OBJ",8:"THIS",9:"THAT",11:"SIZE",12:"HEIGHT",13:"WIDTH",14:"COLOR",15:"TEXT",16:"HORILOC",17:"VERTILOC",18:"LOC",20:"HORIDIST",21:"VERTIDIST",22:"DISTANCE",24:"DEEP",25:"一点",26:"SHALLOW",27:"BIG",28:"SMALL",30:"LEFT",31:"RIGHT",32:"UP",33:"DOWN",35:"HERE",36:"THERE",37:"D",38:"AND",39:"MIDDLE",41:"ONE",42:"TWO",43:"THREE",44:"FOUR",45:"FIVE",46:"SIX",47:"SEVEN",48:"EIGHT",49:"NINE",50:"TEN",52:"TIME",53:"FRACTION",54:"EQUAL",55:"LEQ",56:"GEQ",57:"AT",59:"NEW",60:"MOVE",61:"CHANGE",64:"DAO",65:"WANG",66:"IS",68:"ALSO"},
-productions_: [0,[3,2],[6,1],[6,1],[6,1],[6,2],[6,2],[10,1],[10,1],[10,1],[10,1],[10,1],[10,1],[10,1],[10,1],[19,1],[19,1],[19,1],[23,2],[23,2],[23,2],[23,2],[29,1],[29,1],[29,1],[29,1],[34,1],[34,1],[34,3],[34,5],[40,1],[40,1],[40,1],[40,1],[40,1],[40,1],[40,1],[40,1],[40,1],[40,1],[51,4],[51,4],[51,3],[51,5],[4,3],[4,3],[4,3],[4,5],[58,1],[58,1],[58,1],[62,1],[62,3],[62,5],[63,2],[63,2],[63,2],[63,2],[67,3],[67,1]],
+symbols_: {"error":2,"expressions":3,"relation":4,"EOF":5,"object":6,"OBJ":7,"THIS":8,"THAT":9,"attribute":10,"SIZE":11,"HEIGHT":12,"WIDTH":13,"COLOR":14,"TEXT":15,"HORILOC":16,"VERTILOC":17,"LOC":18,"doubleAttribute":19,"HORIDIST":20,"VERTIDIST":21,"DISTANCE":22,"const":23,"ONE":24,"TWO":25,"THREE":26,"FOUR":27,"FIVE":28,"SIX":29,"SEVEN":30,"EIGHT":31,"NINE":32,"TEN":33,"value":34,"D":35,"AND":36,"EQUAL":37,"conditions":38,"ALSO":39,"$accept":0,"$end":1},
+terminals_: {2:"error",5:"EOF",7:"OBJ",8:"THIS",9:"THAT",11:"SIZE",12:"HEIGHT",13:"WIDTH",14:"COLOR",15:"TEXT",16:"HORILOC",17:"VERTILOC",18:"LOC",20:"HORIDIST",21:"VERTIDIST",22:"DISTANCE",24:"ONE",25:"TWO",26:"THREE",27:"FOUR",28:"FIVE",29:"SIX",30:"SEVEN",31:"EIGHT",32:"NINE",33:"TEN",35:"D",36:"AND",37:"EQUAL",39:"ALSO"},
+productions_: [0,[3,2],[6,1],[6,1],[6,1],[6,2],[6,2],[10,1],[10,1],[10,1],[10,1],[10,1],[10,1],[10,1],[10,1],[19,1],[19,1],[19,1],[23,1],[23,1],[23,1],[23,1],[23,1],[23,1],[23,1],[23,1],[23,1],[23,1],[34,3],[34,5],[4,7],[4,7],[38,3],[38,1]],
 performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
 /* this == yyval */
 
@@ -85,9 +85,6 @@ var $0 = $$.length - 1;
 switch (yystate) {
 case 1:
  console.log($$[$0-1]);
-        //   console.log($$[$0]);
-        //   console.log($$[$01]);
-        //   console.log($$[$02]);
           return {"predicate": $$[$0-1]}; 
 break;
 case 2:
@@ -130,126 +127,57 @@ case 17:
 this.$ = "dist"
 break;
 case 18:
-this.$ = "deep"
-break;
-case 19:
-this.$ = "shallow"
-break;
-case 20:
-this.$ = "big"
-break;
-case 21:
-this.$ = "small"
-break;
-case 22:
-this.$ = "left"
-break;
-case 23:
-this.$ = "right"
-break;
-case 24:
-this.$ = "up"
-break;
-case 25:
-this.$ = "down"
-break;
-case 26:
-this.$ = {"loc": "here", "type": "ref"}
-break;
-case 27:
-this.$ = {"loc": "there", "type": "ref"}
-break;
-case 28:
-this.$ = {"obj": $$[$0-2], "type": "single", "direction": $$[$0]}
-break;
-case 29:
-this.$ = {"obj_1": $$[$0-4], "obj_2": $$[$0-2], "type": "double", "loc": "middle"}
-break;
-case 30:
 this.$ = 1
 break;
-case 31:
+case 19:
 this.$ = 2
 break;
-case 32:
+case 20:
 this.$ = 3
 break;
-case 33:
+case 21:
 this.$ = 4
 break;
-case 34:
+case 22:
 this.$ = 5
 break;
-case 35:
+case 23:
 this.$ = 6
 break;
-case 36:
+case 24:
 this.$ = 7
 break;
-case 37:
+case 25:
 this.$ = 8
 break;
-case 38:
+case 26:
 this.$ = 9
 break;
-case 39:
+case 27:
 this.$ = 10
 break;
-case 40:
-this.$ = {"val": $$[$0-3], "const": $$[$0-1], "type": "time"};
-break;
-case 41:
-this.$ = {"val": $$[$0-3], "const": $$[$0-1], "type": "fraction"};
-break;
-case 42: case 52:
+case 28:
 this.$ = {"obj": $$[$0-2], "type": "single", "val": $$[$0]};
 break;
-case 43: case 53:
+case 29:
 this.$ = {"obj_1": $$[$0-4], "obj_2": $$[$0-2], "type": "double", "val": $$[$0]};
 break;
-case 44:
-this.$ = {"type": "equation", "val_1": $$[$0-2], "val_2": $$[$0], "op": "="};
+case 30:
+this.$ = {"type": "equation", "val_1": $$[$0-6], "val_2": $$[$0-4], "op": "="};
 break;
-case 45:
-this.$ = {"type": "equation", "val_1": $$[$0-2], "val_2": $$[$0], "op": "<"};
+case 31:
+this.$ = {"type": "equation", "val_1": $$[$0-6], "val_2": $$[$0-4], "op": "<"};
 break;
-case 46:
-this.$ = {"type": "equation", "val_1": $$[$0-2], "val_2": $$[$0], "op": ">"};
-break;
-case 47:
-this.$ = {"type": "direction", "obj_1": $$[$0-4], "obj_1": $$[$0-2], "direction": $$[$0]};
-break;
-case 48:
-this.$ = "new";
-break;
-case 49:
-this.$ = "move";
-break;
-case 50:
-this.$ = "change";
-break;
-case 51:
-this.$ = {"obj": $$[$0], "type": "single", "val": "loc"};
-break;
-case 54: case 55:
-this.$ = {"type": "loc", "loc": $$[$0]};
-break;
-case 56:
-this.$ = {"type": "direction", "direction": $$[$0]};
-break;
-case 57:
-this.$ = {"type": "value", "value": $$[$0]};
-break;
-case 58:
+case 32:
  this.$ = $$[$0-2]; 
 break;
-case 59:
+case 33:
  this.$ = $$[$0]; 
 break;
 }
 },
-table: [{3:1,4:2,6:4,7:$V0,8:$V1,9:$V2,51:3},{1:[3]},{5:[1,8]},{37:$V3,54:[1,9],55:[1,10],56:[1,11]},{37:$V4,38:$V5,57:[1,13]},o($V6,[2,2]),o($V6,[2,3],{7:[1,16]}),o($V6,[2,4],{7:[1,17]}),{1:[2,1]},{6:19,7:$V0,8:$V1,9:$V2,51:18},{6:19,7:$V0,8:$V1,9:$V2,51:20},{6:19,7:$V0,8:$V1,9:$V2,51:21},{40:22,41:[1,23],42:[1,24],43:[1,25],44:[1,26],45:[1,27],46:[1,28],47:[1,29],48:[1,30],49:[1,31],50:[1,32]},{6:33,7:$V0,8:$V1,9:$V2},{10:34,11:[1,35],12:[1,36],13:[1,37],14:[1,38],15:[1,39],16:[1,40],17:[1,41],18:[1,42]},{6:43,7:$V0,8:$V1,9:$V2},o($V6,[2,5]),o($V6,[2,6]),{5:[2,44],37:$V3},{37:$V4,38:$V5},{5:[2,45],37:$V3},{5:[2,46],37:$V3},{52:[1,44],53:[1,45]},o($V7,[2,30]),o($V7,[2,31]),o($V7,[2,32]),o($V7,[2,33]),o($V7,[2,34]),o($V7,[2,35]),o($V7,[2,36]),o($V7,[2,37]),o($V7,[2,38]),o($V7,[2,39]),{37:[1,46]},o($V8,[2,42]),o($V8,[2,7]),o($V8,[2,8]),o($V8,[2,9]),o($V8,[2,10]),o($V8,[2,11]),o($V8,[2,12]),o($V8,[2,13]),o($V8,[2,14]),{37:[1,47]},o($V8,[2,40]),o($V8,[2,41]),{29:48,30:[1,49],31:[1,50],32:[1,51],33:[1,52]},{19:53,20:[1,54],21:[1,55],22:[1,56]},{5:[2,47]},{5:[2,22]},{5:[2,23]},{5:[2,24]},{5:[2,25]},o($V8,[2,43]),o($V8,[2,15]),o($V8,[2,16]),o($V8,[2,17])],
-defaultActions: {8:[2,1],48:[2,47],49:[2,22],50:[2,23],51:[2,24],52:[2,25]},
+table: [{3:1,4:2,6:3,7:$V0,8:$V1,9:$V2},{1:[3]},{5:[1,7]},{35:[1,8]},{35:[2,2]},{7:[1,9],35:[2,3]},{7:[1,10],35:[2,4]},{1:[2,1]},{10:11,11:$V3,12:$V4,13:$V5,14:$V6,15:$V7,16:$V8,17:$V9,18:$Va},{35:[2,5]},{35:[2,6]},{36:[1,21],37:[1,20]},o($Vb,[2,7]),o($Vb,[2,8]),o($Vb,[2,9]),o($Vb,[2,10]),o($Vb,[2,11]),o($Vb,[2,12]),o($Vb,[2,13]),o($Vb,[2,14]),{6:22,7:$V0,8:$V1,9:$V2},{6:23,7:$V0,8:$V1,9:$V2},{35:[1,24]},{35:[1,25]},{10:26,11:$V3,12:$V4,13:$V5,14:$V6,15:$V7,16:$V8,17:$V9,18:$Va},{10:27,11:$V3,12:$V4,13:$V5,14:$V6,15:$V7,16:$V8,17:$V9,18:$Va},{5:[2,30]},{5:[2,31]}],
+defaultActions: {4:[2,2],7:[2,1],9:[2,5],10:[2,6],26:[2,30],27:[2,31]},
 parseError: function parseError (str, hash) {
     if (hash.recoverable) {
         this.trace(str);
@@ -726,19 +654,19 @@ var YYSTATE=YY_START;
 switch($avoiding_name_collisions) {
 case 0:/* skip whitespace */
 break;
-case 1:return 59
+case 1:return 'NEW'
 break;
-case 2:return 60
+case 2:return 'MOVE'
 break;
-case 3:return 61
+case 3:return 'CHANGE'
 break;
 case 4:return 8
 break;
 case 5:return 9
 break;
-case 6:return 35
+case 6:return 'HERE'
 break;
-case 7:return 36
+case 7:return 'THERE'
 break;
 case 8:return 11
 break;
@@ -762,45 +690,45 @@ case 17:return 21
 break;
 case 18:return 22
 break;
-case 19:return 24
+case 19:return 'DEEP'
 break;
-case 20:return 26
+case 20:return 'SHALLOW'
 break;
-case 21:return 27
+case 21:return 'BIG'
 break;
-case 22:return 28
+case 22:return 'SMALL'
 break;
-case 23:return 30
+case 23:return 'LEFT'
 break;
-case 24:return 31
+case 24:return 'RIGHT'
 break;
-case 25:return 32
+case 25:return 'UP'
 break;
-case 26:return 33
+case 26:return 'DOWN'
 break;
-case 27:return 30
+case 27:return 'LEFT'
 break;
-case 28:return 31
+case 28:return 'RIGHT'
 break;
-case 29:return 32
+case 29:return 'UP'
 break;
-case 30:return 33 
+case 30:return 'DOWN' 
 break;
-case 31:return 39 
+case 31:return 'MIDDLE' 
 break;
-case 32:return 37
+case 32:return 35
 break;
-case 33:return 38
+case 33:return 36
 break;
-case 34:return 64
+case 34:return 'DAO'
 break;
-case 35:return 57
+case 35:return 'AT'
 break;
-case 36:return 65
+case 36:return 'WANG'
 break;
-case 37:return 66
+case 37:return 'IS'
 break;
-case 38:return 52
+case 38:return 'TIME'
 break;
 case 39:return 'DIFF'
 break;
@@ -808,39 +736,39 @@ case 40:return 'FOR'
 break;
 case 41:return 'FOR'
 break;
-case 42:return 68
+case 42:return 39
 break;
-case 43:return 7
+case 43:return 37
 break;
-case 44:return 'BIT'
+case 44:return 'GEQ'
 break;
-case 45:return 53
+case 45:return 'LEQ'
 break;
-case 46:return 41
+case 46:return 7
 break;
-case 47:return 42
+case 47:return 'BIT'
 break;
-case 48:return 43
+case 48:return 'FRACTION'
 break;
-case 49:return 44
+case 49:return 24
 break;
-case 50:return 45
+case 50:return 25
 break;
-case 51:return 46
+case 51:return 26
 break;
-case 52:return 47
+case 52:return 27
 break;
-case 53:return 48
+case 53:return 28
 break;
-case 54:return 49
+case 54:return 29
 break;
-case 55:return 50
+case 55:return 30
 break;
-case 56:return 54
+case 56:return 31
 break;
-case 57:return 56
+case 57:return 32
 break;
-case 58:return 55
+case 58:return 33
 break;
 case 59:return 5
 break;
@@ -848,7 +776,7 @@ case 60:return 'INVALID'
 break;
 }
 },
-rules: [/^(?:\s+)/,/^(?:新建)/,/^(?:移动)/,/^(?:修改)/,/^(?:这个)/,/^(?:那个)/,/^(?:这里)/,/^(?:那里)/,/^(?:大小)/,/^(?:高度)/,/^(?:宽度)/,/^(?:颜色)/,/^(?:文字)/,/^(?:水平位置)/,/^(?:竖直位置)/,/^(?:位置)/,/^(?:水平距离)/,/^(?:竖直距离)/,/^(?:距离)/,/^(?:深)/,/^(?:浅)/,/^(?:大)/,/^(?:小)/,/^(?:左边)/,/^(?:右边)/,/^(?:上边)/,/^(?:下边)/,/^(?:左方)/,/^(?:右方)/,/^(?:上方)/,/^(?:下方)/,/^(?:中点)/,/^(?:的)/,/^(?:和)/,/^(?:到)/,/^(?:在)/,/^(?:往)/,/^(?:为)/,/^(?:倍)/,/^(?:差)/,/^(?:使得)/,/^(?:使)/,/^(?:且)/,/^(?:[\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小]))/,/^(?:一点)/,/^(?:分之一)/,/^(?:一)/,/^(?:二)/,/^(?:三)/,/^(?:四)/,/^(?:五)/,/^(?:六)/,/^(?:七)/,/^(?:八)/,/^(?:九)/,/^(?:十)/,/^(?:等于)/,/^(?:大于)/,/^(?:小于)/,/^(?:$)/,/^(?:.)/],
+rules: [/^(?:\s+)/,/^(?:新建)/,/^(?:移动)/,/^(?:修改)/,/^(?:这个)/,/^(?:那个)/,/^(?:这里)/,/^(?:那里)/,/^(?:大小)/,/^(?:高度)/,/^(?:宽度)/,/^(?:颜色)/,/^(?:文字)/,/^(?:水平位置)/,/^(?:竖直位置)/,/^(?:位置)/,/^(?:水平距离)/,/^(?:竖直距离)/,/^(?:距离)/,/^(?:深)/,/^(?:浅)/,/^(?:大)/,/^(?:小)/,/^(?:左边)/,/^(?:右边)/,/^(?:上边)/,/^(?:下边)/,/^(?:左方)/,/^(?:右方)/,/^(?:上方)/,/^(?:下方)/,/^(?:中点)/,/^(?:的)/,/^(?:和)/,/^(?:到)/,/^(?:在)/,/^(?:往)/,/^(?:为)/,/^(?:倍)/,/^(?:差)/,/^(?:使得)/,/^(?:使)/,/^(?:且)/,/^(?:等于)/,/^(?:大于)/,/^(?:小于)/,/^(?:[\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小]))/,/^(?:一点)/,/^(?:分之一)/,/^(?:一)/,/^(?:二)/,/^(?:三)/,/^(?:四)/,/^(?:五)/,/^(?:六)/,/^(?:七)/,/^(?:八)/,/^(?:九)/,/^(?:十)/,/^(?:$)/,/^(?:.)/],
 conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60],"inclusive":true}}
 });
 return lexer;
