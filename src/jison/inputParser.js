@@ -84,17 +84,12 @@ performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* actio
 var $0 = $$.length - 1;
 switch (yystate) {
 case 1:
- console.log($$[$0-3]);
-          console.log($$[$0-2]);
-          console.log($$[$0-1]);
-          return {"predicate": $$[$0-3]}; 
+ console.log({"predicate": $$[$0-3], "target": $$[$0-2], "adverbial": $$[$0-1], "conditions": undefined});
+          return {"predicate": $$[$0-3], "target": $$[$0-2], "adverbial": $$[$0-1], "conditions": undefined}; 
 break;
 case 2:
- console.log($$[$0-5]);
-          console.log($$[$0-4]);
-          console.log($$[$0-3]);
-          console.log($$[$0-1]);
-          return {"predicate": $$[$0-5]}; 
+ console.log({"predicate": $$[$0-5], "target": $$[$0-4], "adverbial": $$[$0-3], "conditions": $$[$0-1]});
+          return {"predicate": $$[$0-5], "target": $$[$0-4], "adverbial": $$[$0-3], "conditions": $$[$0-1]}; 
 break;
 case 3:
 this.$ = {"name": $$[$0], "type": "obj"};
@@ -256,10 +251,11 @@ case 61:
 this.$ = {"type": "adverb", "value": $$[$0]};
 break;
 case 62:
- this.$ = $$[$0-2]; 
+ $$[$0-2].push($$[$0]);
+          this.$ = $$[$0-2]; 
 break;
 case 63:
- this.$ = $$[$0]; 
+ this.$ = [$$[$0]]; 
 break;
 }
 },
@@ -825,37 +821,37 @@ case 41:return 8
 break;
 case 42:return 70
 break;
-case 43:return 11
+case 43:return 60
 break;
-case 44:return 29
+case 44:return 62
 break;
-case 45:return 57
+case 45:return 61
 break;
-case 46:return 45
+case 46:return 11
 break;
-case 47:return 46
+case 47:return 29
 break;
-case 48:return 47
+case 48:return 57
 break;
-case 49:return 48
+case 49:return 45
 break;
-case 50:return 49
+case 50:return 46
 break;
-case 51:return 50
+case 51:return 47
 break;
-case 52:return 51
+case 52:return 48
 break;
-case 53:return 52
+case 53:return 49
 break;
-case 54:return 53
+case 54:return 50
 break;
-case 55:return 54
+case 55:return 51
 break;
-case 56:return 60
+case 56:return 52
 break;
-case 57:return 62
+case 57:return 53
 break;
-case 58:return 61
+case 58:return 54
 break;
 case 59:return 7
 break;
@@ -863,7 +859,7 @@ case 60:return 'INVALID'
 break;
 }
 },
-rules: [/^(?:\s+)/,/^(?:新建)/,/^(?:移动)/,/^(?:修改)/,/^(?:这个)/,/^(?:那个)/,/^(?:这里)/,/^(?:那里)/,/^(?:大小)/,/^(?:高度)/,/^(?:宽度)/,/^(?:颜色)/,/^(?:文字)/,/^(?:水平位置)/,/^(?:竖直位置)/,/^(?:位置)/,/^(?:水平距离)/,/^(?:竖直距离)/,/^(?:距离)/,/^(?:深)/,/^(?:浅)/,/^(?:大)/,/^(?:小)/,/^(?:左边)/,/^(?:右边)/,/^(?:上边)/,/^(?:下边)/,/^(?:左方)/,/^(?:右方)/,/^(?:上方)/,/^(?:下方)/,/^(?:中点)/,/^(?:的)/,/^(?:和)/,/^(?:到)/,/^(?:在)/,/^(?:往)/,/^(?:为)/,/^(?:倍)/,/^(?:差)/,/^(?:使得)/,/^(?:使)/,/^(?:且)/,/^(?:[\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小]))/,/^(?:一点)/,/^(?:分之一)/,/^(?:一)/,/^(?:二)/,/^(?:三)/,/^(?:四)/,/^(?:五)/,/^(?:六)/,/^(?:七)/,/^(?:八)/,/^(?:九)/,/^(?:十)/,/^(?:等于)/,/^(?:大于)/,/^(?:小于)/,/^(?:$)/,/^(?:.)/],
+rules: [/^(?:\s+)/,/^(?:新建)/,/^(?:移动)/,/^(?:修改)/,/^(?:这个)/,/^(?:那个)/,/^(?:这里)/,/^(?:那里)/,/^(?:大小)/,/^(?:高度)/,/^(?:宽度)/,/^(?:颜色)/,/^(?:文字)/,/^(?:水平位置)/,/^(?:竖直位置)/,/^(?:位置)/,/^(?:水平距离)/,/^(?:竖直距离)/,/^(?:距离)/,/^(?:深)/,/^(?:浅)/,/^(?:大)/,/^(?:小)/,/^(?:左边)/,/^(?:右边)/,/^(?:上边)/,/^(?:下边)/,/^(?:左方)/,/^(?:右方)/,/^(?:上方)/,/^(?:下方)/,/^(?:中点)/,/^(?:的)/,/^(?:和)/,/^(?:到)/,/^(?:在)/,/^(?:往)/,/^(?:为)/,/^(?:倍)/,/^(?:差)/,/^(?:使得)/,/^(?:使)/,/^(?:且)/,/^(?:等于)/,/^(?:大于)/,/^(?:小于)/,/^(?:[\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小]))/,/^(?:一点)/,/^(?:分之一)/,/^(?:一)/,/^(?:二)/,/^(?:三)/,/^(?:四)/,/^(?:五)/,/^(?:六)/,/^(?:七)/,/^(?:八)/,/^(?:九)/,/^(?:十)/,/^(?:$)/,/^(?:.)/],
 conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60],"inclusive":true}}
 });
 return lexer;

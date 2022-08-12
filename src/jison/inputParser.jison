@@ -48,6 +48,9 @@
 "使得"                   return 'FOR'
 "使"                     return 'FOR'
 "且"                     return 'ALSO'
+"等于"                   return 'EQUAL'
+"大于"                   return 'GEQ'
+"小于"                   return 'LEQ'
 
 // [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
 [\u4e00-\u9fa5A-Za-z]+?(?=[和的到在为深浅大小])            return 'OBJ'
@@ -64,9 +67,6 @@
 "八"                     return 'EIGHT'
 "九"                     return 'NINE'
 "十"                     return 'TEN'
-"等于"                   return 'EQUAL'
-"大于"                   return 'GEQ'
-"小于"                   return 'LEQ'
 
 
 <<EOF>>               return 'EOF'
@@ -89,16 +89,11 @@
 
 expressions
     : predicate target adverbial EOF
-        { console.log($1);
-          console.log($2);
-          console.log($3);
-          return {"predicate": $1}; }
+        { console.log({"predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined});
+          return {"predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined}; }
     | predicate target adverbial FOR conditions EOF
-        { console.log($1);
-          console.log($2);
-          console.log($3);
-          console.log($5);
-          return {"predicate": $1}; }
+        { console.log({"predicate": $1, "target": $2, "adverbial": $3, "conditions": $5});
+          return {"predicate": $1, "target": $2, "adverbial": $3, "conditions": $5}; }
     ;
 
 object
@@ -257,7 +252,8 @@ adverbial
 
 conditions
     : conditions ALSO relation
-        { $$ = $1; }
+        { $1.push($3);
+          $$ = $1; }
     | relation
-        { $$ = $1; }
+        { $$ = [$1]; }
     ;
