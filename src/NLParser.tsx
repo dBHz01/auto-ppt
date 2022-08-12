@@ -86,8 +86,45 @@ class NLParser {
         )]
     }
 
-    
+    convertObjToController(obj: {[key: string]: any}) {
 
+    }
+
+}
+
+class PosToElement {
+    static LEFT = 'left';
+    static RIGHT = 'right';
+    static UP = 'up';
+    static DOWN = 'down';
+    static CENTER = 'center';
+    elements: ElementPlaceholder[] = [];
+    pos?: string;
+}
+
+class ControllerOp {
+    isCreate: boolean = false;
+    
+    targetElement?: ElementPlaceholder;
+    targetAttr?: AttributePlaceholder;
+    targetRelation? : [FuncTree, AttributePlaceholder[]]; // 比如 A 和 B 之间的水平距离
+
+    // 在/到<位置>; <对象> 和 <对象> 的中点
+    pos?: PosToElement;
+
+    // 往<方位>，表示位置的移动
+    // 深、浅、大、小，表示非位置属性的变化
+    inc?: boolean;
+    dec?: boolean;
+
+    // 赋成的值
+    assignValue?: [FuncTree, AttributePlaceholder[]];
+
+    // 附加条件，仅仅支持对位置属性的运算
+    extraEqs?: EqPlaceholder[];
+    extraRanges?: EqPlaceholder[];
+
+    constructor(){}
 }
 
 export{ NLParser }
