@@ -1,6 +1,6 @@
 import { typeList } from 'antd/lib/message';
 import axios from 'axios';
-import { abs, e, max, min, number, sqrt } from 'mathjs';
+import { abs, e, ifft, max, min, number, sqrt } from 'mathjs';
 import { ControllerCloner } from './ControllerCloner';
 import {loadFile, parseNewEquation} from './load_file'
 import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList, beamSolve, countTimeStart, countTimeEnd, countTimeFinish} from './utility'
@@ -283,7 +283,7 @@ class SingleElement {
         if(this.type === ElementType.CONST || this.type === ElementType.TMP || this.type === ElementType.BASE){
             return false;
         }
-        if(this.type === ElementType.RECTANGLE){
+        if(this.type === ElementType.RECTANGLE || this.type === ElementType.CIRCLE){
             let centerX:number = this.getAttribute('x')?.val?.val;
             let centerY:number = this.getAttribute('y')?.val?.val;
             let w:number = this.getAttribute('w')?.val?.val || 50;
@@ -346,6 +346,44 @@ class SingleElement {
         newLightness = newLightness < 0 ? 0 : (newLightness > 900 ? 900 : newLightness);
         this.changeCertainAttribute<String>("lightness", newLightness);
     }
+
+    changeWidth(w: number){
+        this.changeCertainAttribute<number>('w', w);
+    }
+
+    changeHeight(h: number){
+        this.changeCertainAttribute<number>('h', h);
+    }
+
+    changeWidthByDelta(inc: boolean): boolean{
+        if(!this.attributes.has('w')){
+            return false;
+        }
+
+        let tgt = this.attributes.get('w')?.val.val + (10 * (inc? 1: -1));
+        if(tgt <= 0){
+            return false;
+        }
+
+        this.changeWidth(tgt);
+        return true;
+    }
+
+    changeHeightByDelta(inc: boolean): boolean{
+        if(!this.attributes.has('h')){
+            return false;
+        }
+
+        let tgt = this.attributes.get('h')?.val.val + (10 * (inc? 1: -1));
+        if(tgt <= 0){
+            return false;
+        }
+
+        this.changeHeight(tgt);
+        return true;
+    }
+
+
 
 }
 
@@ -1038,7 +1076,8 @@ class Controller {
     constructor() {
         this.attrNameToDefault = new Map();
         // this.loadDefaultFromFile('matrix')
-        this.loadDefaultFromFile('cube')
+        // this.loadDefaultFromFile('cube')
+        this.loadDefaultFromFile('transformer')
 
 
         this.elements = new Map<number, SingleElement>();
@@ -1119,9 +1158,9 @@ class Controller {
         
     }
 
-    createElement(_type: ElementType, _name?: string, _text?: string): number {
+    createElement(_type: ElementType, _name?: string, _text?: string, _id?:number): number {
         // return element id
-        let newElement = new SingleElement(this.idAllocator, _type, _name);
+        let newElement = new SingleElement(_id == undefined? this.idAllocator: _id, _type, _name);
         // 如果是实际元素需要建立坐标、长宽、颜色
         if (displayElementTypes.indexOf(_type) >= 0){
             newElement.addAttribute(new Attribute("x", new RawNumber(100), newElement));
@@ -1156,7 +1195,11 @@ class Controller {
             newElement.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtEnding')), newElement));
             newElement.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.attrNameToDefault.get('dashEnabled')), newElement));
         }
-        this.idAllocator++;
+        if(_id == undefined){
+            this.idAllocator++;
+        } else {
+            this.idAllocator = _id + 1;
+        }
         this.elements.set(this.idAllocator - 1, newElement);
         return this.idAllocator - 1;
     }
@@ -2880,7 +2923,8 @@ class Controller {
             let crtObj: any = {
                 "type": "element",
                 "name": ele.name,
-                "elementType": eleTypeToStr.get(ele.type)
+                "elementType": eleTypeToStr.get(ele.type),
+                "id": ele.id
             }
 
             for(let attr of ele.attributes){

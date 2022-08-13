@@ -514,6 +514,25 @@ class HelperGUI extends React.Component {
         })
     }
 
+    genSizeAdjustHandler(type: string, inc: boolean){
+        return ()=>{
+            Controller.saveIfSuccess(()=>{
+                let res = false;
+                if(type === 'w'){
+                    res = this.controller.getElement(this.state.selectedItemId).changeWidthByDelta(inc);
+                } else if(type === 'h'){
+                    res = this.controller.getElement(this.state.selectedItemId).changeHeightByDelta(inc);
+                }
+
+                if(res){
+                    App.instance.allComponentsRef.current?.forceUpdate();
+                }
+
+                return res;
+            });
+        }
+    }
+
     genColorSelect(cn: string){
         return ()=>{
             Controller.saveIfSuccess(()=>{
@@ -643,6 +662,18 @@ class HelperGUI extends React.Component {
                             onClick={this.handleLigntnessDec.bind(this)}>
                             变浅
                         </div>
+                    </div>
+                        <button onClick={this.genSizeAdjustHandler('w', false).bind(this)}>变窄</button>
+                        宽度调整
+                        <button onClick={this.genSizeAdjustHandler('w', true).bind(this)}>变宽</button>
+                    <div>
+
+                    </div>
+                        <button onClick={this.genSizeAdjustHandler('h', false).bind(this)}>变矮</button>
+                        宽度调整
+                        <button onClick={this.genSizeAdjustHandler('h', true).bind(this)}>变高</button>
+                    <div>
+
                     </div>
 
                     <div style={{display: 'flex', flexWrap: 'wrap'}}>

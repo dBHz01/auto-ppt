@@ -1,5 +1,5 @@
 import assert from 'assert';
-import {AssignOp, Attribute, FuncTree, SingleElement, str2AssignOp, String2OP} from './components/backend'
+import {AssignOp, Attribute, Controller, FuncTree, SingleElement, str2AssignOp, String2OP} from './components/backend'
 class ElementPlaceholder {
     // 表示一个待定的元素
     // 如果不使用指点（useTrace === false），并且属性要求为空，说明用户简单地使用“它”、“这/那”指代
@@ -85,6 +85,10 @@ class NLParser {
         return [new EqPlaceholder(
             leftObj[0], rightObj[0], leftObj[1], rightObj[1], op
         )]
+    }
+
+    conductOnController(con: Controller, uttrObj: {[key: string]: any}){
+        
     }
 }
 

@@ -93,12 +93,14 @@ function loadFile(controller: Controller, fileInput: any) {
                     throw Error("element type should be string");
                 }
                 // new an element
-                let id = controller.createElement(elementType, elementName);
+                let crtID = entry['id'];
+                let id = controller.createElement(elementType, elementName, '', crtID);
                 for (let [key, value] of Object.entries(entry)) {
                     switch (key) {
                         case "type":
                         case "name":
                         case "elementType":
+                        case "id":
                             break;
 
                         default:
