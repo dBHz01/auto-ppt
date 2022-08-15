@@ -190,7 +190,9 @@ enum ElementType {
     RECTANGLE,
     CIRCLE,
     ARROW,
-    TMP
+    TMP,
+    LINE,
+    TEXT
 }
 
 
@@ -975,6 +977,10 @@ class Controller {
     idAllocator: number;
     constAllocator: number;
 
+    hints: Map<number, SingleElement>;
+    hidAllocator: number;
+
+
     candidates: Array<[Equation[], Attribute[], number[], number]>;
     crtCdtIdx: number;
 
@@ -1079,6 +1085,8 @@ class Controller {
         // this.loadDefaultFromFile('cube')
         this.loadDefaultFromFile('transformer')
 
+        this.hints = new Map<number, SingleElement>();
+        this.hidAllocator = 0;
 
         this.elements = new Map<number, SingleElement>();
         this.equations = [];
@@ -1204,9 +1212,27 @@ class Controller {
         return this.idAllocator - 1;
     }
 
+    createHint(_type: ElementType, _name?: string): number {
+        // return hint id
+        let newHint = new SingleElement(this.hidAllocator, _type, _name);
+        this.hidAllocator++;
+        this.hints.set(this.hidAllocator - 1, newHint);
+        return this.hidAllocator - 1;
+    }
+
     deleteElement(id: number):boolean{
         // todo
         return false;
+    }
+
+    deleteHint(id: number):boolean{
+        let ele = this.getHint(id);
+        let noAttributeUsed = true;
+        if(!noAttributeUsed){
+            return false;
+        }
+        this.hints.delete(ele.id);
+        return true;
     }
 
     getElement(_id: number): SingleElement {
@@ -1218,6 +1244,15 @@ class Controller {
         throw Error("error element");
     }
     
+    getHint(_id: number): SingleElement {
+        for(let ele of this.hints.values()){
+            if(ele.id === _id){
+                return ele;
+            }
+        }
+        throw Error("error hint");
+    }
+
     addAttribute(_id: number, _name: string, _val: Value) {
         let newAttribute = new Attribute(_name, _val, this.elements.get(_id)!);
         this.elements.get(_id)!.addAttribute(newAttribute);
@@ -1226,8 +1261,22 @@ class Controller {
         }
     }
 
+    addHintAttribute(_id: number, _name: string, _val: Value) {
+        let newAttribute = new Attribute(_name, _val, this.hints.get(_id)!);
+        this.hints.get(_id)!.addAttribute(newAttribute);
+    }
+
     getAttribute(_id: number, _name: string): Attribute {
         let attr = this.elements.get(_id)!.attributes.get(_name);
+        if (attr != undefined) {
+            return attr;
+        } else {
+            throw Error("not this attribute");
+        }
+    }
+
+    getHintAttribute(_id: number, _name: string): Attribute {
+        let attr = this.hints.get(_id)!.attributes.get(_name);
         if (attr != undefined) {
             return attr;
         } else {
