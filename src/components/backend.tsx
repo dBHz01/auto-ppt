@@ -383,8 +383,10 @@ class SingleElement {
         return true;
     }
 
-
-
+    changeType(_type: ElementType){
+        this.type = _type;
+        Controller.getInstance().attrNameToDefault.set('elementType', _type);
+    }
 }
 
 const TMP = new SingleElement(-1, ElementType.TMP);
@@ -1077,7 +1079,8 @@ class Controller {
         this.attrNameToDefault = new Map();
         // this.loadDefaultFromFile('matrix')
         // this.loadDefaultFromFile('cube')
-        this.loadDefaultFromFile('transformer')
+        // this.loadDefaultFromFile('transformer')
+        this.loadDefaultFromFile('mendelian')
 
 
         this.elements = new Map<number, SingleElement>();

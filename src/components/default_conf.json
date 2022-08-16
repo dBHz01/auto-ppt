@@ -10,6 +10,17 @@
         "dashEnabled": false,
         "const_dis": 65
     }, 
+    "mendelian": {
+        "w": 50,
+        "h": 50,
+        "color": "green",
+        "lightness": 400,
+        "elementType": "CIRCLE",
+        "pointerAtBeginning": false,
+        "pointerAtEnding": false,
+        "dashEnabled": false,
+        "const_dis": 65
+    }, 
     "transformer": {
         "w": 100,
         "h": 30,

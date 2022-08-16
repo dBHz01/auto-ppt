@@ -155,7 +155,8 @@ class AllComponents extends React.Component {
                                     draggable={true}
                                     onDragEnd={this.create_drag_end_handler(i).bind(this)}
                                     idInController={`${idx}`}
-                                    strokeWidth={0}
+                                    strokeWidth={1}
+                                    stroke={'black'}
                                 />
                             );
                         } else if(i.type === ElementType.CIRCLE){
@@ -199,7 +200,7 @@ class AllComponents extends React.Component {
                             listening={false}
                             align={'center'}
                             verticalAlign={'middle'}
-                            
+                            lineHeight={1.5}
                         />);
                     }
                     break;
@@ -333,7 +334,7 @@ class HelperGUI extends React.Component {
         itemAttrObj: Map<string, any>};
 
     showCdtRef: React.RefObject<HTMLInputElement>;
-    editTextRef: React.RefObject<HTMLInputElement>;
+    editTextRef: React.RefObject<HTMLTextAreaElement>;
     showDebugInfoRef: React.RefObject<HTMLInputElement>;
     uploadFileRef: React.RefObject<HTMLInputElement>;
     constructor(props: any){
@@ -548,6 +549,15 @@ class HelperGUI extends React.Component {
         }
     }
 
+    genChangeTypeHandler(type: ElementType){
+        return ()=>{
+            Controller.saveIfSuccess(()=>{
+                this.controller.getElement(this.state.selectedItemId).changeElementType(type);
+                App.instance.allComponentsRef.current?.forceUpdate();
+                return true;
+            })}
+    }
+
     downloadContent(){
         let eleLink = document.createElement('a');
         eleLink.download = `content.json`;
@@ -570,6 +580,7 @@ class HelperGUI extends React.Component {
             try{
                 let fileData = await reader(this.uploadFileRef.current!.files![0])
                 loadFile(Controller.getInstance(), JSON.parse(fileData));
+                Controller.getInstance().updateValsByEquations();
                 App.instance.forceUpdate()
                 return true;
             } catch(error) {
@@ -635,7 +646,7 @@ class HelperGUI extends React.Component {
             </div>
             {this.state.selectedItemId >= 0? <div>
                 <div>
-                    <input ref={this.editTextRef} type="text" 
+                    <textarea ref={this.editTextRef}
                         defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
                     /><button onClick={()=>{
                         Controller.saveIfSuccess(()=>{
@@ -663,17 +674,23 @@ class HelperGUI extends React.Component {
                             变浅
                         </div>
                     </div>
+
+                    <div>
                         <button onClick={this.genSizeAdjustHandler('w', false).bind(this)}>变窄</button>
                         宽度调整
                         <button onClick={this.genSizeAdjustHandler('w', true).bind(this)}>变宽</button>
-                    <div>
-
                     </div>
+
+                    <div>
                         <button onClick={this.genSizeAdjustHandler('h', false).bind(this)}>变矮</button>
                         宽度调整
                         <button onClick={this.genSizeAdjustHandler('h', true).bind(this)}>变高</button>
-                    <div>
+                    </div>
 
+                    <div>
+                        类型调整：
+                        <button onClick={this.genChangeTypeHandler(ElementType.RECTANGLE).bind(this)}>矩形</button>
+                        <button onClick={this.genChangeTypeHandler(ElementType.CIRCLE).bind(this)}>圆形</button>
                     </div>
 
                     <div style={{display: 'flex', flexWrap: 'wrap'}}>
@@ -842,6 +859,7 @@ class App extends Component {
     nextSolution() {
         Controller.saveIfSuccess(()=>{
             this.allComponentsRef.current?.controller.nextSolution()
+            App.instance.forceUpdate()
             return true;
         })
         
@@ -954,7 +972,7 @@ class App extends Component {
     render() {
         return (
             <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
-                <div style={{flex: '3', backgroundColor: '#f0f0f0'}}>
+                <div style={{flex: '3', backgroundColor: '#ffffff'/*'#f0f0f0'*/}}>
                     <Stage width={window.innerWidth / 4.0 * 3.0} 
                         height={window.innerHeight - 200}
                         onMouseDown={this.handlePointerDown.bind(this)}
