@@ -1,8 +1,8 @@
 import React, { Component } from 'react';
-import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse} from "react-konva";
+import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse, Line} from "react-konva";
 import './App.css';
 import './toggle.css'
-import { Attribute, Controller, ElementType, SingleElement } from './components/backend';
+import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
 import { Parser } from './jison/inputParser';
 import { Button } from 'antd';
@@ -12,6 +12,7 @@ import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
 import { getOrDefault, reader } from './components/utility';
 import { loadFile } from './components/load_file';
+import { check, Display } from './components/backendDisplay';
 
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
@@ -30,6 +31,7 @@ class AllComponents extends React.Component {
         nextCdt: [number, number, number][],
         selectedItemId: number,
         showDebug: boolean
+        showHints: boolean
     };
     static cdtColors = [
         '#144125', '#1e5f36', '#277d47', '#309b58', '#3ab969', '#51c97e'
@@ -45,7 +47,8 @@ class AllComponents extends React.Component {
             nextCdt: [],
             showCdt: false,
             selectedItemId: -1,
-            showDebug: true
+            showDebug: true,
+            showHints: true
         }
 
         this.controller.add_switch_cdt_idx_listener( (idx)=>{
@@ -74,6 +77,12 @@ class AllComponents extends React.Component {
     updateDebug(showDebug=true){
         this.setState({
             showDebug,
+        })
+    }
+
+    updateHints(showHints=true){
+        this.setState({
+            showHints,
         })
     }
 
@@ -211,29 +220,70 @@ class AllComponents extends React.Component {
                     let endElemet = this.controller.getElement(Number(i.getCertainAttribute("endElement").val.val));
                     let startCenter = [startElemet.getAttribute("x")!.val.val, startElemet.getAttribute("y")!.val.val];
                     let endCenter = [endElemet.getAttribute("x")!.val.val, endElemet.getAttribute("y")!.val.val];
-                    let startCornerIndex = 0;
-                    if (endCenter[0] - startCenter[0] === 0) {
-                        startCornerIndex = endCenter[1] < startCenter[1] ? 0 : 4;
-                    } else {
-                        let angle = (endCenter[1] - startCenter[1]) / abs(endCenter[0] - startCenter[0]);
-                        if (angle < -2) {
-                            startCornerIndex = 0;
-                        } else if (angle < -1 / 2) {
-                            startCornerIndex = 1;
-                        } else if (angle < 1 / 2) {
-                            startCornerIndex = 2;
-                        } else if (angle < 2) {
-                            startCornerIndex = 3;
-                        } else {
-                            startCornerIndex = 4;
-                        }
-                        if (endCenter[0] - startCenter[0] < 0) {
-                            startCornerIndex = (8 - startCornerIndex) % 8;
-                        }
-                    }
-                    let endCornerIndex = (startCornerIndex + 4) % 8
+                    let startWidth = startElemet.getAttribute("w")!.val.val;
+                    let startHeight = startElemet.getAttribute("h")!.val.val;
+                    let endWidth = endElemet.getAttribute("w")!.val.val;
+                    let endHeight = endElemet.getAttribute("h")!.val.val;
+                    let startBorder = [startCenter[0] - startWidth / 2, startCenter[1] - startHeight / 2, startCenter[0] + startWidth / 2, startCenter[1] + startHeight / 2] // left up right down
+                    let endBorder = [endCenter[0] - endWidth / 2, endCenter[1] - endHeight / 2, endCenter[0] + endWidth / 2, endCenter[1] + endHeight / 2] // left up right down
                     let startCorners = startElemet.getCorner();
                     let endCorners = endElemet.getCorner();
+                    let startOption = [0, 1, 2, 3, 4, 5, 6, 7];
+                    let removeOption = function(arr: Array<Number>, option: Number) {
+                        arr.forEach(function(item, index, arr) {
+                            if(item === option) {
+                                arr.splice(index, 1);
+                            }
+                        });
+                    }
+                    if (startBorder[0] <= endBorder[2]) {
+                        removeOption(startOption, 5);
+                        removeOption(startOption, 6);
+                        removeOption(startOption, 7);
+                    }
+                    if (startBorder[1] <= endBorder[3]) {
+                        removeOption(startOption, 0);
+                        removeOption(startOption, 1);
+                        removeOption(startOption, 7);
+                    }
+                    if (startBorder[2] >= endBorder[0]) {
+                        removeOption(startOption, 1);
+                        removeOption(startOption, 2);
+                        removeOption(startOption, 3);
+                    }
+                    if (startBorder[3] >= endBorder[1]) {
+                        removeOption(startOption, 3);
+                        removeOption(startOption, 4);
+                        removeOption(startOption, 5);
+                    }
+                    // console.log(startOption);
+                    let startCornerIndex = 0;
+                    if (startOption.length === 1) {
+                        // 只有一个备选项
+                        startCornerIndex = startOption[0];
+                    } else {
+                        // 多个备选项，选择和目标点积值最小的那一个
+                        let vectorMinus = function(vec_0: number[], vec_1: number[]) {
+                            return [vec_0[0] - vec_1[0], vec_0[1] - vec_1[1]]
+                        }
+                        let vectorNormalize = function(vec: number[]) {
+                            let l = Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1]);
+                            return [vec[0] / l, vec[1] / l];
+                        }
+                        let vectorDot = function(vec_0: number[], vec_1: number[]) {
+                            return vec_0[0] * vec_1[0] + vec_0[1] * vec_1[1];
+                        }
+                        let dotValues: number[] = [];
+                        let targetVector = vectorNormalize(vectorMinus(endCenter, startCenter));
+                        for (let tmpStartIndex of startOption) {
+                            let tmpEndIndex = (tmpStartIndex + 4) % 8;
+                            let tmpVector = vectorNormalize(vectorMinus(endCorners[tmpEndIndex], startCorners[tmpStartIndex]));
+                            dotValues.push(vectorDot(targetVector, tmpVector));
+                        }
+                        let maxDotValueIndex = dotValues.indexOf(Math.max(...dotValues));
+                        startCornerIndex = startOption[maxDotValueIndex];
+                    }
+                    let endCornerIndex = (startCornerIndex + 4) % 8
                     let width = endCorners[endCornerIndex][0] - startCorners[startCornerIndex][0];
                     let height = endCorners[endCornerIndex][1] - startCorners[startCornerIndex][1];
                     let padding = abs(height) < 1e-4 ? 5 : 0; // 水平状态下箭头文字需要轻微下移
@@ -315,10 +365,132 @@ class AllComponents extends React.Component {
             />
         })
 
+        let hints = [];
+        if(this.state.showHints)
+        {
+            let hintcolor = ['red', 'purple', 'blue', 'orange', 'magenta', 'cyan', 'purple','black',"grey"];
+            let text_points = [[0,0,0]];
+            let arrow_points = [[0,0,0,0]];
+            for (let i of this.controller.hints.values()){
+                if(i.type == ElementType.LINE)
+                {
+                    for (let j of this.controller.hints.values())
+                    {
+                        if(j.type == ElementType.LINE && i.id != j.id)
+                        {
+                            let i_point = [i.getAttribute("point1_x")?.val.val,i.getAttribute("point1_y")?.val.val,i.getAttribute("point2_x")?.val.val,i.getAttribute("point2_y")?.val.val];
+                            let j_point = [j.getAttribute("point1_x")?.val.val,j.getAttribute("point1_y")?.val.val,j.getAttribute("point2_x")?.val.val,j.getAttribute("point2_y")?.val.val];
+                            i_point[0] = Math.round(i_point[0]); i_point[1] = Math.round(i_point[1]); i_point[2] = Math.round(i_point[2]); i_point[3] = Math.round(i_point[3]);
+                            j_point[0] = Math.round(j_point[0]); j_point[1] = Math.round(j_point[1]); j_point[2] = Math.round(j_point[2]); j_point[3] = Math.round(j_point[3]);
+                            if ((i_point[0] == i_point[2]) && (j_point[0] == j_point[2]) && (i_point[0] == j_point[0]))
+                            {
+                                if((i_point[1] > i_point[3]) && (j_point[1] >= i_point[1]) && (j_point[3] <= i_point[3]))
+                                    {
+                                        this.controller.deleteHint(i.id);
+                                        break;
+                                    }
+                                if((i_point[1] < i_point[3]) && (j_point[1] <= i_point[1]) && (j_point[3] >= i_point[3]))
+                                    {
+                                        this.controller.deleteHint(i.id);
+                                        break;
+                                    }
+                            }
+                            if ((i_point[1] == i_point[3]) && (j_point[1] == j_point[3]) && (i_point[1] == j_point[1]))
+                            {
+                                if((i_point[0] > i_point[2]) && (j_point[0] >= i_point[0]) && (j_point[2] <= i_point[2]))
+                                    {
+                                        this.controller.deleteHint(i.id);
+                                        break;
+                                    }
+                                if((i_point[0] < i_point[2]) && (j_point[0] <= i_point[0]) && (j_point[2] >= i_point[2]))
+                                    {
+                                        this.controller.deleteHint(i.id);
+                                        break;
+                                    }
+                            }
+                        }
+                    }
+                }
+                if(i.type == ElementType.ARROW)
+                {
+                    let flag = 1;
+                    let tmp_point = [i.getAttribute("point1_x")?.val.val,i.getAttribute("point1_y")?.val.val,i.getAttribute("point2_x")?.val.val,i.getAttribute("point2_y")?.val.val];
+                    for (let j of arrow_points)
+                    {
+                        if (Math.round(tmp_point[0])==Math.round(j[0]) && Math.round(tmp_point[1])==Math.round(j[1]) && Math.round(tmp_point[2])==Math.round(j[2]) && Math.round(tmp_point[3])==Math.round(j[3])) 
+                        {
+                            this.controller.deleteHint(i.id);
+                            flag = 0;
+                            break;
+                        }
+                    }
+                    if(flag) arrow_points.push(tmp_point);
+                }
+                if(i.type == ElementType.TEXT)
+                {
+                    let flag = 1;
+                    let tmp_point = [i.getAttribute("x")?.val.val,i.getAttribute("y")?.val.val,i.getAttribute("length")?.val.val];
+                    for (let j of text_points)
+                    {
+                        if (Math.round(tmp_point[0])==Math.round(j[0]) && Math.round(tmp_point[1])==Math.round(j[1]) && Math.round(tmp_point[2])==Math.round(j[2])) 
+                        {
+                            this.controller.deleteHint(i.id);
+                            flag = 0;
+                            break;
+                        }
+                    }
+                    if(flag) text_points.push(tmp_point);
+                }
+            }
+            for (let i of this.controller.hints.values()) {
+                switch (i.type) {
+                    case ElementType.LINE:                   
+                        hints.push(
+                            <Line
+                                points = {[i.getAttribute("point1_x")?.val.val,i.getAttribute("point1_y")?.val.val,i.getAttribute("point2_x")?.val.val,i.getAttribute("point2_y")?.val.val]}
+                                stroke = {hintcolor[i.getAttribute("color")?.val.val]}
+                                dash = {i.getAttribute("dash")?.val.val==1?[4,2]:[1,0]} 
+                                strokeWidth = {1}
+                                key = {-i.id-1}
+                            />
+                        );
+                        break;
+                    case ElementType.TEXT:                   
+                        hints.push(
+                            <Text
+                                x={i.getAttribute("x")?.val.val}
+                                y={i.getAttribute("y")?.val.val}
+                                fill = {hintcolor[i.getAttribute("color")?.val.val]}
+                                fontSize={10}
+                                text={`${Math.round(i.getAttribute("length")?.val.val)}px`}
+                                key = {-i.id-1}
+                            />
+                        );
+                        break;
+                    case ElementType.ARROW:                   
+                        hints.push(
+                            <Arrow
+                                points = {[i.getAttribute("point1_x")?.val.val,i.getAttribute("point1_y")?.val.val,i.getAttribute("point2_x")?.val.val,i.getAttribute("point2_y")?.val.val]}
+                                stroke = {hintcolor[i.getAttribute("color")?.val.val]}
+                                pointerLength = {5}
+                                pointerWidth = {5}
+                                fill = {hintcolor[i.getAttribute("color")?.val.val]}
+                                pointerAtBeginning = {true}
+                                key = {-i.id-1}
+                            />
+                        );
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
         return (
             <Group>
                 {elements}
                 {nextCdts}
+                {hints}
             </Group>
         );
     }
@@ -337,6 +509,7 @@ class HelperGUI extends React.Component {
     editTextRef: React.RefObject<HTMLTextAreaElement>;
     showDebugInfoRef: React.RefObject<HTMLInputElement>;
     uploadFileRef: React.RefObject<HTMLInputElement>;
+    showHintsRef: React.RefObject<HTMLInputElement>;
     constructor(props: any){
         super(props);
         this.controller = Controller.getInstance();
@@ -357,17 +530,394 @@ class HelperGUI extends React.Component {
         this.editTextRef = React.createRef()
         this.showDebugInfoRef = React.createRef();
         this.uploadFileRef = React.createRef();
+        this.showHintsRef = React.createRef()
+    }
+
+    addhints(displays:Display[]){
+        for(let i of displays)
+            {
+                switch(i.displaytype)   
+                {
+                    //倍数展示
+                    case 0:                       
+                        for(let j=0; j<i.complex; j++)
+                        {
+                            if(Math.round(i.related[j].related[0].getAttribute("x")?.val.val)==Math.round(i.related[j].related[1].getAttribute("x")?.val.val))
+                            {
+                                let newEle = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val+50));
+                                this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-50));
+                                this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle, "color", new RawNumber(0));
+                                let newEle1 = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val+50));
+                                this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-50));
+                                this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle1, "color", new RawNumber(0));
+                                let newEle2 = this.controller.createHint(ElementType.ARROW);
+                                this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-40));
+                                this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-40));
+                                this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "color", new RawNumber(0));
+                            }
+                            else if(Math.round(i.related[j].related[0].getAttribute("y")?.val.val)==Math.round(i.related[j].related[1].getAttribute("y")?.val.val))
+                            {
+                                let newEle = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val+50));
+                                this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-50));
+                                this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle, "color", new RawNumber(0));
+                                let newEle1 = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val+50));
+                                this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-50));
+                                this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle1, "color", new RawNumber(0));
+                                let newEle2 = this.controller.createHint(ElementType.ARROW);
+                                this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-40));
+                                this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-40));
+                                this.controller.addHintAttribute(newEle2, "color", new RawNumber(0));   
+                            }
+                        }
+                        if(Math.round(i.related[0].related[0].getAttribute("x")?.val.val)==Math.round(i.related[0].related[1].getAttribute("x")?.val.val))
+                        {
+                            let length = i.related[0].related[1].getAttribute("y")?.val.val - i.related[0].related[0].getAttribute("y")?.val.val;
+                            let feetlen;
+                            if(i.times!=undefined) 
+                            {
+                                feetlen = length/i.times;
+                                for(let j=0 ; j<i.times; j++)
+                                {
+                                    let newEle = this.controller.createHint(ElementType.ARROW);
+                                    this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[0].related[0].getAttribute("x")?.val.val-40));
+                                    this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val+j*feetlen));
+                                    this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[0].related[1].getAttribute("x")?.val.val-40));
+                                    this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val+(j+1)*feetlen));
+                                    this.controller.addHintAttribute(newEle, "color", new RawNumber(0));
+                                }
+                            }
+                        } 
+                        if(Math.round(i.related[0].related[0].getAttribute("y")?.val.val)==Math.round(i.related[0].related[1].getAttribute("y")?.val.val))
+                        {
+                            let length = i.related[0].related[1].getAttribute("x")?.val.val - i.related[0].related[0].getAttribute("x")?.val.val;
+                            let feetlen;
+                            if(i.times!=undefined) 
+                            {
+                                feetlen = length/i.times;
+                                for(let j=0 ; j<i.times; j++)
+                                {
+                                    let newEle = this.controller.createHint(ElementType.ARROW);
+                                    this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[0].related[0].getAttribute("x")?.val.val+j*feetlen));
+                                    this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val-40));
+                                    this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[0].related[0].getAttribute("x")?.val.val+(j+1)*feetlen));
+                                    this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[0].related[1].getAttribute("y")?.val.val-40));
+                                    this.controller.addHintAttribute(newEle, "color", new RawNumber(0));
+                                }
+                            }
+                        } 
+                        break;  
+                    //等距展示  
+                    case 1:                       
+                        for(let j=0; j<i.complex; j++)
+                        {
+                            if(Math.round(i.related[j].related[0].getAttribute("x")?.val.val)==Math.round(i.related[j].related[1].getAttribute("x")?.val.val))
+                            {
+                                let newEle = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val+50));
+                                this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-50));
+                                this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle, "color", new RawNumber(1));
+                                let newEle1 = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val+50));
+                                this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-50));
+                                this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle1, "color", new RawNumber(1));
+                                let newEle2 = this.controller.createHint(ElementType.ARROW);
+                                this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "color", new RawNumber(1));
+                                let newEle3 = this.controller.createHint(ElementType.TEXT);
+                                this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2-25));
+                                this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2));
+                                let length = Math.sqrt((i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) * (i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) + (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val) * (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val));
+                                if(length < 0) length = -length;
+                                this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
+                                this.controller.addHintAttribute(newEle3, "color", new RawNumber(1)); 
+                            }
+                            else //if(Math.round(i.related[j].related[0].getAttribute("y")?.val.val)==Math.round(i.related[j].related[1].getAttribute("y")?.val.val))
+                            {
+                                let newEle = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val+50));
+                                this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-50));
+                                this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle, "color", new RawNumber(1));
+                                let newEle1 = this.controller.createHint(ElementType.LINE);
+                                this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val+50));
+                                this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-50));
+                                this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                                this.controller.addHintAttribute(newEle1, "color", new RawNumber(1));
+                                let newEle2 = this.controller.createHint(ElementType.ARROW);
+                                this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                                this.controller.addHintAttribute(newEle2, "color", new RawNumber(1));
+                                let newEle3 = this.controller.createHint(ElementType.TEXT);
+                                this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2));
+                                this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2-10));
+                                let length = Math.sqrt((i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) * (i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) + (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val) * (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val));
+                                if(length < 0) length = -length;
+                                this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
+                                this.controller.addHintAttribute(newEle3, "color", new RawNumber(1));    
+                            }
+                        }
+                        break;  
+                    // //等距展示
+                    // case 1:
+                    //     for(let j=0; j<i.complex; j++)
+                    //     {
+                    //         if(i.related[j].related[0].getAttribute("x")?.val.val==i.related[j].related[1].getAttribute("x")?.val.val)
+                    //         {
+                    //             let newEle = this.controller.createHint(ElementType.LINE);
+                    //             this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val+50));
+                    //             this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                    //             this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-50));
+                    //             this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                    //             this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                    //             this.controller.addHintAttribute(newEle, "color", new RawNumber(1));
+                    //             let newEle1 = this.controller.createHint(ElementType.LINE);
+                    //             this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val+50));
+                    //             this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                    //             this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-50));
+                    //             this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                    //             this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                    //             this.controller.addHintAttribute(newEle1, "color", new RawNumber(1));
+                    //             let newEle2 = this.controller.createHint(ElementType.LINE);
+                    //             this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-40));
+                    //             this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                    //             this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-40));
+                    //             this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                    //             this.controller.addHintAttribute(newEle2, "dash", new RawNumber(0));
+                    //             this.controller.addHintAttribute(newEle2, "color", new RawNumber(1));   
+                    //             let newEle3 = this.controller.createHint(ElementType.TEXT);
+                    //             this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2-50));
+                    //             this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2));
+                    //             let length = Math.sqrt((i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) * (i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) + (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val) * (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val));
+                    //             if(length < 0) length = -length;
+                    //             this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
+                    //             this.controller.addHintAttribute(newEle3, "color", new RawNumber(1));            
+                    //         }
+                    //         else
+                    //         {
+                    //             let newEle = this.controller.createHint(ElementType.LINE);
+                    //             this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                    //             this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val+50));
+                    //             this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                    //             this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-50));
+                    //             this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                    //             this.controller.addHintAttribute(newEle, "color", new RawNumber(1));
+                    //             let newEle1 = this.controller.createHint(ElementType.LINE);
+                    //             this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                    //             this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val+50));
+                    //             this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                    //             this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-50));
+                    //             this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                    //             this.controller.addHintAttribute(newEle1, "color", new RawNumber(1));
+                    //             let newEle2 = this.controller.createHint(ElementType.LINE);
+                    //             this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                    //             this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-40));
+                    //             this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                    //             this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-40));
+                    //             this.controller.addHintAttribute(newEle2, "dash", new RawNumber(0));
+                    //             this.controller.addHintAttribute(newEle2, "color", new RawNumber(1));   
+                    //             let newEle3 = this.controller.createHint(ElementType.TEXT);
+                    //             this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2));
+                    //             this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2-50));
+                    //             let length = Math.sqrt((i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) * (i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) + (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val) * (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val));
+                    //             if(length < 0) length = -length;
+                    //             this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
+                    //             this.controller.addHintAttribute(newEle3, "color", new RawNumber(1)); 
+                    //         }
+                    //     } 
+                    //     break;    
+                    //x等距展示
+                    // case 2:
+                    //     let ymax2 = i.related[0].related[0].getAttribute("y")?.val.val;
+                    //     let ymin2 = ymax2;
+                    //     for(let j=1; j<i.complex; j++)
+                    //     {
+                    //         let y = i.related[j].related[0].getAttribute("y")?.val.val;
+                    //         if(y > ymax2) ymax2 = y;
+                    //         if(y < ymin2) ymin2 = y;
+                    //         if(i.related[j].related[1]!=undefined)
+                    //         {
+                    //             y = i.related[j].related[1].getAttribute("y")?.val.val;
+                    //             if(y > ymax2) ymax2 = y;
+                    //             if(y < ymin2) ymin2 = y;   
+                    //         }
+                    //     }
+                    //     for(let j=0; j<i.complex; j++)
+                    //     {
+                    //         let newEle = this.controller.createHint(ElementType.LINE);
+                    //         this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                    //         this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(ymax2+50));
+                    //         this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                    //         this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(ymin2-50));
+                    //         this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                    //         this.controller.addHintAttribute(newEle, "color", new RawNumber(2));
+                    //         let newEle1 = this.controller.createHint(ElementType.LINE);
+                    //         this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                    //         this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(ymax2+50));
+                    //         this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                    //         this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(ymin2-50));
+                    //         this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                    //         this.controller.addHintAttribute(newEle1, "color", new RawNumber(2));
+                    //         let newEle2 = this.controller.createHint(ElementType.ARROW);
+                    //         this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
+                    //         this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(ymin2-40));
+                    //         this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
+                    //         this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(ymin2-40));
+                    //         this.controller.addHintAttribute(newEle2, "color", new RawNumber(2));
+                    //         let newEle3 = this.controller.createHint(ElementType.TEXT);
+                    //         this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2-10));
+                    //         this.controller.addHintAttribute(newEle3, "y", new RawNumber(ymin2-50));
+                    //         let length = i.related[j].related[1].getAttribute("x")?.val.val-i.related[j].related[0].getAttribute("x")?.val.val;
+                    //         if(length < 0) length = -length;
+                    //         this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
+                    //         this.controller.addHintAttribute(newEle3, "color", new RawNumber(2));          
+                    //     } 
+                    //     break; 
+                    // //y等距展示
+                    // case 3:
+                    //     let xmax3 = i.related[0].related[0].getAttribute("x")?.val.val;
+                    //     let xmin3 = xmax3;
+                    //     for(let j=1; j<i.complex; j++)
+                    //     {
+                    //         let x = i.related[j].related[0].getAttribute("x")?.val.val;
+                    //         if(x > xmax3) xmax3 = x;
+                    //         if(x < xmin3) xmin3 = x;
+                    //         if(i.related[j].related[1]!=undefined)
+                    //         {
+                    //             x = i.related[j].related[1].getAttribute("x")?.val.val;
+                    //             if(x > xmax3) xmax3 = x;
+                    //             if(x < xmin3) xmin3 = x;  
+                    //         }
+                    //     }
+                    //     for(let j=0; j<i.complex; j++)
+                    //     {
+                    //         let newEle = this.controller.createHint(ElementType.LINE);
+                    //         this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(xmax3+50));
+                    //         this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                    //         this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(xmin3-50));
+                    //         this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                    //         this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
+                    //         this.controller.addHintAttribute(newEle, "color", new RawNumber(3));
+                    //         let newEle1 = this.controller.createHint(ElementType.LINE);
+                    //         this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(xmax3+50));
+                    //         this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                    //         this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(xmin3-50));
+                    //         this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                    //         this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
+                    //         this.controller.addHintAttribute(newEle1, "color", new RawNumber(3));
+                    //         let newEle2 = this.controller.createHint(ElementType.ARROW);
+                    //         this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(xmin3-40));
+                    //         this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
+                    //         this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(xmin3-40));
+                    //         this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
+                    //         this.controller.addHintAttribute(newEle2, "color", new RawNumber(3));   
+                    //         let newEle3 = this.controller.createHint(ElementType.TEXT);
+                    //         this.controller.addHintAttribute(newEle3, "x", new RawNumber(xmin3-65));
+                    //         this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2));
+                    //         let length = i.related[j].related[1].getAttribute("y")?.val.val-i.related[j].related[0].getAttribute("y")?.val.val;
+                    //         if(length < 0) length = -length;
+                    //         this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
+                    //         this.controller.addHintAttribute(newEle3, "color", new RawNumber(3));            
+                    //     } 
+                    //     break; 
+                    //x对齐展示  
+                    case 2:
+                        let ymax4 = i.related[0].related[0].getAttribute("y")?.val.val;
+                        let ymin4 = ymax4;
+                        for(let j=1; j<i.complex; j++)
+                        {
+                            let y = i.related[j].related[0].getAttribute("y")?.val.val;
+                            if(y > ymax4) ymax4 = y;
+                            if(y < ymin4) ymin4 = y;   
+                        }
+                        let shift4 = 0;
+                        if(i.related[0].type==1) shift4 = -i.related[0].related[0].getAttribute("w")?.val.val/2;
+                        if(i.related[0].type==2) shift4 = i.related[0].related[0].getAttribute("w")?.val.val/2;
+                        let newEle3 = this.controller.createHint(ElementType.LINE);
+                        this.controller.addHintAttribute(newEle3, "point1_x", new RawNumber(i.related[0].related[0].getAttribute("x")?.val.val+shift4));
+                        this.controller.addHintAttribute(newEle3, "point1_y", new RawNumber(ymax4+50));
+                        this.controller.addHintAttribute(newEle3, "point2_x", new RawNumber(i.related[0].related[0].getAttribute("x")?.val.val+shift4));
+                        this.controller.addHintAttribute(newEle3, "point2_y", new RawNumber(ymin4-50));
+                        this.controller.addHintAttribute(newEle3, "dash", new RawNumber(1));
+                        this.controller.addHintAttribute(newEle3, "color", new RawNumber(2)); 
+                        break;   
+                    //y对齐展示  
+                    case 3:
+                        let xmax5 = i.related[0].related[0].getAttribute("x")?.val.val;
+                        let xmin5 = xmax5;
+                        for(let j=1; j<i.complex; j++)
+                        {
+                            let x = i.related[j].related[0].getAttribute("x")?.val.val;
+                            if(x > xmax5) xmax5 = x;
+                            if(x < xmin5) xmin5 = x;   
+                        }
+                        let shift5 = 0;
+                        if(i.related[0].type==4) shift5 = -i.related[0].related[0].getAttribute("w")?.val.val/2;
+                        if(i.related[0].type==5) shift5 = i.related[0].related[0].getAttribute("w")?.val.val/2;
+                        let newEle5 = this.controller.createHint(ElementType.LINE);
+                        this.controller.addHintAttribute(newEle5, "point1_x", new RawNumber(xmax5+50));
+                        this.controller.addHintAttribute(newEle5, "point1_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val+shift5));
+                        this.controller.addHintAttribute(newEle5, "point2_x", new RawNumber(xmin5-50));
+                        this.controller.addHintAttribute(newEle5, "point2_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val+shift5));
+                        this.controller.addHintAttribute(newEle5, "dash", new RawNumber(1));
+                        this.controller.addHintAttribute(newEle5, "color", new RawNumber(3)); 
+                        break;                    
+                }                 
+            }
+    }
+
+    deletehints(){
+        for (let i of this.controller.hints.values())
+        {
+            this.controller.deleteHint(i.id);
+        }
     }
 
     updateSelectedItem(itemId?: number){
         if(itemId == undefined){
             itemId = this.state.selectedItemId;
+            this.deletehints();
         }
         if(itemId < 0){
             this.setState({
                 selectedItemId: -1,
                 itemAttrObj: new Map(),
             })
+            this.deletehints();
             return;
         }
 
@@ -376,6 +926,9 @@ class HelperGUI extends React.Component {
             selectedItemId: itemId,
             itemAttrObj: ele.copyAttrMap(),
         })
+        let displays:Display[] = check(this.controller,ele);
+        this.deletehints();
+        this.addhints(displays);
         return;
     }
 
@@ -447,6 +1000,10 @@ class HelperGUI extends React.Component {
 
     handleShowDebugInfoClicked(e: React.ChangeEvent<HTMLInputElement>){
         App.instance.allComponentsRef.current?.updateDebug(e.target.checked);
+    }
+
+    handleShowHintsClicked(e: React.ChangeEvent<HTMLInputElement>){
+        App.instance.allComponentsRef.current?.updateHints(e.target.checked);
     }
 
     genPointerClicked(start: boolean){
@@ -644,9 +1201,20 @@ class HelperGUI extends React.Component {
                     <span className="slider round"></span>
                 </label>
             </div>
+            <div>
+                <span style={{verticalAlign: '-webkit-baseline-middle'}}>显示关系展示？</span>
+                <label className="switch">
+                    <input ref={this.showHintsRef} 
+                        onChange={this.handleShowHintsClicked.bind(this)}
+                        type="checkbox"
+                        defaultChecked={App.instance.allComponentsRef.current?.state.showHints}
+                        />
+                    <span className="slider round"></span>
+                </label>
+            </div>
             {this.state.selectedItemId >= 0? <div>
                 <div>
-                    <textarea ref={this.editTextRef}
+                    <textarea ref={this.editTextRef} 
                         defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
                     /><button onClick={()=>{
                         Controller.saveIfSuccess(()=>{
@@ -674,7 +1242,6 @@ class HelperGUI extends React.Component {
                             变浅
                         </div>
                     </div>
-
                     <div>
                         <button onClick={this.genSizeAdjustHandler('w', false).bind(this)}>变窄</button>
                         宽度调整
@@ -972,7 +1539,7 @@ class App extends Component {
     render() {
         return (
             <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
-                <div style={{flex: '3', backgroundColor: '#ffffff'/*'#f0f0f0'*/}}>
+                <div style={{flex: '3', backgroundColor: '#ffffff' /*'#f0f0f0'*/}}>
                     <Stage width={window.innerWidth / 4.0 * 3.0} 
                         height={window.innerHeight - 200}
                         onMouseDown={this.handlePointerDown.bind(this)}
