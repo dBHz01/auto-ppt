@@ -886,8 +886,8 @@ class HelperGUI extends React.Component {
                             if(x < xmin5) xmin5 = x;   
                         }
                         let shift5 = 0;
-                        if(i.related[0].type==4) shift5 = -i.related[0].related[0].getAttribute("w")?.val.val/2;
-                        if(i.related[0].type==5) shift5 = i.related[0].related[0].getAttribute("w")?.val.val/2;
+                        if(i.related[0].type==4) shift5 = -i.related[0].related[0].getAttribute("h")?.val.val/2;
+                        if(i.related[0].type==5) shift5 = i.related[0].related[0].getAttribute("h")?.val.val/2;
                         let newEle5 = this.controller.createHint(ElementType.LINE);
                         this.controller.addHintAttribute(newEle5, "point1_x", new RawNumber(xmax5+50));
                         this.controller.addHintAttribute(newEle5, "point1_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val+shift5));
