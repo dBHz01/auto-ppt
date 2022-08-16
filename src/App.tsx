@@ -219,29 +219,70 @@ class AllComponents extends React.Component {
                     let endElemet = this.controller.getElement(Number(i.getCertainAttribute("endElement").val.val));
                     let startCenter = [startElemet.getAttribute("x")!.val.val, startElemet.getAttribute("y")!.val.val];
                     let endCenter = [endElemet.getAttribute("x")!.val.val, endElemet.getAttribute("y")!.val.val];
-                    let startCornerIndex = 0;
-                    if (endCenter[0] - startCenter[0] === 0) {
-                        startCornerIndex = endCenter[1] < startCenter[1] ? 0 : 4;
-                    } else {
-                        let angle = (endCenter[1] - startCenter[1]) / abs(endCenter[0] - startCenter[0]);
-                        if (angle < -2) {
-                            startCornerIndex = 0;
-                        } else if (angle < -1 / 2) {
-                            startCornerIndex = 1;
-                        } else if (angle < 1 / 2) {
-                            startCornerIndex = 2;
-                        } else if (angle < 2) {
-                            startCornerIndex = 3;
-                        } else {
-                            startCornerIndex = 4;
-                        }
-                        if (endCenter[0] - startCenter[0] < 0) {
-                            startCornerIndex = (8 - startCornerIndex) % 8;
-                        }
-                    }
-                    let endCornerIndex = (startCornerIndex + 4) % 8
+                    let startWidth = startElemet.getAttribute("w")!.val.val;
+                    let startHeight = startElemet.getAttribute("h")!.val.val;
+                    let endWidth = endElemet.getAttribute("w")!.val.val;
+                    let endHeight = endElemet.getAttribute("h")!.val.val;
+                    let startBorder = [startCenter[0] - startWidth / 2, startCenter[1] - startHeight / 2, startCenter[0] + startWidth / 2, startCenter[1] + startHeight / 2] // left up right down
+                    let endBorder = [endCenter[0] - endWidth / 2, endCenter[1] - endHeight / 2, endCenter[0] + endWidth / 2, endCenter[1] + endHeight / 2] // left up right down
                     let startCorners = startElemet.getCorner();
                     let endCorners = endElemet.getCorner();
+                    let startOption = [0, 1, 2, 3, 4, 5, 6, 7];
+                    let removeOption = function(arr: Array<Number>, option: Number) {
+                        arr.forEach(function(item, index, arr) {
+                            if(item === option) {
+                                arr.splice(index, 1);
+                            }
+                        });
+                    }
+                    if (startBorder[0] <= endBorder[2]) {
+                        removeOption(startOption, 5);
+                        removeOption(startOption, 6);
+                        removeOption(startOption, 7);
+                    }
+                    if (startBorder[1] <= endBorder[3]) {
+                        removeOption(startOption, 0);
+                        removeOption(startOption, 1);
+                        removeOption(startOption, 7);
+                    }
+                    if (startBorder[2] >= endBorder[0]) {
+                        removeOption(startOption, 1);
+                        removeOption(startOption, 2);
+                        removeOption(startOption, 3);
+                    }
+                    if (startBorder[3] >= endBorder[1]) {
+                        removeOption(startOption, 3);
+                        removeOption(startOption, 4);
+                        removeOption(startOption, 5);
+                    }
+                    // console.log(startOption);
+                    let startCornerIndex = 0;
+                    if (startOption.length === 1) {
+                        // 只有一个备选项
+                        startCornerIndex = startOption[0];
+                    } else {
+                        // 多个备选项，选择和目标点积值最小的那一个
+                        let vectorMinus = function(vec_0: number[], vec_1: number[]) {
+                            return [vec_0[0] - vec_1[0], vec_0[1] - vec_1[1]]
+                        }
+                        let vectorNormalize = function(vec: number[]) {
+                            let l = Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1]);
+                            return [vec[0] / l, vec[1] / l];
+                        }
+                        let vectorDot = function(vec_0: number[], vec_1: number[]) {
+                            return vec_0[0] * vec_1[0] + vec_0[1] * vec_1[1];
+                        }
+                        let dotValues: number[] = [];
+                        let targetVector = vectorNormalize(vectorMinus(endCenter, startCenter));
+                        for (let tmpStartIndex of startOption) {
+                            let tmpEndIndex = (tmpStartIndex + 4) % 8;
+                            let tmpVector = vectorNormalize(vectorMinus(endCorners[tmpEndIndex], startCorners[tmpStartIndex]));
+                            dotValues.push(vectorDot(targetVector, tmpVector));
+                        }
+                        let maxDotValueIndex = dotValues.indexOf(Math.max(...dotValues));
+                        startCornerIndex = startOption[maxDotValueIndex];
+                    }
+                    let endCornerIndex = (startCornerIndex + 4) % 8
                     let width = endCorners[endCornerIndex][0] - startCorners[startCornerIndex][0];
                     let height = endCorners[endCornerIndex][1] - startCorners[startCornerIndex][1];
                     let padding = abs(height) < 1e-4 ? 5 : 0; // 水平状态下箭头文字需要轻微下移
