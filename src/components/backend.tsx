@@ -184,6 +184,8 @@ class Attribute {
     }
 }
 
+const allPossibleShape = ["矩形", "圆形", "箭头"];
+
 enum ElementType {
     CONST, // can not be edited, like two
     BASE, // can be edited, like alpha
@@ -3113,4 +3115,4 @@ class TraceAttrRelation {
 
 export { String2OP, Operator, OperatorNode, 
     FuncTree, RawNumber, RawText, RawNumberNoCal, ElementType, SingleElement, Attribute, Controller, 
-    Equation, AssignOp, str2AssignOp};
+    Equation, AssignOp, str2AssignOp, allPossibleShape};

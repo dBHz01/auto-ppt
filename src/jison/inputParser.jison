@@ -105,15 +105,15 @@ expressions
 
 object
     : OBJ
-        {$$ = {"name": $1, "type": "obj"};}
+        {$$ = {"name": $1, "type": "obj", "pos": @1.first_column};}
     | THIS
-        {$$ = {"name": $1, "type": "ref"};}
+        {$$ = {"name": $1, "type": "ref", "pos": @1.first_column};}
     | THAT
-        {$$ = {"name": $1, "type": "ref"};}
+        {$$ = {"name": $1, "type": "ref", "pos": @1.first_column};}
     | THIS OBJ
-        {$$ = {"name": $2, "type": "ref"};}
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column};}
     | THAT OBJ
-        {$$ = {"name": $2, "type": "ref"};}
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column};}
     ;
 
 attribute

@@ -96,10 +96,13 @@ case 3:
           return {"predicate": $$[$0-2], "target": $$[$0-1], "adverbial": undefined, "conditions": undefined}; 
 break;
 case 4:
-this.$ = {"name": $$[$0], "type": "obj"};
+this.$ = {"name": $$[$0], "type": "obj", "pos": _$[$0].first_column};
 break;
-case 5: case 6: case 7: case 8:
-this.$ = {"name": $$[$0], "type": "ref"};
+case 5: case 6:
+this.$ = {"name": $$[$0], "type": "ref", "pos": _$[$0].first_column};
+break;
+case 7: case 8:
+this.$ = {"name": $$[$0], "type": "ref-obj", "pos": _$[$0-1].first_column};
 break;
 case 9:
 this.$ = "size"

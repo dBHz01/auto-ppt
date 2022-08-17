@@ -13,6 +13,7 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import { getOrDefault, reader } from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
+import { ControllerOp } from './NLParser';
 
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
@@ -886,8 +887,8 @@ class HelperGUI extends React.Component {
                             if(x < xmin5) xmin5 = x;   
                         }
                         let shift5 = 0;
-                        if(i.related[0].type==4) shift5 = -i.related[0].related[0].getAttribute("w")?.val.val/2;
-                        if(i.related[0].type==5) shift5 = i.related[0].related[0].getAttribute("w")?.val.val/2;
+                        if(i.related[0].type==4) shift5 = i.related[0].related[0].getAttribute("h")?.val.val/2;
+                        if(i.related[0].type==5) shift5 = -i.related[0].related[0].getAttribute("h")?.val.val/2;
                         let newEle5 = this.controller.createHint(ElementType.LINE);
                         this.controller.addHintAttribute(newEle5, "point1_x", new RawNumber(xmax5+50));
                         this.controller.addHintAttribute(newEle5, "point1_y", new RawNumber(i.related[0].related[0].getAttribute("y")?.val.val+shift5));
@@ -1396,8 +1397,10 @@ class App extends Component {
         // Parser.prototype.parse("A的大小等于B的大小");
         // Parser.prototype.parse("A和B的水平距离等于A和C的竖直距离");
         let p = new Parser()
-        let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离");
-        console.log(x)
+        // let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离");
+        let x = p.parse("修改这个矩形的宽度为这个矩形的宽度和那个矩形的高度的差的三分之一");
+        // let c = new ControllerOp(x);
+        // console.log(c)
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
         // Parser.prototype.parse("修改C的颜色为红色");
