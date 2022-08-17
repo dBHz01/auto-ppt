@@ -162,10 +162,10 @@ case 27:
 this.$ = "down"
 break;
 case 28:
-this.$ = {"loc": "here", "type": "ref"}
+this.$ = {"loc": "here", "type": "ref", "pos": _$[$0].first_column}
 break;
 case 29:
-this.$ = {"loc": "there", "type": "ref"}
+this.$ = {"loc": "there", "type": "ref", "pos": _$[$0].first_column}
 break;
 case 30:
 this.$ = {"obj": $$[$0-2], "type": "single", "direction": $$[$0]}
@@ -231,7 +231,7 @@ case 50:
 this.$ = {"type": "equation", "val_1": $$[$0-2], "val_2": $$[$0], "op": ">"};
 break;
 case 51:
-this.$ = {"type": "direction", "obj_1": $$[$0-4], "obj_1": $$[$0-2], "direction": $$[$0]};
+this.$ = {"type": "direction", "obj_1": $$[$0-4], "obj_2": $$[$0-2], "direction": $$[$0]};
 break;
 case 52:
 this.$ = "new";
