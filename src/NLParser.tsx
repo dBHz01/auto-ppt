@@ -1,13 +1,17 @@
 import assert from 'assert';
-import {AssignOp, Attribute, Controller, FuncTree, SingleElement, str2AssignOp, String2OP} from './components/backend'
+import {AssignOp, Attribute, Controller, FuncTree, SingleElement, str2AssignOp, String2OP, allPossibleShape} from './components/backend'
 class ElementPlaceholder {
     // 表示一个待定的元素
     // 如果不使用指点（useTrace === false），并且属性要求为空，说明用户简单地使用“它”、“这/那”指代
-    useTrace: boolean;
+    // useTrace: boolean;
     attrRequires: Map<string, any>;
     actualEle?: SingleElement;
-    constructor(useTrace: boolean, attrRequires?: Map<string, any>){
-        this.useTrace = useTrace;
+    ref: boolean;
+    pos: number;
+    constructor(ref: boolean, pos: number, attrRequires?: Map<string, any>){
+        // this.useTrace = false;
+        this.ref = ref;
+        this.pos = pos;
         if(attrRequires == undefined){
             this.attrRequires = new Map();
         } else {
@@ -24,13 +28,16 @@ class ElementPlaceholder {
 }
 
 class AttributePlaceholder{
-    element: ElementPlaceholder;
-    name: string;
+    element?: ElementPlaceholder;
+    name?: string;
     actualAttribute?: Attribute;
-    constructor(ele: ElementPlaceholder, attrName: string){
+    constValue?: number;
+    constructor(ele?: ElementPlaceholder, attrName?: string, constValue?: number){
+        // 通过判断constValue是否存在来判断类型
         this.element = ele;
         this.name = attrName;
         this.actualAttribute = undefined;
+        this.constValue = constValue;
     }
 }
 
@@ -56,23 +63,65 @@ class NLParser {
 
     }
 
-    convertObjToElement(obj:object): ElementPlaceholder{
-        // todo
-        return new ElementPlaceholder(false);
+    convertObjToElement(obj: {[key: string]: any}): ElementPlaceholder{
+        // 当前仅支持 [名称] or 这个[形状] or [形状][名称]
+        if (obj["type"] === "obj") {
+            let name:string = obj['name'];
+            for (let i of allPossibleShape) {
+                if (name.indexOf(i) == 0) {
+                    name = name.split(i)[1];
+                    break;
+                }
+            }
+            let ele = new ElementPlaceholder(false, obj["pos"]);
+            ele.addRequires("name", name);
+            return ele;
+        } else if (obj["type"] === "ref") {
+            return new ElementPlaceholder(true, obj["pos"]);
+        } else if (obj["type"] === "ref-obj") {
+            let name:string = obj['name'];
+            let shape:string = "";
+            for (let i of allPossibleShape) {
+                if (name.indexOf(i) == 0) {
+                    name = name.split(i)[1];
+                    shape = i;
+                    break;
+                }
+            }
+            let ele = new ElementPlaceholder(true, obj["pos"]);
+            if (shape) {
+                ele.addRequires("shape", shape);
+            }
+            return ele
+        } else {
+            throw Error("unknown obj");
+        }
     }
 
 
-    convertObjToAttr(obj: object): AttributePlaceholder{
+    convertObjToAttr(obj: {[key: string]: any}): AttributePlaceholder{
         // object D attribute
         // todo
-        return new AttributePlaceholder(new ElementPlaceholder(false), "tmp");
+        let ele = this.convertObjToElement(obj["obj"]);
+        return new AttributePlaceholder(ele, obj["value"]);
     }
 
-    convertObjToFunc(obj: {[key: string]: any}) : [FuncTree, AttributePlaceholder[]] {
+    convertObjToFunc(val: {[key: string]: any}) : [FuncTree, AttributePlaceholder[]] {
         // todo
         // value: value D const TIME 等
         // object D attribute 应该转化为一个Attribute，还是根节点为eq的functree？
-        return [FuncTree.simpleEq(), [this.convertObjToAttr(obj['tmp'])]]
+        console.log(val);
+        switch (val["type"]) {
+            case "single":
+                return [FuncTree.simpleEq(), [this.convertObjToAttr(val['obj'])]];
+
+            case "double":
+                return [FuncTree.simpleEq(), [this.convertObjToAttr(val['obj'])]];
+        
+            default:
+                break;
+        }
+        return [FuncTree.simpleEq(), [this.convertObjToAttr(val['tmp'])]]
     }
 
     convertObjToEq(obj: {[key: string]: any}): EqPlaceholder[]{
@@ -103,7 +152,7 @@ class PosToElement {
 }
 
 class ControllerOp {
-    isCreate: boolean = false;
+    isCreate: boolean = false; // 是否新建元素
     
     targetElement?: ElementPlaceholder;
     targetAttr?: AttributePlaceholder;
@@ -200,4 +249,4 @@ class ControllerOp {
     }
 }
 
-export{ NLParser }
+export{ ControllerOp }
