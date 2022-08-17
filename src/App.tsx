@@ -340,7 +340,7 @@ class AllComponents extends React.Component {
                             x={min(startCorners[startCornerIndex][0], endCorners[endCornerIndex][0]) + abs(width) / 2 - max(abs(width), 100) * 9 / 20}
                             y={min(startCorners[startCornerIndex][1], endCorners[endCornerIndex][1]) + abs(height) / 2 + padding}>
                             
-                            <Tag fill={"#f0f0f0"}></Tag>
+                            <Tag fill={'#ffffff'/*"#f0f0f0"*/}></Tag>
                             <Text
                                 text={arrowText.val.val}
                                 fontSize={14}

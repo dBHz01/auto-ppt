@@ -1084,9 +1084,9 @@ class Controller {
 
     constructor() {
         this.attrNameToDefault = new Map();
-        // this.loadDefaultFromFile('matrix')
+        this.loadDefaultFromFile('matrix')
         // this.loadDefaultFromFile('cube')
-        this.loadDefaultFromFile('transformer')
+        // this.loadDefaultFromFile('transformer')
         // this.loadDefaultFromFile('mendelian')
 
         this.hints = new Map<number, SingleElement>();
@@ -2899,6 +2899,9 @@ class Controller {
         for(let attr of freeAttrs){
             let pcList = this.genPostCandidate(attr, canDependAttr, []);
             pcList.push(... this.genPrioCandidate(attr, canDependAttr))
+            pcList = pcList.filter((x)=>{
+                return x.type !== EstimateType.CONST_DIS
+            })
             pcList = uniquifyList(pcList, (x)=>{
                 if(x.val !== -1){
                     return x.val.toFixed(2);
