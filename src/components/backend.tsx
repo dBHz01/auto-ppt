@@ -167,6 +167,14 @@ class RawNumberNoCal implements Value {
     }
 }
 
+function genNonCalVal(val: any){
+    if(typeof(val) === 'string'){
+        return new RawText(val);
+    }
+
+    return new RawNumberNoCal(val);
+}
+
 class Attribute {
     name: string;
     val: Value;
@@ -1172,19 +1180,20 @@ class Controller {
         
     }
 
-    createElement(_type: ElementType, _name?: string, _text?: string, _id?:number): number {
+    createElement(_type: ElementType, _name?: string, _attrs?: Map<string, any>, _id?:number): number {
         // return element id
         let newElement = new SingleElement(_id == undefined? this.idAllocator: _id, _type, _name);
         // 如果是实际元素需要建立坐标、长宽、颜色
         if (displayElementTypes.indexOf(_type) >= 0){
             newElement.addAttribute(new Attribute("x", new RawNumber(100), newElement));
             newElement.addAttribute(new Attribute("y", new RawNumber(100), newElement));
-            let searchAttr = [];
-            if(_text != undefined){
-                let textAttr = new Attribute("text", new RawText(_text), newElement)
-                newElement.addAttribute(textAttr);
-                searchAttr.push(textAttr);
-            }
+            let searchAttr: Attribute[] = [];
+            _attrs?.forEach((attrV, attrName)=>{
+                let attr = new Attribute(attrName, genNonCalVal(attrV), newElement);
+                newElement.addAttribute(attr);
+                searchAttr.push(attr);
+            })
+
             let mostSimilarEle = this.searchSimilarByHistory(_type, searchAttr);
             
             for(let attrName of ["w", "h", "color", "lightness"]){
@@ -2178,13 +2187,13 @@ class Controller {
         newEleRange: string,
         forceUnchangeStr:string,
         inferChangeStr:string,
-        newEleText: string): boolean{
+        newEleAttrs: Map<string, any>): boolean{
         
         if(traceEleRelation.includes('new') 
             || newEleRel.includes('new')
             || newEleRange.includes('new') || 
             (traceEleRelation.length + newEleRel.length + newEleRange.length === 0 )){
-            return this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange, newEleText);
+            return this.handleUserAdd(trace, traceEleRelation, newEleRel, newEleRange, newEleAttrs);
         }
 
         return this.handleUserModify(newEleRel, forceUnchangeStr, inferChangeStr, 
@@ -2252,13 +2261,13 @@ class Controller {
 
     handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
         traceEleRelation: string, newEleEq: string,
-        newEleRange:string, newEleText: string): boolean{
+        newEleRange:string, newEleAttrs: Map<string, any>): boolean{
 
         let traces = RawTraces.map(rt=>new Trace(rt));
 
         let nextElementId = this.createElement(
             this.attrNameToDefault.get('elementType'),
-            undefined, newEleText
+            undefined, newEleAttrs
             ); // 后续接受更多内容
         this.addAttribute(nextElementId, 'x', new RawNumber(-1));
         this.addAttribute(nextElementId, 'y', new RawNumber(-1));
@@ -3115,4 +3124,4 @@ class TraceAttrRelation {
 
 export { String2OP, Operator, OperatorNode, 
     FuncTree, RawNumber, RawText, RawNumberNoCal, ElementType, SingleElement, Attribute, Controller, 
-    Equation, AssignOp, str2AssignOp, allPossibleShape};
+    Equation, AssignOp, str2AssignOp, allPossibleShape, Trace};

@@ -10,7 +10,7 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { getOrDefault, reader } from './components/utility';
+import { convertObjToMap, getOrDefault, reader } from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp } from './NLParser';
@@ -1400,8 +1400,13 @@ class App extends Component {
         let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
         // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一");
         // let x = p.parse("新建一个矩形在这里");
-        let c = new ControllerOp(x);
+        let c = new ControllerOp(x, []);
         console.log(c)
+
+        let x1 = p.parse("新建一个矩形在这里使它和这个的水平距离等于它和这个的竖直距离");
+        let c1 = new ControllerOp(x1, [[[100, 100]], [[100, 200]], [[200, 100]]]);
+        console.log(c1)
+
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
         // Parser.prototype.parse("修改C的颜色为红色");
@@ -1503,7 +1508,9 @@ class App extends Component {
         Controller.saveIfSuccess(()=>{
             try{
                 let res = this.allComponentsRef.current!.controller.handleUserCommand(
-                    this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr, newEleText
+                    this.traces, traceEleRelationStr, elemRelStr, eleRangeStr, unchangedStr, inferChangeStr, convertObjToMap({
+                        'text': newEleText
+                    })
                 );
                 if(res){
                     this.traces = [];

@@ -404,7 +404,13 @@ function reader(file: Blob): Promise<string> {
     })
 }
 
+function convertObjToMap(obj: {[key: string]: any}): Map<string, any>{
+    return new Map(obj.entries())
+}
+
 export {getAllCase, count, getTs, floatEq, 
     randomID, reduceRowJs, listEq, floatGe, 
     floatLe, floatGt, floatLt, uniquifyList, 
-    beamSolve, countTimeStart, countTimeEnd, countTimeFinish, getOrDefault, reader}
+    beamSolve, countTimeStart, countTimeEnd, 
+    countTimeFinish, getOrDefault, reader, 
+    convertObjToMap}

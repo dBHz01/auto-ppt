@@ -94,7 +94,8 @@ function loadFile(controller: Controller, fileInput: any) {
                 }
                 // new an element
                 let crtID = entry['id'];
-                let id = controller.createElement(elementType, elementName, '', crtID);
+                let id = controller.createElement(elementType, elementName, new Map(), crtID);
+                // 
                 for (let [key, value] of Object.entries(entry)) {
                     switch (key) {
                         case "type":
