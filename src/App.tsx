@@ -1402,7 +1402,7 @@ class App extends Component {
         let p = new Parser()
         // let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
         // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一");
-        this.curText = "新建一个矩形在这里";
+        this.curText = "新建一个矩形在这里使它的文字为BBB\n"; // 必须要\n
         let x = p.parse(this.curText);
         let c = new ControllerOp(x);
         this.curControllerOp = c;

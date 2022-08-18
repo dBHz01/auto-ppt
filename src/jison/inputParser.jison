@@ -55,9 +55,20 @@
 "等于"                   return 'EQUAL'
 "大于"                   return 'GEQ'
 "小于"                   return 'LEQ'
-
-// [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
-[\u4e00-\u9fa5A-Za-z]+?(?=[和的到往在为深浅大小])            return 'OBJ'
+"红色"                   return 'RED'
+"粉色"                   return 'PINK'
+"紫色"                   return 'PURPLE'
+"蓝色"                   return 'BLUE'
+"青色"                   return 'CYAN'
+"蓝绿色"                 return 'TEAL'
+"绿色"                   return 'GREEN'
+"黄色"                   return 'YELLOW'
+"橙色"                   return 'ORANGE'
+"棕色"                   return 'BROWN'
+"灰色"                   return 'GREY'
+"蓝灰色"                 return 'BLUEGREY'
+"一个"                   return 'SINGLEONE'
+"它"                     return 'IT'
 
 "一点"                   return 'BIT'
 "分之一"                 return 'FRACTION'
@@ -71,6 +82,13 @@
 "八"                     return 'EIGHT'
 "九"                     return 'NINE'
 "十"                     return 'TEN'
+
+
+// [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'OBJ'
+[\u4e00-\u9fa5A-Za-z]+?(?=[和的到往在为深浅大小红粉紫蓝青蓝黄橙棕灰色它\n])            return 'OBJ'
+
+
+"\n"                     return 'BREAK_LINE'
 
 
 <<EOF>>               return 'EOF'
@@ -91,6 +109,13 @@
 
 %% /* language grammar */
 
+eof
+    : EOF
+        {$$ = $1}
+    | BREAK_LINE EOF
+        {$$ = $1}
+    ;
+
 expressions
     : predicate target adverbial EOF
         { console.log({"predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined});
@@ -110,10 +135,20 @@ object
         {$$ = {"name": $1, "type": "ref", "pos": @1.first_column, "end": @1.last_column};}
     | THAT
         {$$ = {"name": $1, "type": "ref", "pos": @1.first_column, "end": @1.last_column};}
+    | IT
+        {$$ = {"name": $1, "type": "it", "pos": @1.first_column, "end": @1.last_column};}
     | THIS OBJ
-        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @1.last_column};}
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @2.last_column};}
     | THAT OBJ
-        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @1.last_column};}
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @2.last_column};}
+    | SINGLEONE OBJ
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @2.last_column};}
+    | color D OBJ
+        {$$ = {"name": $3, "type": "color-obj", "pos": @1.first_column, "end": @3.last_column, "color": $1};}
+    | THIS color D OBJ
+        {$$ = {"name": $3, "type": "color-obj", "pos": @1.first_column, "end": @4.last_column, "color": $2};}
+    | THAT color D OBJ
+        {$$ = {"name": $4, "type": "color-obj", "pos": @1.first_column, "end": @4.last_column, "color": $2};}
     ;
 
 attribute
@@ -133,6 +168,28 @@ attribute
         {$$ = "vertiloc"}
     | LOC
         {$$ = "loc"}
+    ;
+
+computableAttribute
+    : HORILOC
+        {$$ = "horiloc"}
+    | VERTILOC
+        {$$ = "vertiloc"}
+    | LOC
+        {$$ = "loc"}
+    ;
+
+uncomputableAttribute
+    : SIZE
+        {$$ = "size"}
+    | HEIGHT
+        {$$ = "height"}
+    | WIDTH
+        {$$ = "width"}
+    | COLOR
+        {$$ = "color"}
+    | TEXT
+        {$$ = "text"}
     ;
 
 doubleAttribute
@@ -200,6 +257,33 @@ const
         {$$ = 10}
     ;
 
+color
+    : RED
+        { $$ = "red" }
+    | PINK
+        { $$ = "pink" }
+    | PURPLE
+        { $$ = "purple" }
+    | BLUE
+        { $$ = "blue" }
+    | CYAN
+        { $$ = "cyan" }
+    | TEAL
+        { $$ = "teal" }
+    | GREEN
+        { $$ = "green" }
+    | YELLOW
+        { $$ = "yellow" }
+    | ORANGE
+        { $$ = "orange" }
+    | BROWN
+        { $$ = "brown" }
+    | GREY
+        { $$ = "grey" }
+    | BLUEGREY
+        { $$ = "bluegrey" }
+    ;
+
 value
     : value D const TIME
         {$$ = {"val": $1, "const": $3, "type": "time"};}
@@ -209,10 +293,24 @@ value
         {$$ = {"val_1": $1, "val_2": $3, "type": "diff"};}
     | value AND value D AND
         {$$ = {"val_1": $1, "val_2": $3, "type": "sum"};}
-    | object D attribute
+    | object D computableAttribute
         {$$ = {"obj": $1, "type": "single", "val": $3};}
     | object AND object D doubleAttribute
         {$$ = {"obj_1": $1, "obj_2": $3, "type": "double", "val": $5};}
+    ;
+
+uncomputableValue
+    : object D uncomputableAttribute
+        {$$ = {"obj": $1, "type": "single", "val": $3};}
+    ;
+
+constValue
+    : color
+        {$$ = {"type": "color", "val": $1};}
+    // | const
+    //     {$$ = {"type": "const", "val": $1};}
+    | OBJ
+        {$$ = {"type": "text", "val": $1};}
     ;
 
 relation
@@ -224,6 +322,10 @@ relation
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": ">"};}
     | object AT object D direction
         {$$ = {"type": "direction", "obj_1": $1, "obj_2": $3, "direction": $5};}
+    | uncomputableValue EQUAL constValue
+        {$$ = {"type": "assignment", "left_value": $1, "right_value": $3};}
+    | uncomputableValue IS constValue
+        {$$ = {"type": "assignment", "left_value": $1, "right_value": $3};}
     ;
 
 predicate
@@ -253,6 +355,10 @@ adverbial
         {$$ = {"type": "direction", "direction": $2};}
     | IS value
         {$$ = {"type": "value", "value": $2};}
+    | IS uncomputableValue
+        {$$ = {"type": "value", "value": $2};}
+    // | IS constValue
+    //     {$$ = {"type": "const_value", "value": $2};}
     | adverb
         {$$ = {"type": "adverb", "value": $1};}
     ;

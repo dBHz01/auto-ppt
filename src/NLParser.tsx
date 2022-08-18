@@ -70,7 +70,8 @@ class NLParser {
     }
 
     convertObjToElement(obj: { [key: string]: any }): ElementPlaceholder {
-        // 当前仅支持 [名称] or 这个[形状] or [形状][名称]
+        // 当前仅支持 [名称] or 这个[形状] or [形状][名称] or 一个[形状]
+        console.log(obj);
         if (obj["type"] === "obj") {
             let name: string = obj['name'];
             for (let i of allPossibleShape) {
@@ -99,6 +100,11 @@ class NLParser {
                 ele.addRequires("shape", shape);
             }
             return ele
+        } else if (obj["type"] === "color-obj") {
+            // todo
+            return new ElementPlaceholder(true, obj["pos"], obj["end"]);
+        } else if (obj["type"] === "it") {
+            return new ElementPlaceholder(false, obj["pos"], obj["end"]);
         } else {
             throw Error("unknown obj");
         }
@@ -107,8 +113,9 @@ class NLParser {
 
     convertObjToAttr(obj: { [key: string]: any }): AttributePlaceholder {
         // object D attribute
+        // console.log(obj);
         let ele = this.convertObjToElement(obj["obj"]);
-        return new AttributePlaceholder(ele, obj["value"]);
+        return new AttributePlaceholder(ele, obj["val"]);
     }
 
     convertValToFunc(val: { [key: string]: any }): [FuncTree, AttributePlaceholder[]] {
@@ -238,7 +245,7 @@ class NLParser {
     convertRelationToEq(relation: { [key: string]: any }): EqPlaceholder {
         // relation: value EQUAL value 等
         // 可能会有多个eq
-        console.log(relation);
+        // console.log(relation);
         if (relation["type"] === "equation") {
             let leftObj = this.convertValToFunc(relation['val_1']);
             let rightObj = this.convertValToFunc(relation['val_2']);
@@ -288,6 +295,15 @@ class NLParser {
         }
     }
 
+    convertRelationToMap(relation: { [key: string]: any }): Map<AttributePlaceholder, string> {
+        console.log(relation);
+        let ret = new Map<AttributePlaceholder, string>();
+        let leftValue = this.convertObjToAttr(relation["left_value"]);
+        let rightValue = relation["right_value"]["val"];
+        ret.set(leftValue, rightValue);
+        return ret;
+    }
+
     conductOnController(con: Controller, uttrObj: { [key: string]: any }) {
 
     }
@@ -326,6 +342,7 @@ class ControllerOp {
     // 附加条件，仅仅支持对位置属性的运算
     extraEqs?: EqPlaceholder[];
     extraRanges?: EqPlaceholder[];
+    extraMap?: Map<AttributePlaceholder, string>;
 
     static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc'];
     static POSSIBLE_BI_ATTRS = ['horidist', 'vertidist'/*, 'dist'*/];
@@ -388,7 +405,18 @@ class ControllerOp {
         if (obj['conditions'] != undefined) {
             let eqList = new Array<EqPlaceholder>();
             for (let condition of obj['conditions']) {
-                eqList.push(nlParser.convertRelationToEq(condition));
+                if (condition["type"] === "assignment") {
+                    if (this.extraMap === undefined) {
+                        this.extraMap = new Map<AttributePlaceholder, string>();
+                    }
+                    let newMap = nlParser.convertRelationToMap(condition);
+                    for (let i of newMap.entries()) {
+                        this.extraMap.set(i[0], i[1]);
+                    }
+                    // console.log(this.extraMap);
+                } else {
+                    eqList.push(nlParser.convertRelationToEq(condition));
+                }
             }
             eqList.forEach((eq) => {
                 if (eq.op === AssignOp.eq) {
