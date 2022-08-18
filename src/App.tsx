@@ -1386,6 +1386,7 @@ class App extends Component {
     addArrowRef: React.RefObject<HTMLInputElement>;
     textForNewEleRef: React.RefObject<HTMLInputElement>;
     static instance: App;
+    cmdInputRef: React.RefObject<HTMLInputElement>;
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
@@ -1430,6 +1431,7 @@ class App extends Component {
         App.instance = this;
         this.addArrowRef = React.createRef();
         this.textForNewEleRef = React.createRef()
+        this.cmdInputRef = React.createRef()
     }
 
     nextSolution() {
@@ -1547,6 +1549,21 @@ class App extends Component {
         return;
     }
 
+    handleInputFinished(uttr: string, raw_traces?: Array<Array<[number, number]>>){
+        Controller.saveIfSuccess(()=>{
+            if(raw_traces == undefined){
+                raw_traces = this.traces;
+            }
+    
+            let parseRes = new Parser().parse(uttr);
+            let conOp = new ControllerOp(parseRes, raw_traces);
+            conOp.executeOnControllerNewEle(Controller.getInstance());
+            this.traces = [];
+            this.forceUpdate();
+            return true;
+        }) 
+    }
+
     render() {
         return (
             <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
@@ -1581,21 +1598,31 @@ class App extends Component {
                             })}
                         </Layer>
                     </Stage>
-                    <hr/>
-                    路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
-                    元素之间的相等关系：<input type="text" ref={this.elemRelationRef}/>
-                    元素之间的比较关系：<input type="text" ref={this.elemRangeRef}/>
-                    <hr/>
-                    推测发生变化（;分隔）：<input ref={this.inferChangedRef} type='text'/>
-                    强制保持不变（;分隔）：<input ref={this.forceUnchangedRef} type='text'/>
-                    新元素文本：<input ref={this.textForNewEleRef} type='text'/>
-                    <hr/>
-                    <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
-                    <Button
-                    type="primary"
-                    onClick={this.nextSolution.bind(this)}
-                    >下一个解</Button>
-                    <br/>
+                    <div style={{'display': 'none'}}>
+                        <hr/>
+                        路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
+                        元素之间的相等关系：<input type="text" ref={this.elemRelationRef}/>
+                        元素之间的比较关系：<input type="text" ref={this.elemRangeRef}/>
+                        <hr/>
+                        推测发生变化（;分隔）：<input ref={this.inferChangedRef} type='text'/>
+                        强制保持不变（;分隔）：<input ref={this.forceUnchangedRef} type='text'/>
+                        新元素文本：<input ref={this.textForNewEleRef} type='text'/>
+                        <hr/>
+                        <button onClick={this.applyCmd.bind(this)}>应用用户指令</button>
+                        <Button
+                        type="primary"
+                        onClick={this.nextSolution.bind(this)}
+                        >下一个解</Button>
+                    </div>
+
+                    <div>
+                        <hr/>
+                        输入指令：<input type='text' ref={this.cmdInputRef}/>
+                        <button onClick={()=>{
+                            this.handleInputFinished(this.cmdInputRef.current!.value);
+                        }}>确认</button>
+                    </div>
+                    <div>
                     添加箭头：<input ref={this.addArrowRef} type='text'/>
                     <button onClick={()=>{
                         Controller.saveIfSuccess(()=>{
@@ -1604,6 +1631,7 @@ class App extends Component {
                             return true;
                         })
                         }}>添加箭头</button>
+                    </div>
                 </div>
                 <div style={{flex: '1'}}>
                     <HelperGUI ref={this.helpGUIRef}/>
