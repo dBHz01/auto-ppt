@@ -168,9 +168,9 @@ direction
 
 location
     : HERE
-        {$$ = {"loc": "here", "type": "ref"}}
+        {$$ = {"loc": "here", "type": "ref", "pos": @1.first_column}}
     | THERE
-        {$$ = {"loc": "there", "type": "ref"}}
+        {$$ = {"loc": "there", "type": "ref", "pos": @1.first_column}}
     | object D direction
         {$$ = {"obj": $1, "type": "single", "direction": $3}}
     | object AND object D MIDDLE
@@ -223,7 +223,7 @@ relation
     | value GEQ value
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": ">"};}
     | object AT object D direction
-        {$$ = {"type": "direction", "obj_1": $1, "obj_1": $3, "direction": $5};}
+        {$$ = {"type": "direction", "obj_1": $1, "obj_2": $3, "direction": $5};}
     ;
 
 predicate
