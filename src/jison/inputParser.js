@@ -96,13 +96,13 @@ case 3:
           return {"predicate": $$[$0-2], "target": $$[$0-1], "adverbial": undefined, "conditions": undefined}; 
 break;
 case 4:
-this.$ = {"name": $$[$0], "type": "obj", "pos": _$[$0].first_column};
+this.$ = {"name": $$[$0], "type": "obj", "pos": _$[$0].first_column, "end": _$[$0].last_column};
 break;
 case 5: case 6:
-this.$ = {"name": $$[$0], "type": "ref", "pos": _$[$0].first_column};
+this.$ = {"name": $$[$0], "type": "ref", "pos": _$[$0].first_column, "end": _$[$0].last_column};
 break;
 case 7: case 8:
-this.$ = {"name": $$[$0], "type": "ref-obj", "pos": _$[$0-1].first_column};
+this.$ = {"name": $$[$0], "type": "ref-obj", "pos": _$[$0-1].first_column, "end": _$[$0-1].last_column};
 break;
 case 9:
 this.$ = "size"
@@ -162,10 +162,10 @@ case 27:
 this.$ = "down"
 break;
 case 28:
-this.$ = {"loc": "here", "type": "ref", "pos": _$[$0].first_column}
+this.$ = {"loc": "here", "type": "ref", "pos": _$[$0].first_column, "end": _$[$0].last_column}
 break;
 case 29:
-this.$ = {"loc": "there", "type": "ref", "pos": _$[$0].first_column}
+this.$ = {"loc": "there", "type": "ref", "pos": _$[$0].first_column, "end": _$[$0].last_column}
 break;
 case 30:
 this.$ = {"obj": $$[$0-2], "type": "single", "direction": $$[$0]}

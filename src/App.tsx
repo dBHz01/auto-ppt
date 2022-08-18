@@ -5,7 +5,7 @@ import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
 import { Parser } from './jison/inputParser';
-import { Button } from 'antd';
+import { Button, Tag as InputText } from 'antd';
 import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
@@ -1385,6 +1385,9 @@ class App extends Component {
     elemRangeRef: React.RefObject<HTMLInputElement>;
     addArrowRef: React.RefObject<HTMLInputElement>;
     textForNewEleRef: React.RefObject<HTMLInputElement>;
+
+    curText?: string;
+    curControllerOp?: ControllerOp;
     static instance: App;
     constructor(props: any) {
         super(props);
@@ -1397,11 +1400,14 @@ class App extends Component {
         // Parser.prototype.parse("A的大小等于B的大小");
         // Parser.prototype.parse("A和B的水平距离等于A和C的竖直距离");
         let p = new Parser()
-        let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
+        // let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
         // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一");
-        // let x = p.parse("新建一个矩形在这里");
+        this.curText = "新建一个矩形在这里";
+        let x = p.parse(this.curText);
         let c = new ControllerOp(x);
+        this.curControllerOp = c;
         console.log(c)
+        
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
         // Parser.prototype.parse("修改C的颜色为红色");
@@ -1425,6 +1431,10 @@ class App extends Component {
         App.instance = this;
         this.addArrowRef = React.createRef();
         this.textForNewEleRef = React.createRef()
+    }
+
+    displayText(text: string, parsedResult: ControllerOp): string[] {
+        return ["1"];
     }
 
     nextSolution() {
@@ -1541,6 +1551,12 @@ class App extends Component {
     }
 
     render() {
+        let inputTexts = [];
+        for (let i of this.displayText(this.curText!, this.curControllerOp!)) {
+            inputTexts.push(
+                <InputText><div>{i}</div></InputText>
+            );
+        }
         return (
             <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
                 <div style={{flex: '3', backgroundColor: '#ffffff' /*'#f0f0f0'*/}}>
@@ -1597,6 +1613,9 @@ class App extends Component {
                             return true;
                         })
                         }}>添加箭头</button>
+                    <div>
+                        {inputTexts}
+                    </div>
                 </div>
                 <div style={{flex: '1'}}>
                     <HelperGUI ref={this.helpGUIRef}/>

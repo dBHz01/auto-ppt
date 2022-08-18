@@ -105,15 +105,15 @@ expressions
 
 object
     : OBJ
-        {$$ = {"name": $1, "type": "obj", "pos": @1.first_column};}
+        {$$ = {"name": $1, "type": "obj", "pos": @1.first_column, "end": @1.last_column};}
     | THIS
-        {$$ = {"name": $1, "type": "ref", "pos": @1.first_column};}
+        {$$ = {"name": $1, "type": "ref", "pos": @1.first_column, "end": @1.last_column};}
     | THAT
-        {$$ = {"name": $1, "type": "ref", "pos": @1.first_column};}
+        {$$ = {"name": $1, "type": "ref", "pos": @1.first_column, "end": @1.last_column};}
     | THIS OBJ
-        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column};}
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @1.last_column};}
     | THAT OBJ
-        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column};}
+        {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @1.last_column};}
     ;
 
 attribute
@@ -168,9 +168,9 @@ direction
 
 location
     : HERE
-        {$$ = {"loc": "here", "type": "ref", "pos": @1.first_column}}
+        {$$ = {"loc": "here", "type": "ref", "pos": @1.first_column, "end": @1.last_column}}
     | THERE
-        {$$ = {"loc": "there", "type": "ref", "pos": @1.first_column}}
+        {$$ = {"loc": "there", "type": "ref", "pos": @1.first_column, "end": @1.last_column}}
     | object D direction
         {$$ = {"obj": $1, "type": "single", "direction": $3}}
     | object AND object D MIDDLE

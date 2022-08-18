@@ -8,10 +8,12 @@ class ElementPlaceholder {
     actualEle?: SingleElement;
     ref: boolean;
     pos: number;
-    constructor(ref: boolean, pos: number, attrRequires?: Map<string, any>) {
+    end: number;
+    constructor(ref: boolean, pos: number, end: number, attrRequires?: Map<string, any>) {
         // this.useTrace = false;
         this.ref = ref;
         this.pos = pos;
+        this.end = end;
         if (attrRequires == undefined) {
             this.attrRequires = new Map();
         } else {
@@ -77,11 +79,11 @@ class NLParser {
                     break;
                 }
             }
-            let ele = new ElementPlaceholder(false, obj["pos"]);
+            let ele = new ElementPlaceholder(false, obj["pos"], obj["end"]);
             ele.addRequires("name", name);
             return ele;
         } else if (obj["type"] === "ref") {
-            return new ElementPlaceholder(true, obj["pos"]);
+            return new ElementPlaceholder(true, obj["pos"], obj["end"]);
         } else if (obj["type"] === "ref-obj") {
             let name: string = obj['name'];
             let shape: string = "";
@@ -92,7 +94,7 @@ class NLParser {
                     break;
                 }
             }
-            let ele = new ElementPlaceholder(true, obj["pos"]);
+            let ele = new ElementPlaceholder(true, obj["pos"], obj["end"]);
             if (shape) {
                 ele.addRequires("shape", shape);
             }
@@ -300,6 +302,7 @@ class PosToElement {
     elements?: ElementPlaceholder[] = [];
     pos?: string;
     posAtSentence?: number; // 只有ref有这一条属性表示在句子中的位置
+    endAtSentence?: number; // 只有ref有这一条属性表示在句子中的结尾
 }
 
 class ControllerOp {
@@ -353,7 +356,8 @@ class ControllerOp {
                 this.pos.elements = [nlParser.convertObjToElement(locObj['obj'])];
                 this.pos.pos = locObj['direction'];
             } else if (locObj['type'] === 'ref') {
-                this.pos.pos = locObj['pos'];
+                this.pos.posAtSentence = locObj['pos'];
+                this.pos.endAtSentence = locObj['end'];
             } else {
                 assert(locObj['type'] === 'double' && locObj['loc'] === 'middle');
                 this.pos.elements = [
