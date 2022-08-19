@@ -10,7 +10,7 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { convertObjToMap, getOrDefault, reader } from './components/utility';
+import { convertObjToMap, floatEq, getOrDefault, reader } from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp } from './NLParser';
@@ -497,28 +497,131 @@ class AllComponents extends React.Component {
     }
 }
 
+class ModifyRecommand {
+    // 描述推荐的修改内容
+    modifyAttrName: string;
+    tgtVal: any;
+
+    filterAttrName: string;
+    filterAttrVal: any;
+    constructor(modifyAttrName: string, tgtVal: any, filterAttrName: string, filterAttrVal: any){
+        this.modifyAttrName = modifyAttrName;
+        this.tgtVal = tgtVal;
+        this.filterAttrName = filterAttrName;
+        this.filterAttrVal = filterAttrVal;
+    }
+
+    apply(){
+        Controller.saveIfSuccess(()=>{
+            [... Controller.getInstance().elements.values()].forEach((ele)=>{
+                if(ele.id <= 0){
+                    return;
+                }
+                if(ele.getAttrVal(this.filterAttrName, undefined) != this.filterAttrVal){
+                    return;
+                }
+    
+                ele.changeCertainAttribute(this.modifyAttrName, this.tgtVal, false);
+            })
+            App.instance.allComponentsRef.current?.forceUpdate();
+            HelperGUI.instance.updateRecommand();
+            return true;
+        })
+    }
+
+    check(){
+        let toModEles = [... Controller.getInstance().elements.values()].filter((crtEle)=>{
+            if(crtEle.id <= 0){
+                return false;
+            }
+            
+            let v1 = crtEle.getAttrVal(this.filterAttrName, null);
+            let v2 = this.filterAttrVal;
+            if(typeof this.filterAttrVal === 'number'){
+                if(!floatEq(v1, v2)){
+                    return false;
+                }
+            } else if(v1 !== v2){
+                return false;
+            }
+
+            v1 = crtEle.getAttrVal(this.modifyAttrName, undefined);
+            v2 = this.tgtVal
+            if(typeof v2 === 'number' && floatEq(v1, v2)){
+                return false
+            }
+            else if(crtEle.getAttrVal(this.modifyAttrName, undefined) === this.tgtVal){
+                return false;
+            }
+
+            return true;
+        })
+
+        return toModEles.length > 0;
+    }
+
+    toStrToDisp(val: any){
+        if(typeof val === 'string'){
+            if(val.length === 0){
+                return '空'
+            }
+        }
+
+        if(typeof val === 'boolean'){
+            if(val){
+                return '真'
+            } else {
+                return '假'
+            }
+        }
+
+        if(typeof val === 'number'){
+            return `${val.toFixed(2)}`;
+        }
+
+        return val
+    }
+
+    disp(){
+        return <div key={`${this.modifyAttrName}-${this.tgtVal}-${this.filterAttrName}-${this.filterAttrVal}`}>
+            将所有{this.toStrToDisp(this.filterAttrName)} 为 {this.toStrToDisp(this.filterAttrVal)} 的元素的
+            <br/>
+            {this.toStrToDisp(this.modifyAttrName)}修改为{this.toStrToDisp(this.tgtVal)}
+            <br/>
+            <button onClick={this.apply.bind(this)}>确认</button>
+            <hr/>
+        </div>
+    }
+}
+
 class HelperGUI extends React.Component {
     controller: Controller;
     static TAG_DISP_CDT = 'TAG_DISP_CDT'  // 展示候选内容
-    static TAG_DISP_SET = 'TAG_DISP_SET' // 展示推荐内容
+    static TAG_DISP_SET = 'TAG_DISP_SET' // 展示设置内容
+    static TAG_DISP_MOD = 'TAG_DISP_MOD' // 展示推荐修改内容
     static ratio = 1.0 / 3.0
     state: {cdtIdx: number, selectedTag: string, 
         selectedItemId: number,
-        itemAttrObj: Map<string, any>};
+        itemAttrObj: Map<string, any>
+        nextModifyRecommand: ModifyRecommand[]
+    };
 
     showCdtRef: React.RefObject<HTMLInputElement>;
     editTextRef: React.RefObject<HTMLTextAreaElement>;
     showDebugInfoRef: React.RefObject<HTMLInputElement>;
     uploadFileRef: React.RefObject<HTMLInputElement>;
     showHintsRef: React.RefObject<HTMLInputElement>;
+    static instance: HelperGUI;
     constructor(props: any){
         super(props);
+        HelperGUI.instance = this;
         this.controller = Controller.getInstance();
         this.state = {
             cdtIdx: 0,
             selectedTag: HelperGUI.TAG_DISP_CDT,
             selectedItemId: -1,
             itemAttrObj: new Map(),
+            nextModifyRecommand: []
         }
 
         this.controller.add_switch_cdt_idx_listener((idx)=>{
@@ -693,169 +796,6 @@ class HelperGUI extends React.Component {
                             }
                         }
                         break;  
-                    // //等距展示
-                    // case 1:
-                    //     for(let j=0; j<i.complex; j++)
-                    //     {
-                    //         if(i.related[j].related[0].getAttribute("x")?.val.val==i.related[j].related[1].getAttribute("x")?.val.val)
-                    //         {
-                    //             let newEle = this.controller.createHint(ElementType.LINE);
-                    //             this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val+50));
-                    //             this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
-                    //             this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-50));
-                    //             this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
-                    //             this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
-                    //             this.controller.addHintAttribute(newEle, "color", new RawNumber(1));
-                    //             let newEle1 = this.controller.createHint(ElementType.LINE);
-                    //             this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val+50));
-                    //             this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
-                    //             this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-50));
-                    //             this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
-                    //             this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
-                    //             this.controller.addHintAttribute(newEle1, "color", new RawNumber(1));
-                    //             let newEle2 = this.controller.createHint(ElementType.LINE);
-                    //             this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val-40));
-                    //             this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
-                    //             this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val-40));
-                    //             this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
-                    //             this.controller.addHintAttribute(newEle2, "dash", new RawNumber(0));
-                    //             this.controller.addHintAttribute(newEle2, "color", new RawNumber(1));   
-                    //             let newEle3 = this.controller.createHint(ElementType.TEXT);
-                    //             this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2-50));
-                    //             this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2));
-                    //             let length = Math.sqrt((i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) * (i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) + (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val) * (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val));
-                    //             if(length < 0) length = -length;
-                    //             this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
-                    //             this.controller.addHintAttribute(newEle3, "color", new RawNumber(1));            
-                    //         }
-                    //         else
-                    //         {
-                    //             let newEle = this.controller.createHint(ElementType.LINE);
-                    //             this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
-                    //             this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val+50));
-                    //             this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
-                    //             this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-50));
-                    //             this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
-                    //             this.controller.addHintAttribute(newEle, "color", new RawNumber(1));
-                    //             let newEle1 = this.controller.createHint(ElementType.LINE);
-                    //             this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
-                    //             this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val+50));
-                    //             this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
-                    //             this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-50));
-                    //             this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
-                    //             this.controller.addHintAttribute(newEle1, "color", new RawNumber(1));
-                    //             let newEle2 = this.controller.createHint(ElementType.LINE);
-                    //             this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
-                    //             this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val-40));
-                    //             this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
-                    //             this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val-40));
-                    //             this.controller.addHintAttribute(newEle2, "dash", new RawNumber(0));
-                    //             this.controller.addHintAttribute(newEle2, "color", new RawNumber(1));   
-                    //             let newEle3 = this.controller.createHint(ElementType.TEXT);
-                    //             this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2));
-                    //             this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2-50));
-                    //             let length = Math.sqrt((i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) * (i.related[j].related[0].getAttribute("x")?.val.val - i.related[j].related[1].getAttribute("x")?.val.val) + (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val) * (i.related[j].related[0].getAttribute("y")?.val.val - i.related[j].related[1].getAttribute("y")?.val.val));
-                    //             if(length < 0) length = -length;
-                    //             this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
-                    //             this.controller.addHintAttribute(newEle3, "color", new RawNumber(1)); 
-                    //         }
-                    //     } 
-                    //     break;    
-                    //x等距展示
-                    // case 2:
-                    //     let ymax2 = i.related[0].related[0].getAttribute("y")?.val.val;
-                    //     let ymin2 = ymax2;
-                    //     for(let j=1; j<i.complex; j++)
-                    //     {
-                    //         let y = i.related[j].related[0].getAttribute("y")?.val.val;
-                    //         if(y > ymax2) ymax2 = y;
-                    //         if(y < ymin2) ymin2 = y;
-                    //         if(i.related[j].related[1]!=undefined)
-                    //         {
-                    //             y = i.related[j].related[1].getAttribute("y")?.val.val;
-                    //             if(y > ymax2) ymax2 = y;
-                    //             if(y < ymin2) ymin2 = y;   
-                    //         }
-                    //     }
-                    //     for(let j=0; j<i.complex; j++)
-                    //     {
-                    //         let newEle = this.controller.createHint(ElementType.LINE);
-                    //         this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
-                    //         this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(ymax2+50));
-                    //         this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
-                    //         this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(ymin2-50));
-                    //         this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
-                    //         this.controller.addHintAttribute(newEle, "color", new RawNumber(2));
-                    //         let newEle1 = this.controller.createHint(ElementType.LINE);
-                    //         this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
-                    //         this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(ymax2+50));
-                    //         this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
-                    //         this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(ymin2-50));
-                    //         this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
-                    //         this.controller.addHintAttribute(newEle1, "color", new RawNumber(2));
-                    //         let newEle2 = this.controller.createHint(ElementType.ARROW);
-                    //         this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val));
-                    //         this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(ymin2-40));
-                    //         this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(i.related[j].related[1].getAttribute("x")?.val.val));
-                    //         this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(ymin2-40));
-                    //         this.controller.addHintAttribute(newEle2, "color", new RawNumber(2));
-                    //         let newEle3 = this.controller.createHint(ElementType.TEXT);
-                    //         this.controller.addHintAttribute(newEle3, "x", new RawNumber(i.related[j].related[0].getAttribute("x")?.val.val/2+i.related[j].related[1].getAttribute("x")?.val.val/2-10));
-                    //         this.controller.addHintAttribute(newEle3, "y", new RawNumber(ymin2-50));
-                    //         let length = i.related[j].related[1].getAttribute("x")?.val.val-i.related[j].related[0].getAttribute("x")?.val.val;
-                    //         if(length < 0) length = -length;
-                    //         this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
-                    //         this.controller.addHintAttribute(newEle3, "color", new RawNumber(2));          
-                    //     } 
-                    //     break; 
-                    // //y等距展示
-                    // case 3:
-                    //     let xmax3 = i.related[0].related[0].getAttribute("x")?.val.val;
-                    //     let xmin3 = xmax3;
-                    //     for(let j=1; j<i.complex; j++)
-                    //     {
-                    //         let x = i.related[j].related[0].getAttribute("x")?.val.val;
-                    //         if(x > xmax3) xmax3 = x;
-                    //         if(x < xmin3) xmin3 = x;
-                    //         if(i.related[j].related[1]!=undefined)
-                    //         {
-                    //             x = i.related[j].related[1].getAttribute("x")?.val.val;
-                    //             if(x > xmax3) xmax3 = x;
-                    //             if(x < xmin3) xmin3 = x;  
-                    //         }
-                    //     }
-                    //     for(let j=0; j<i.complex; j++)
-                    //     {
-                    //         let newEle = this.controller.createHint(ElementType.LINE);
-                    //         this.controller.addHintAttribute(newEle, "point1_x", new RawNumber(xmax3+50));
-                    //         this.controller.addHintAttribute(newEle, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
-                    //         this.controller.addHintAttribute(newEle, "point2_x", new RawNumber(xmin3-50));
-                    //         this.controller.addHintAttribute(newEle, "point2_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
-                    //         this.controller.addHintAttribute(newEle, "dash", new RawNumber(1));
-                    //         this.controller.addHintAttribute(newEle, "color", new RawNumber(3));
-                    //         let newEle1 = this.controller.createHint(ElementType.LINE);
-                    //         this.controller.addHintAttribute(newEle1, "point1_x", new RawNumber(xmax3+50));
-                    //         this.controller.addHintAttribute(newEle1, "point1_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
-                    //         this.controller.addHintAttribute(newEle1, "point2_x", new RawNumber(xmin3-50));
-                    //         this.controller.addHintAttribute(newEle1, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
-                    //         this.controller.addHintAttribute(newEle1, "dash", new RawNumber(1));
-                    //         this.controller.addHintAttribute(newEle1, "color", new RawNumber(3));
-                    //         let newEle2 = this.controller.createHint(ElementType.ARROW);
-                    //         this.controller.addHintAttribute(newEle2, "point1_x", new RawNumber(xmin3-40));
-                    //         this.controller.addHintAttribute(newEle2, "point1_y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val));
-                    //         this.controller.addHintAttribute(newEle2, "point2_x", new RawNumber(xmin3-40));
-                    //         this.controller.addHintAttribute(newEle2, "point2_y", new RawNumber(i.related[j].related[1].getAttribute("y")?.val.val));
-                    //         this.controller.addHintAttribute(newEle2, "color", new RawNumber(3));   
-                    //         let newEle3 = this.controller.createHint(ElementType.TEXT);
-                    //         this.controller.addHintAttribute(newEle3, "x", new RawNumber(xmin3-65));
-                    //         this.controller.addHintAttribute(newEle3, "y", new RawNumber(i.related[j].related[0].getAttribute("y")?.val.val/2+i.related[j].related[1].getAttribute("y")?.val.val/2));
-                    //         let length = i.related[j].related[1].getAttribute("y")?.val.val-i.related[j].related[0].getAttribute("y")?.val.val;
-                    //         if(length < 0) length = -length;
-                    //         this.controller.addHintAttribute(newEle3, "length", new RawNumber(length));
-                    //         this.controller.addHintAttribute(newEle3, "color", new RawNumber(3));            
-                    //     } 
-                    //     break; 
-                    //x对齐展示  
                     case 2:
                         let ymax4 = i.related[0].related[0].getAttribute("y")?.val.val;
                         let ymin4 = ymax4;
@@ -1049,6 +989,12 @@ class HelperGUI extends React.Component {
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET).bind(this)}>
                 设置{this.state.selectedTag === HelperGUI.TAG_DISP_SET?"✍︎": ""}
             </div>
+
+            <div style={{flex: '1', 
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_MOD? "#d6d6d6": "#ffffff"}}
+                onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_MOD).bind(this)}>
+                推荐的后续修改{this.state.selectedTag === HelperGUI.TAG_DISP_MOD?"✍︎": ""}
+            </div>
         </div>
     }
 
@@ -1133,6 +1079,43 @@ class HelperGUI extends React.Component {
         App.instance.forceUpdate()
     }
 
+    recommandOnNonPosAttrChange(attrName: string, element: SingleElement, attrValBefore: any){
+        // 将满足以下条件的元素的“attrName”修改成“element.attrName”
+        let results: ModifyRecommand[] = [];
+        element.attributes.forEach((attr, name)=>{
+            let val = attr.val.val;
+            if(name === attrName){
+                // 与原来的元素相同
+                val = attrValBefore;
+            }
+
+            let crt = new ModifyRecommand(attrName, element.getAttrVal(attrName, undefined), name, val)
+            if(crt.check()){
+                results.push(crt);
+            }
+        })
+
+        this.setState({
+            nextModifyRecommand: results
+        })
+    }
+
+    updateRecommand(clear=false){
+        if(clear){
+            this.setState({
+                nextModifyRecommand: []
+            })
+            return;
+        }
+
+        // 检查所有的元素中是否有可以修改的
+        let newMR = this.state.nextModifyRecommand.filter((x)=>x.check());
+        this.setState({
+            nextModifyRecommand: newMR
+        })
+
+    }
+
     async handleUploadFileClick(){
         await Controller.saveIfSuccessAsync(async()=>{
             try{
@@ -1168,13 +1151,15 @@ class HelperGUI extends React.Component {
                 <button onClick={()=>{
                     Controller.undo();
                     this.updateSelectedItem(-1)
+                    this.updateRecommand(true);
                     App.instance.allComponentsRef.current?.updateCdt(false);
                     this.showCdtRef.current!.checked = false;
                     App.instance.forceUpdate(); // 全局刷新
                 }} disabled={!Controller.canUndo()}>撤销 {'<-'}</button>
                 <button onClick={()=>{
                     Controller.redo();
-                    this.updateSelectedItem(-1)
+                    this.updateSelectedItem(-1);
+                    this.updateRecommand(true);
                     App.instance.allComponentsRef.current?.updateCdt(false);
                     this.showCdtRef.current!.checked = false;
                     App.instance.forceUpdate(); // 全局刷新
@@ -1361,14 +1346,27 @@ class HelperGUI extends React.Component {
         
     }
 
+    renderNextMod(){
+        if(this.state['selectedTag'] !== HelperGUI.TAG_DISP_MOD){
+            return null;
+        }
+
+        return <div style={{height: '95vh', overflow: 'scroll'}}>
+            {this.state.nextModifyRecommand.map((x)=>x.disp())}
+        </div>
+
+    }
+
     render(){
         return <div>
             {this.renderMenu()}
             {this.renderTools()}
             {this.renderCDT()}
+            {this.renderNextMod()}
         </div>
     }
 }
+
 
 class App extends Component {
     allComponentsRef: React.RefObject<AllComponents>;

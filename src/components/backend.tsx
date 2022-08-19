@@ -1,6 +1,7 @@
 import { typeList } from 'antd/lib/message';
 import axios from 'axios';
 import { abs, e, ifft, max, min, number, sqrt } from 'mathjs';
+import App from '../App';
 import { ControllerCloner } from './ControllerCloner';
 import {loadFile, parseNewEquation} from './load_file'
 import {getAllCase, count, getTs, floatEq, randomID, reduceRowJs, listEq, floatGt, floatGe, floatLe, floatLt, uniquifyList, beamSolve, countTimeStart, countTimeEnd, countTimeFinish} from './utility'
@@ -264,13 +265,19 @@ class SingleElement {
         }
     }
     
-    changeCertainAttribute<T>(name: string, val: T) {
+    changeCertainAttribute<T>(name: string, val: T, callRecommand=true) {
         if(!this.attributes.has(name)){
             this.addAttribute(new Attribute(
-                name, new RawNumberNoCal(val), this
+                name, genNonCalVal(val), this
             ))
         } else {
+            let oldVal = this.getAttribute(name)!.val.val;
             this.getAttribute(name)!.val.val = val;
+            if(callRecommand){
+                App.instance.helpGUIRef.current?.recommandOnNonPosAttrChange(
+                    name, this, oldVal
+                )
+            }
         }
 
         if(Controller.getInstance().attrNameToDefault.has(name)){
@@ -1325,8 +1332,9 @@ class Controller {
 
     addTextToEle(tgt: number, text: string){
         let tgtEle = this.elements.get(tgt);
-        tgtEle?.attributes.set("text", 
-            new Attribute("text", new RawText(text), tgtEle));
+        tgtEle?.changeCertainAttribute<string>("text", text);
+        // tgtEle?.attributes.set("text", 
+        //     new Attribute("text", new RawText(text), tgtEle));
 
     }
     
@@ -2266,7 +2274,7 @@ class Controller {
         let traces = RawTraces.map(rt=>new Trace(rt));
 
         let nextElementId = this.createElement(
-            this.attrNameToDefault.get('elementType'),
+            newEleAttrs.get("type") || this.attrNameToDefault.get('elementType'),
             undefined, newEleAttrs
             ); // 后续接受更多内容
         this.addAttribute(nextElementId, 'x', new RawNumber(-1));
