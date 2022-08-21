@@ -404,7 +404,29 @@ function reader(file: Blob): Promise<string> {
     })
 }
 
+function splitRange(l: number, r: number[][]): number[][] {
+    console.log(r);
+    r.sort(function(a, b){return a[0]-b[0];});
+    console.log(r);
+    let fullRanges:number[][] = [];
+    if (r[0][0] != 0) {
+        fullRanges.push([0, r[0][0]]);
+    }
+    fullRanges.push(r[0]);
+    for (let i = 1; i < r.length; i++) {
+        if (r[i][0] > r[i-1][1]) {
+            fullRanges.push([r[i-1][1], r[i][0]]);
+        }
+        fullRanges.push(r[i]);
+    }
+    if (l > r[r.length-1][1]) {
+        fullRanges.push([r[r.length-1][1], l]);
+    }
+    console.log(fullRanges);
+    return fullRanges;
+}
+
 export {getAllCase, count, getTs, floatEq, 
     randomID, reduceRowJs, listEq, floatGe, 
     floatLe, floatGt, floatLt, uniquifyList, 
-    beamSolve, countTimeStart, countTimeEnd, countTimeFinish, getOrDefault, reader}
+    beamSolve, countTimeStart, countTimeEnd, countTimeFinish, getOrDefault, reader, splitRange}

@@ -101,11 +101,11 @@ case 4:
 break;
 case 5:
  console.log({"predicate": $$[$0-4], "target": $$[$0-5], "adverbial": $$[$0-3], "conditions": $$[$0-1]});
-          return {"predicate": $$[$0-6], "target": $$[$0-5], "adverbial": $$[$0-3], "conditions": $$[$0-1]}; 
+          return {"predicate": $$[$0-4], "target": $$[$0-5], "adverbial": $$[$0-3], "conditions": $$[$0-1]}; 
 break;
 case 6:
  console.log({"predicate": $$[$0-2], "target": $$[$0-3], "adverbial": $$[$0-1], "conditions": undefined});
-          return {"predicate": $$[$0-4], "target": $$[$0-3], "adverbial": $$[$0-1], "conditions": undefined}; 
+          return {"predicate": $$[$0-2], "target": $$[$0-3], "adverbial": $$[$0-1], "conditions": undefined}; 
 break;
 case 9: case 10:
 this.$ = "ref"
@@ -155,13 +155,16 @@ this.$ = [$$[$0]]
 break;
 case 30:
 $$[$0-2].push($$[$0]);
-         this.$ = {"type": $$[$0-3], "adj": $$[$0-2], "pos": _$[$0-3].first_column, "end": _$[$0].last_column};
+         let pos_1 = $$[$0-3] ? _$[$0-3].first_column : _$[$0-2].first_column;
+         this.$ = {"type": $$[$0-3], "adj": $$[$0-2], "pos": pos_1, "end": _$[$0].last_column};
 break;
 case 31:
-this.$ = {"type": $$[$0-1], "adj": [$$[$0]], "pos": _$[$0-1].first_column, "end": _$[$0].last_column};
+let pos_2 = $$[$0-1] ? _$[$0-1].first_column : _$[$0].first_column;
+         this.$ = {"type": $$[$0-1], "adj": [$$[$0]], "pos": pos_2, "end": _$[$0].last_column};
 break;
 case 32:
-this.$ = {"type": $$[$0-2], "adj": [$$[$0-1]], "pos": _$[$0-2].first_column, "end": _$[$0].last_column};
+let pos_3 = $$[$0-2] ? _$[$0-2].first_column : _$[$0-1].first_column;
+         this.$ = {"type": $$[$0-2], "adj": [$$[$0-1]], "pos": pos_3, "end": _$[$0].last_column};
 break;
 case 33:
 this.$ = {"type": "it", "adj": [], "pos": _$[$0].first_column, "end": _$[$0].last_column};

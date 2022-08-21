@@ -65,8 +65,10 @@ class EqPlaceholder {
 }
 
 class NLParser {
-    constructor() {
+    allElements: ElementPlaceholder[];
 
+    constructor(_allElements: ElementPlaceholder[]) {
+        this.allElements = _allElements;
     }
 
     convertObjToElement(obj: { [key: string]: any }): ElementPlaceholder {
@@ -77,7 +79,9 @@ class NLParser {
         } else if (obj["type"] === "ref") {
             ref = true;
         } else if (obj["type"] === "it") {
-            return new ElementPlaceholder(false, obj["pos"], obj["end"]);
+            let ele = new ElementPlaceholder(false, obj["pos"], obj["end"]);
+            this.allElements.push(ele);
+            return ele;
         } else {
             throw Error("unknown obj");
         }
@@ -87,6 +91,7 @@ class NLParser {
                 ele.addRequires(adj["type"], adj["val"]);
             }
         }
+        this.allElements.push(ele);
         return ele;
     }
 
@@ -317,6 +322,7 @@ class PosToElement {
 class ControllerOp {
     isCreate: boolean = false; // 是否新建元素
 
+    allElements: ElementPlaceholder[];
     targetElement?: ElementPlaceholder;
     targetAttr?: AttributePlaceholder;
     targetRelation?: [FuncTree, AttributePlaceholder[]]; // 比如 A 和 B 之间的水平距离
@@ -346,7 +352,8 @@ class ControllerOp {
     static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc', 'shape'];
     static POSSIBLE_BI_ATTRS = ['horidist', 'vertidist'/*, 'dist'*/];
     constructor(obj: { [key: string]: any }) {
-        let nlParser = new NLParser()
+        this.allElements = new Array<ElementPlaceholder>();
+        let nlParser = new NLParser(this.allElements)
 
         // 解析整体操作类型
         assert(obj['predicate'] != undefined);

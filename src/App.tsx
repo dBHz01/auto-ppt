@@ -11,7 +11,7 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { getOrDefault, reader } from './components/utility';
+import { getOrDefault, reader, splitRange } from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp } from './NLParser';
@@ -1388,6 +1388,7 @@ class App extends Component {
     textForNewEleRef: React.RefObject<HTMLInputElement>;
 
     curText?: string;
+    curParsedResult?: Object;
     curControllerOp?: ControllerOp;
     static instance: App;
     constructor(props: any) {
@@ -1414,9 +1415,9 @@ class App extends Component {
         x = p.parse("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
         x = p.parse("修改这个矩形的文字为你好啊\n");
         x = p.parse("把这个矩形的文字修改为你好啊\n");
-        this.curText=("把这个矩形的文字修改为你好啊\n");
-        x = p.parse(this.curText);
-        let c = new ControllerOp(x);
+        this.curText=("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
+        this.curParsedResult = p.parse(this.curText);
+        let c = new ControllerOp(this.curParsedResult!);
         this.curControllerOp = c;
         console.log(c)
         
@@ -1445,8 +1446,20 @@ class App extends Component {
         this.textForNewEleRef = React.createRef()
     }
 
-    displayText(text: string, parsedResult: ControllerOp): string[] {
-        return ["1"];
+    displayText(text: string, parsedResult: Object, controllerOp: ControllerOp): string[] {
+        console.log(text);
+        console.log(parsedResult);
+        console.log(controllerOp);
+        let r: number[][] = [];
+        for (let i of controllerOp.allElements) {
+            r.push([i.pos, i.end]);
+        }
+        let ranges = splitRange(text.length, r);
+        let splitText: string[] = [];
+        for (let i of ranges) {
+            splitText.push(text.substring(i[0], i[1]));
+        }
+        return splitText;
     }
 
     nextSolution() {
@@ -1564,7 +1577,7 @@ class App extends Component {
 
     render() {
         let inputTexts = [];
-        for (let i of this.displayText(this.curText!, this.curControllerOp!)) {
+        for (let i of this.displayText(this.curText!, this.curParsedResult!, this.curControllerOp!)) {
             inputTexts.push(
                 <InputText><div>{i}</div></InputText>
             );

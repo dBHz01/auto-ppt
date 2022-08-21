@@ -138,10 +138,10 @@ expressions
           return {"predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined}; }
     | LET target predicate adverbial FOR conditions EOF
         { console.log({"predicate": $3, "target": $2, "adverbial": $4, "conditions": $6});
-          return {"predicate": $1, "target": $2, "adverbial": $4, "conditions": $6}; }
+          return {"predicate": $3, "target": $2, "adverbial": $4, "conditions": $6}; }
     | LET target predicate adverbial EOF
         { console.log({"predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined});
-          return {"predicate": $1, "target": $2, "adverbial": $4, "conditions": undefined}; }
+          return {"predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined}; }
     ;
 
 FILLER
@@ -220,11 +220,14 @@ adjectives
 object
     : ref adjectives FILLER noun
         {$2.push($4);
-         $$ = {"type": $1, "adj": $2, "pos": @1.first_column, "end": @4.last_column};}
+         let pos_1 = $1 ? @1.first_column : @2.first_column;
+         $$ = {"type": $1, "adj": $2, "pos": pos_1, "end": @4.last_column};}
     | ref noun
-        {$$ = {"type": $1, "adj": [$2], "pos": @1.first_column, "end": @2.last_column};}
+        {let pos_2 = $1 ? @1.first_column : @2.first_column;
+         $$ = {"type": $1, "adj": [$2], "pos": pos_2, "end": @2.last_column};}
     | ref adjectives D
-        {$$ = {"type": $1, "adj": [$2], "pos": @1.first_column, "end": @3.last_column};}
+        {let pos_3 = $1 ? @1.first_column : @2.first_column;
+         $$ = {"type": $1, "adj": [$2], "pos": pos_3, "end": @3.last_column};}
     | IT
         {$$ = {"type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
     ;
