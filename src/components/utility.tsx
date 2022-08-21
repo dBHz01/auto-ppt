@@ -405,7 +405,8 @@ function reader(file: Blob): Promise<string> {
 }
 
 function convertObjToMap(obj: {[key: string]: any}): Map<string, any>{
-    return new Map(obj.entries())
+    // return new Map(obj.entries())
+    return new Map(Object.entries(obj))
 }
 
 export {getAllCase, count, getTs, floatEq, 

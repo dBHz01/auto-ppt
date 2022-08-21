@@ -1155,19 +1155,32 @@ class Controller {
         return this.getAttribute(0, name);
     }
 
-    searchSimilarByHistory(_type: ElementType, _inAttrs: Attribute[]): SingleElement{
+    searchSimilarByHistory(_type: ElementType | undefined, _inAttrs?: Map<string, any>): SingleElement | undefined{
+        if(_inAttrs == undefined){
+            _inAttrs = new Map();
+        }
+
         let ele2SameAttrNum: Map<SingleElement, number> = new Map();
         function getSameValAttrNum(ele: SingleElement): number{
             if(ele2SameAttrNum.has(ele)){
                 return ele2SameAttrNum.get(ele)!;
             }
             let count = 0;
-            for(let inAttr of _inAttrs){
-                let eleAttr = ele.getAttribute(inAttr.name);
+            for(let inAttr of _inAttrs!){
+                let inAttrName = inAttr[0];
+                let inAttrVal = inAttr[1];
+                if(inAttrName === 'type'){
+                    if(inAttrVal === ele.type){
+                        count += 1;
+                        continue;
+                    }
+                }
+
+                let eleAttr = ele.getAttribute(inAttrName);
                 if(eleAttr == undefined){
                     continue;
                 }
-                if(eleAttr.val.val === inAttr.val.val){
+                if(eleAttr.val.val === inAttrVal){
                     count += 1;
                 }
             }
@@ -1175,7 +1188,9 @@ class Controller {
             return count;
         }
         // 完全根据时间
-        let eles = [... this.elements.values()].filter((x)=>x.id > 0 && x.type != ElementType.ARROW && (_type == null || x.type === _type)).sort((ele1, ele2)=>{
+        let eles = [... this.elements.values()].filter((x)=>x.id > 0 
+            && x.type != ElementType.ARROW 
+            && (_type == undefined || x.type === _type)).sort((ele1, ele2)=>{
             let s1 = getSameValAttrNum(ele1);
             let s2 = getSameValAttrNum(ele2);
             if(s1 != s2){
@@ -1184,24 +1199,32 @@ class Controller {
             return ele2.timestamp - ele1.timestamp;
         })
         return eles[0];
-        
     }
 
-    createElement(_type: ElementType, _name?: string, _attrs?: Map<string, any>, _id?:number): number {
+    createElement(_type?: ElementType, _name?: string, _attrs?: Map<string, any>, _id?:number): number {
         // return element id
-        let newElement = new SingleElement(_id == undefined? this.idAllocator: _id, _type, _name);
-        // 如果是实际元素需要建立坐标、长宽、颜色
-        if (displayElementTypes.indexOf(_type) >= 0){
+        let newElement: SingleElement | undefined = undefined;
+        if(_type !== ElementType.ARROW){
+            // 如果是实际元素需要建立坐标、长宽、颜色
+
+            let mostSimilarEle = this.searchSimilarByHistory(_type, _attrs);
+            let createType: ElementType | undefined = _type;
+            if(createType == undefined){
+                createType = mostSimilarEle?.type;
+            }
+            if(createType == undefined){
+                createType = this.attrNameToDefault.get('elementType');
+            }
+            newElement = new SingleElement(_id == undefined? this.idAllocator: _id, createType!, _name);
             newElement.addAttribute(new Attribute("x", new RawNumber(100), newElement));
             newElement.addAttribute(new Attribute("y", new RawNumber(100), newElement));
-            let searchAttr: Attribute[] = [];
-            _attrs?.forEach((attrV, attrName)=>{
-                let attr = new Attribute(attrName, genNonCalVal(attrV), newElement);
-                newElement.addAttribute(attr);
-                searchAttr.push(attr);
+            _attrs?.forEach((attrV, attrN)=>{
+                if(attrN === 'type'){
+                    return;
+                }
+                let crtAttr = new Attribute(attrN, genNonCalVal(attrV), newElement!);
+                newElement?.addAttribute(crtAttr);
             })
-
-            let mostSimilarEle = this.searchSimilarByHistory(_type, searchAttr);
             
             for(let attrName of ["w", "h", "color", "lightness"]){
                 if(newElement.getAttribute(attrName) !== undefined){
@@ -1218,19 +1241,19 @@ class Controller {
                     newElement.addAttribute(new Attribute(attrName, mostSimilarEle.getAttribute(attrName)!.val.clone(), newElement));
                 }
             }
-
-        }
-        if(_type === ElementType.ARROW){
+        } else if(_type === ElementType.ARROW){
+            newElement = new SingleElement(_id == undefined? this.idAllocator: _id, _type, _name);
             newElement.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtBeginning')), newElement));
             newElement.addAttribute(new Attribute('pointerAtBeginning', new RawNumberNoCal(this.attrNameToDefault.get('pointerAtEnding')), newElement));
             newElement.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.attrNameToDefault.get('dashEnabled')), newElement));
         }
+
         if(_id == undefined){
             this.idAllocator++;
         } else {
             this.idAllocator = _id + 1;
         }
-        this.elements.set(this.idAllocator - 1, newElement);
+        this.elements.set(this.idAllocator - 1, newElement!);
         return this.idAllocator - 1;
     }
 
@@ -2274,7 +2297,7 @@ class Controller {
         let traces = RawTraces.map(rt=>new Trace(rt));
 
         let nextElementId = this.createElement(
-            newEleAttrs.get("type") || this.attrNameToDefault.get('elementType'),
+            newEleAttrs.get("type"),
             undefined, newEleAttrs
             ); // 后续接受更多内容
         this.addAttribute(nextElementId, 'x', new RawNumber(-1));

@@ -1384,7 +1384,7 @@ class App extends Component {
     addArrowRef: React.RefObject<HTMLInputElement>;
     textForNewEleRef: React.RefObject<HTMLInputElement>;
     static instance: App;
-    cmdInputRef: React.RefObject<HTMLInputElement>;
+    cmdInputRef: React.RefObject<HTMLTextAreaElement>;
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
@@ -1596,7 +1596,7 @@ class App extends Component {
                             })}
                         </Layer>
                     </Stage>
-                    <div style={{'display': 'none'}}>
+                    <div style={{'display': ''}}>
                         <hr/>
                         路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
                         元素之间的相等关系：<input type="text" ref={this.elemRelationRef}/>
@@ -1615,7 +1615,7 @@ class App extends Component {
 
                     <div>
                         <hr/>
-                        输入指令：<input type='text' ref={this.cmdInputRef}/>
+                        输入指令：<textarea ref={this.cmdInputRef}/>
                         <button onClick={()=>{
                             this.handleInputFinished(this.cmdInputRef.current!.value);
                         }}>确认</button>
