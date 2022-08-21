@@ -138,7 +138,6 @@ class NLParser {
     convertValToFunc(val: { [key: string]: any }): [FuncTree, AttributePlaceholder[]] {
         // value: value D const TIME 等
         // object D attribute 此处转化为根节点为eq的functree
-        // console.log(val);
         let valToNode = (val: { [key: string]: any }): [OperatorNode, AttributePlaceholder[]] => {
             let newArgs = new Array<AttributePlaceholder>();
             let ret: [OperatorNode, AttributePlaceholder[]];
@@ -240,7 +239,7 @@ class NLParser {
             }
         }
         if (val["type"] === "single") {
-            return [FuncTree.simpleEq(), [this.convertObjToAttr(val['obj'])]];
+            return [FuncTree.simpleEq(), [this.convertObjToAttr(val)]];
         } else {
             let retNode = valToNode(val);
             return [new FuncTree(retNode[0], retNode[1].length), retNode[1]];

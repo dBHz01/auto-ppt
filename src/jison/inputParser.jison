@@ -256,9 +256,9 @@ attribute
 
 computableAttribute
     : HORILOC
-        {$$ = "horiloc"}
+        {$$ = "x"}
     | VERTILOC
-        {$$ = "vertiloc"}
+        {$$ = "y"}
     | LOC
         {$$ = "loc"}
     ;

@@ -178,14 +178,20 @@ break;
 case 36: case 48:
 this.$ = "width"
 break;
-case 39: case 43:
+case 39:
 this.$ = "horiloc"
 break;
-case 40: case 44:
+case 40:
 this.$ = "vertiloc"
 break;
 case 41: case 45:
 this.$ = "loc"
+break;
+case 43:
+this.$ = "x"
+break;
+case 44:
+this.$ = "y"
 break;
 case 52:
 this.$ = "horidist"
