@@ -8,10 +8,12 @@ class ElementPlaceholder {
     actualEle?: SingleElement;
     ref: boolean;
     pos: number;
-    constructor(ref: boolean, pos: number, attrRequires?: Map<string, any>) {
+    end: number;
+    constructor(ref: boolean, pos: number, end: number, attrRequires?: Map<string, any>) {
         // this.useTrace = false;
         this.ref = ref;
         this.pos = pos;
+        this.end = end;
         if (attrRequires == undefined) {
             this.attrRequires = new Map();
         } else {
@@ -22,6 +24,13 @@ class ElementPlaceholder {
     }
 
     addRequires(k: string, v: any): ElementPlaceholder {
+        if(k === 'shape' || k === 'type'){
+            let eleType = ElementType.RECTANGLE;
+            if(v === 'circle'){
+                eleType = ElementType.CIRCLE;
+            }
+            this.attrRequires.set('type', eleType);
+        }
         this.attrRequires.set(k, v);
         return this;
     }
@@ -75,51 +84,56 @@ class EqPlaceholder {
 }
 
 class NLParser {
-    constructor() {
+    allElements: ElementPlaceholder[];
 
+    constructor(_allElements: ElementPlaceholder[]) {
+        this.allElements = _allElements;
     }
 
     convertObjToElement(obj: { [key: string]: any }): ElementPlaceholder {
-        // 当前仅支持 [名称] or 这个[形状] or [形状][名称]
-        if (obj["type"] === "obj") {
-            let name: string = obj['name'];
-            for (let i of allPossibleShape) {
-                if (name.indexOf(i) == 0) {
-                    name = name.split(i)[1];
-                    break;
-                }
-            }
-            let ele = new ElementPlaceholder(false, obj["pos"]);
-            ele.addRequires("name", name);
-            return ele;
+        // console.log(obj);
+        let ref: boolean;
+        if (obj["type"] === "") {
+            ref = false;
         } else if (obj["type"] === "ref") {
-            return new ElementPlaceholder(true, obj["pos"]);
-        } else if (obj["type"] === "ref-obj") {
-            let name: string = obj['name'];
-            let shape: string = "";
-            for (let i of allPossibleShape) {
-                if (name.indexOf(i) == 0) {
-                    name = name.split(i)[1];
-                    shape = i;
-                    break;
-                }
-            }
-            let ele = new ElementPlaceholder(true, obj["pos"]);
-            if (shape) {
-                ele.addRequires("shape", shape);
-            }
-            return ele
+            ref = true;
+        } else if (obj["type"] === "it") {
+            let ele = new ElementPlaceholder(false, obj["pos"], obj["end"]);
+            this.allElements.push(ele);
+            return ele;
         } else {
             throw Error("unknown obj");
         }
+        let ele = new ElementPlaceholder(ref, obj["pos"], obj["end"]);
+        for (let adj of obj["adj"]) {
+            if (adj["type"]) {
+                ele.addRequires(adj["type"], adj["val"]);
+            }
+        }
+        this.allElements.push(ele);
+        return ele;
     }
 
 
     convertObjToAttr(obj: { [key: string]: any }): AttributePlaceholder {
         // object D attribute
+        // console.log(obj);
         let ele = this.convertObjToElement(obj["obj"]);
-        return new AttributePlaceholder(ele, obj["value"]);
+        return new AttributePlaceholder(ele, obj["val"]);
     }
+
+    // convertObjToConst(obj: { [key: string]: any }): string {
+    //     // 文字、颜色等
+    //     // console.log(obj);
+    //     switch (obj["adj"][0]["type"]) {
+    //         case "color":
+    //             return obj["adj"][0]["val"]
+    //             break;
+        
+    //         default:
+    //             break;
+    //     } 
+    // }
 
     convertValToFunc(val: { [key: string]: any }): [FuncTree, AttributePlaceholder[]] {
         // value: value D const TIME 等
@@ -248,7 +262,7 @@ class NLParser {
     convertRelationToEq(relation: { [key: string]: any }): EqPlaceholder {
         // relation: value EQUAL value 等
         // 可能会有多个eq
-        console.log(relation);
+        // console.log(relation);
         if (relation["type"] === "equation") {
             let leftObj = this.convertValToFunc(relation['val_1']);
             let rightObj = this.convertValToFunc(relation['val_2']);
@@ -298,6 +312,15 @@ class NLParser {
         }
     }
 
+    convertRelationToMap(relation: { [key: string]: any }): Map<AttributePlaceholder, string> {
+        console.log(relation);
+        let ret = new Map<AttributePlaceholder, string>();
+        let leftValue = this.convertObjToAttr(relation["left_value"]);
+        let rightValue = relation["right_value"]["val"];
+        ret.set(leftValue, rightValue);
+        return ret;
+    }
+
     conductOnController(con: Controller, uttrObj: { [key: string]: any }) {
 
     }
@@ -313,7 +336,8 @@ class PosToElement {
     elements?: ElementPlaceholder[] = [];
     pos?: string;
     posAtSentence?: number; // 只有ref有这一条属性表示在句子中的位置
-
+    endAtSentence?: number; // 只有ref有这一条属性表示在句子中的结尾
+    
     toStringExprForEle(tgtEle: ElementPlaceholder, 
         ele2id: Map<ElementPlaceholder, string>, 
         traceUseInfo: Map<ElementPlaceholder| PosToElement, [number, Trace]>){
@@ -357,6 +381,7 @@ class PosToElement {
 class ControllerOp {
     isCreate: boolean = false; // 是否新建元素
 
+    allElements: ElementPlaceholder[];
     targetElement?: ElementPlaceholder;
     targetAttr?: AttributePlaceholder;
     targetRelation?: [FuncTree, AttributePlaceholder[]]; // 比如 A 和 B 之间的水平距离
@@ -372,9 +397,16 @@ class ControllerOp {
     // 赋成的值
     assignValue?: [FuncTree, AttributePlaceholder[]];
 
+    // 赋成的属性
+    assignAttr?: AttributePlaceholder;
+
+    // 赋成的常值(当前仅为string)
+    assignConst?: string;
+
     // 附加条件，仅仅支持对位置属性的运算
     extraEqs?: EqPlaceholder[];
     extraRanges?: EqPlaceholder[];
+    extraMap?: Map<AttributePlaceholder, string>;
 
 
 
@@ -388,7 +420,8 @@ class ControllerOp {
     traces: Array<Trace>;
     
     constructor(obj: { [key: string]: any }, rawTraces: Array<Array<[number, number]>>) {
-        let nlParser = new NLParser();
+        this.allElements = new Array<ElementPlaceholder>();
+        let nlParser = new NLParser(this.allElements)
 
         // 解析整体操作类型
         assert(obj['predicate'] != undefined);
@@ -415,6 +448,7 @@ class ControllerOp {
                 this.pos.pos = locObj['direction'];
             } else if (locObj['type'] === 'ref') {
                 this.pos.posAtSentence = locObj['pos'];
+                this.pos.endAtSentence = locObj['end'];
             } else {
                 assert(locObj['type'] === 'double' && locObj['loc'] === 'middle');
                 this.pos.elements = [
@@ -436,16 +470,37 @@ class ControllerOp {
             this.dec = obj['adverbial']['value'] === 'small' || obj['adverbial']['value'] === 'shallow';
         }
 
-        // 解析修改为xxx
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'value') {
+        // 解析修改为可计算的值
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'computable') {
             this.assignValue = nlParser.convertValToFunc(obj['adverbial']['value']);
+        }
+
+        // 解析修改为不可计算的值
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'uncomputable') {
+            this.assignAttr = nlParser.convertObjToAttr(obj['adverbial']['value']);
+        }
+
+        // 解析修改为xxx（例如：红色）
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'const_value') {
+            this.assignValue = obj['adverbial']['value']['adj'][0]['val'];
         }
 
         // 解析附加条件
         if (obj['conditions'] != undefined) {
             let eqList = new Array<EqPlaceholder>();
             for (let condition of obj['conditions']) {
-                eqList.push(nlParser.convertRelationToEq(condition));
+                if (condition["type"] === "assignment") {
+                    if (this.extraMap === undefined) {
+                        this.extraMap = new Map<AttributePlaceholder, string>();
+                    }
+                    let newMap = nlParser.convertRelationToMap(condition);
+                    for (let i of newMap.entries()) {
+                        this.extraMap.set(i[0], i[1]);
+                    }
+                    // console.log(this.extraMap);
+                } else {
+                    eqList.push(nlParser.convertRelationToEq(condition));
+                }
             }
             eqList.forEach((eq) => {
                 if (eq.op === AssignOp.eq) {

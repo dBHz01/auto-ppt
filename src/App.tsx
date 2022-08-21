@@ -5,12 +5,13 @@ import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
 import { Parser } from './jison/inputParser';
-import { Button } from 'antd';
+import { Parser as TestParser } from './jison/unicode';
+import { Button, Tag as InputText } from 'antd';
 import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { convertObjToMap, floatEq, getOrDefault, reader } from './components/utility';
+import { convertObjToMap, floatEq, getOrDefault, reader, splitRange} from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp } from './NLParser';
@@ -1383,29 +1384,52 @@ class App extends Component {
     elemRangeRef: React.RefObject<HTMLInputElement>;
     addArrowRef: React.RefObject<HTMLInputElement>;
     textForNewEleRef: React.RefObject<HTMLInputElement>;
+
+    curText?: string;
+    curParsedResult?: Object;
+    curControllerOp?: ControllerOp;
     static instance: App;
     cmdInputRef: React.RefObject<HTMLTextAreaElement>;
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         testBackend();
-        // Parser.prototype.parse("修改这个矩形的宽度为这个矩形的宽度和那个矩形的高度的差的三分之一");
-        // Parser.prototype.parse("新建一个矩形在这里");
-        // Parser.prototype.parse("修改这个红色矩形的颜色浅一点");
-        // Parser.prototype.parse("A的大小");
-        // Parser.prototype.parse("A的大小等于B的大小");
-        // Parser.prototype.parse("A和B的水平距离等于A和C的竖直距离");
         let p = new Parser()
-        let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
+        // let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
         // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一");
         // let x = p.parse("新建一个矩形在这里");
-        let c = new ControllerOp(x, []);
+        // let c = new ControllerOp(x, []);
+        // console.log(c)
+
+        // let x1 = p.parse("新建一个矩形在这里使它和这个的水平距离等于它和这个的竖直距离");
+        // let c1 = new ControllerOp(x1, [[[100, 100]], [[100, 200]], [[200, 100]]]);
+        // console.log(c1)
+
+        // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一\n");
+        // let x = p.parse("修改这个矩形的宽度为A和B的水平距离和A和B的水平距离的差的三分之一\n");
+        let x = p.parse("修改这个矩形的颜色为A的颜色\n");
+        x = p.parse("新建一个形状为矩形的矩形\n");
+        x = p.parse("新建一个矩形在这里使它的文字为BBB\n");
+        x = p.parse("修改这个绿色的的颜色为红色的\n");
+        x = p.parse("修改ABC的文字为你好啊\n");
+        x = p.parse("修改ABC的形状为矩形\n");
+        x = p.parse("修改ABC的颜色使它的颜色为红色\n");
+        x = p.parse("新建灰色形状为矩形的ABC在这个箭头的左边\n");
+        x = p.parse("修改这个矩形的宽度为这个矩形的水平位置和那个矩形的竖直位置的差的三分之一\n");
+        x = p.parse("新建一个矩形在这里\n");
+        x = p.parse("修改这个红色矩形的颜色浅一点\n");
+        x = p.parse("修改这个矩形的宽度为A和B的水平距离和A和B的水平距离的差的三分之一\n");
+        x = p.parse("新建元四在这里使得它和元三的水平距离等于元二和元三的水平距离\n");
+        x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一\n");
+        x = p.parse("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
+        x = p.parse("修改这个矩形的文字为你好啊\n");
+        x = p.parse("把这个矩形的文字修改为你好啊\n");
+        this.curText=("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
+        this.curParsedResult = p.parse(this.curText);
+        let c = new ControllerOp(this.curParsedResult!, []);
+        this.curControllerOp = c;
         console.log(c)
-
-        let x1 = p.parse("新建一个矩形在这里使它和这个的水平距离等于它和这个的竖直距离");
-        let c1 = new ControllerOp(x1, [[[100, 100]], [[100, 200]], [[200, 100]]]);
-        console.log(c1)
-
+        
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
         // Parser.prototype.parse("修改C的颜色为红色");
@@ -1430,6 +1454,22 @@ class App extends Component {
         this.addArrowRef = React.createRef();
         this.textForNewEleRef = React.createRef()
         this.cmdInputRef = React.createRef()
+    }
+
+    displayText(text: string, parsedResult: Object, controllerOp: ControllerOp): string[] {
+        console.log(text);
+        console.log(parsedResult);
+        console.log(controllerOp);
+        let r: number[][] = [];
+        for (let i of controllerOp.allElements) {
+            r.push([i.pos, i.end]);
+        }
+        let ranges = splitRange(text.length, r);
+        let splitText: string[] = [];
+        for (let i of ranges) {
+            splitText.push(text.substring(i[0], i[1]));
+        }
+        return splitText;
     }
 
     nextSolution() {
@@ -1563,6 +1603,12 @@ class App extends Component {
     }
 
     render() {
+        let inputTexts = [];
+        for (let i of this.displayText(this.curText!, this.curParsedResult!, this.curControllerOp!)) {
+            inputTexts.push(
+                <InputText><div>{i}</div></InputText>
+            );
+        }
         return (
             <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
                 <div style={{flex: '3', backgroundColor: '#ffffff' /*'#f0f0f0'*/}}>
@@ -1596,7 +1642,7 @@ class App extends Component {
                             })}
                         </Layer>
                     </Stage>
-                    <div style={{'display': ''}}>
+                    <div style={{'display': 'none'}}>
                         <hr/>
                         路径与元素的关系：<input type="text" ref={this.traceRelationRef}/>
                         元素之间的相等关系：<input type="text" ref={this.elemRelationRef}/>
@@ -1629,6 +1675,9 @@ class App extends Component {
                             return true;
                         })
                         }}>添加箭头</button>
+                    </div>
+                    <div>
+                        {inputTexts}
                     </div>
                 </div>
                 <div style={{flex: '1'}}>
