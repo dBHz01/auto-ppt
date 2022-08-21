@@ -70,44 +70,24 @@ class NLParser {
     }
 
     convertObjToElement(obj: { [key: string]: any }): ElementPlaceholder {
-        // 当前仅支持 [名称] or 这个[形状] or [形状][名称] or 一个[形状]
-        console.log(obj);
-        if (obj["type"] === "obj") {
-            let name: string = obj['name'];
-            for (let i of allPossibleShape) {
-                if (name.indexOf(i) == 0) {
-                    name = name.split(i)[1];
-                    break;
-                }
-            }
-            let ele = new ElementPlaceholder(false, obj["pos"], obj["end"]);
-            ele.addRequires("name", name);
-            return ele;
+        // console.log(obj);
+        let ref: boolean;
+        if (obj["type"] === "") {
+            ref = false;
         } else if (obj["type"] === "ref") {
-            return new ElementPlaceholder(true, obj["pos"], obj["end"]);
-        } else if (obj["type"] === "ref-obj") {
-            let name: string = obj['name'];
-            let shape: string = "";
-            for (let i of allPossibleShape) {
-                if (name.indexOf(i) == 0) {
-                    name = name.split(i)[1];
-                    shape = i;
-                    break;
-                }
-            }
-            let ele = new ElementPlaceholder(true, obj["pos"], obj["end"]);
-            if (shape) {
-                ele.addRequires("shape", shape);
-            }
-            return ele
-        } else if (obj["type"] === "color-obj") {
-            // todo
-            return new ElementPlaceholder(true, obj["pos"], obj["end"]);
+            ref = true;
         } else if (obj["type"] === "it") {
             return new ElementPlaceholder(false, obj["pos"], obj["end"]);
         } else {
             throw Error("unknown obj");
         }
+        let ele = new ElementPlaceholder(ref, obj["pos"], obj["end"]);
+        for (let adj of obj["adj"]) {
+            if (adj["type"]) {
+                ele.addRequires(adj["type"], adj["val"]);
+            }
+        }
+        return ele;
     }
 
 
@@ -117,6 +97,19 @@ class NLParser {
         let ele = this.convertObjToElement(obj["obj"]);
         return new AttributePlaceholder(ele, obj["val"]);
     }
+
+    // convertObjToConst(obj: { [key: string]: any }): string {
+    //     // 文字、颜色等
+    //     // console.log(obj);
+    //     switch (obj["adj"][0]["type"]) {
+    //         case "color":
+    //             return obj["adj"][0]["val"]
+    //             break;
+        
+    //         default:
+    //             break;
+    //     } 
+    // }
 
     convertValToFunc(val: { [key: string]: any }): [FuncTree, AttributePlaceholder[]] {
         // value: value D const TIME 等
@@ -339,12 +332,18 @@ class ControllerOp {
     // 赋成的值
     assignValue?: [FuncTree, AttributePlaceholder[]];
 
+    // 赋成的属性
+    assignAttr?: AttributePlaceholder;
+
+    // 赋成的常值(当前仅为string)
+    assignConst?: string;
+
     // 附加条件，仅仅支持对位置属性的运算
     extraEqs?: EqPlaceholder[];
     extraRanges?: EqPlaceholder[];
     extraMap?: Map<AttributePlaceholder, string>;
 
-    static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc'];
+    static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc', 'shape'];
     static POSSIBLE_BI_ATTRS = ['horidist', 'vertidist'/*, 'dist'*/];
     constructor(obj: { [key: string]: any }) {
         let nlParser = new NLParser()
@@ -396,9 +395,19 @@ class ControllerOp {
             this.dec = obj['adverbial']['value'] === 'small' || obj['adverbial']['value'] === 'shallow';
         }
 
-        // 解析修改为xxx
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'value') {
+        // 解析修改为可计算的值
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'computable') {
             this.assignValue = nlParser.convertValToFunc(obj['adverbial']['value']);
+        }
+
+        // 解析修改为不可计算的值
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'uncomputable') {
+            this.assignAttr = nlParser.convertObjToAttr(obj['adverbial']['value']);
+        }
+
+        // 解析修改为xxx（例如：红色）
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'const_value') {
+            this.assignValue = obj['adverbial']['value']['adj'][0]['val'];
         }
 
         // 解析附加条件

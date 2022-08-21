@@ -5,6 +5,7 @@ import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
 import { Parser } from './jison/inputParser';
+import { Parser as TestParser } from './jison/unicode';
 import { Button, Tag as InputText } from 'antd';
 import Konva from 'konva';
 
@@ -1393,17 +1394,28 @@ class App extends Component {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         testBackend();
-        // Parser.prototype.parse("修改这个矩形的宽度为这个矩形的宽度和那个矩形的高度的差的三分之一");
-        // Parser.prototype.parse("新建一个矩形在这里");
-        // Parser.prototype.parse("修改这个红色矩形的颜色浅一点");
-        // Parser.prototype.parse("A的大小");
-        // Parser.prototype.parse("A的大小等于B的大小");
-        // Parser.prototype.parse("A和B的水平距离等于A和C的竖直距离");
         let p = new Parser()
-        // let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
-        // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一");
-        this.curText = "新建一个矩形在这里使它的文字为BBB\n"; // 必须要\n
-        let x = p.parse(this.curText);
+        // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一\n");
+        // let x = p.parse("修改这个矩形的宽度为A和B的水平距离和A和B的水平距离的差的三分之一\n");
+        let x = p.parse("修改这个矩形的颜色为A的颜色\n");
+        x = p.parse("新建一个形状为矩形的矩形\n");
+        x = p.parse("新建一个矩形在这里使它的文字为BBB\n");
+        x = p.parse("修改这个绿色的的颜色为红色的\n");
+        x = p.parse("修改ABC的文字为你好啊\n");
+        x = p.parse("修改ABC的形状为矩形\n");
+        x = p.parse("修改ABC的颜色使它的颜色为红色\n");
+        x = p.parse("新建灰色形状为矩形的ABC在这个箭头的左边\n");
+        x = p.parse("修改这个矩形的宽度为这个矩形的水平位置和那个矩形的竖直位置的差的三分之一\n");
+        x = p.parse("新建一个矩形在这里\n");
+        x = p.parse("修改这个红色矩形的颜色浅一点\n");
+        x = p.parse("修改这个矩形的宽度为A和B的水平距离和A和B的水平距离的差的三分之一\n");
+        x = p.parse("新建元四在这里使得它和元三的水平距离等于元二和元三的水平距离\n");
+        x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一\n");
+        x = p.parse("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
+        x = p.parse("修改这个矩形的文字为你好啊\n");
+        x = p.parse("把这个矩形的文字修改为你好啊\n");
+        this.curText=("把这个矩形的文字修改为你好啊\n");
+        x = p.parse(this.curText);
         let c = new ControllerOp(x);
         this.curControllerOp = c;
         console.log(c)

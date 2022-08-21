@@ -75,6 +75,7 @@
 "矩形"                   return 'RECT'
 "箭头"                   return 'ARROW'
 "圆形"                   return 'CIRCLE'
+"把"                     return 'LET'
 
 "一点"                   return 'BIT'
 "分之一"                 return 'FRACTION'
@@ -135,6 +136,12 @@ expressions
     | predicate target EOF
         { console.log({"predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined});
           return {"predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined}; }
+    | LET target predicate adverbial FOR conditions EOF
+        { console.log({"predicate": $3, "target": $2, "adverbial": $4, "conditions": $6});
+          return {"predicate": $1, "target": $2, "adverbial": $4, "conditions": $6}; }
+    | LET target predicate adverbial EOF
+        { console.log({"predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined});
+          return {"predicate": $1, "target": $2, "adverbial": $4, "conditions": undefined}; }
     ;
 
 FILLER
@@ -164,30 +171,6 @@ shape
         { $$ = "arrow" }
     ;
 
-
-// object
-//     : INPUTTEXT
-//         {$$ = {"name": $1, "type": "obj", "pos": @1.first_column, "end": @1.last_column};}
-//     | THIS
-//         {$$ = {"name": $1, "type": "ref", "pos": @1.first_column, "end": @1.last_column};}
-//     | THAT
-//         {$$ = {"name": $1, "type": "ref", "pos": @1.first_column, "end": @1.last_column};}
-//     | IT
-//         {$$ = {"name": $1, "type": "it", "pos": @1.first_column, "end": @1.last_column};}
-//     | THIS INPUTTEXT
-//         {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @2.last_column};}
-//     | THAT INPUTTEXT
-//         {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @2.last_column};}
-//     | SINGLEONE INPUTTEXT
-//         {$$ = {"name": $2, "type": "ref-obj", "pos": @1.first_column, "end": @2.last_column};}
-//     | color D INPUTTEXT
-//         {$$ = {"name": $3, "type": "color-obj", "pos": @1.first_column, "end": @3.last_column, "color": $1};}
-//     | THIS color D INPUTTEXT
-//         {$$ = {"name": $3, "type": "color-obj", "pos": @1.first_column, "end": @4.last_column, "color": $2};}
-//     | THAT color D INPUTTEXT
-//         {$$ = {"name": $4, "type": "color-obj", "pos": @1.first_column, "end": @4.last_column, "color": $2};}
-//     ;
-
 constValue
     : color
         {$$ = {"type": "color", "val": $1};}
@@ -209,8 +192,6 @@ attrName
     ;
 
 adjective
-    // : constValue FILLER
-    //     {$$ = {"type": "2", "val": $1};}
     : attrName EQUAL constValue
         {$$ = {"type": $1, "val": $3};}
     | attrName IS constValue
@@ -238,13 +219,14 @@ adjectives
 
 object
     : ref adjectives FILLER noun
-        {$$ = {"obj": $4, "type": $1, "adj": $2, "pos": @1.first_column, "end": @4.last_column};}
+        {$2.push($4);
+         $$ = {"type": $1, "adj": $2, "pos": @1.first_column, "end": @4.last_column};}
     | ref noun
-        {$$ = {"obj": $2, "type": $1, "adj": [], "pos": @1.first_column, "end": @2.last_column};}
+        {$$ = {"type": $1, "adj": [$2], "pos": @1.first_column, "end": @2.last_column};}
     | ref adjectives D
-        {$$ = {"obj": $2, "type": $1, "adj": [], "pos": @1.first_column, "end": @2.last_column};}
+        {$$ = {"type": $1, "adj": [$2], "pos": @1.first_column, "end": @3.last_column};}
     | IT
-        {$$ = {"obj": $1, "type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
+        {$$ = {"type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
     ;
 
 attribute
@@ -445,9 +427,9 @@ adverbial
     | WANG direction
         {$$ = {"type": "direction", "direction": $2};}
     | IS value
-        {$$ = {"type": "value", "value": $2};}
+        {$$ = {"type": "computable", "value": $2};}
     | IS uncomputableValue
-        {$$ = {"type": "value", "value": $2};}
+        {$$ = {"type": "uncomputable", "value": $2};}
     | IS object
         {$$ = {"type": "const_value", "value": $2};}
     | adverb
