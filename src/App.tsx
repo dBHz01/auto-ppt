@@ -1385,11 +1385,17 @@ class App extends Component {
     addArrowRef: React.RefObject<HTMLInputElement>;
     textForNewEleRef: React.RefObject<HTMLInputElement>;
 
-    curText?: string;
-    curParsedResult?: Object;
-    curControllerOp?: ControllerOp;
+    // curText?: string;
+    // curParsedResult?: Object;
+    // curControllerOp?: ControllerOp;
+    
     static instance: App;
     cmdInputRef: React.RefObject<HTMLTextAreaElement>;
+    state: {
+        curText: string | undefined,
+        curParsedResult: any | undefined,
+        curControllerOp: ControllerOp | undefined
+    };
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
@@ -1424,11 +1430,17 @@ class App extends Component {
         x = p.parse("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
         x = p.parse("修改这个矩形的文字为你好啊\n");
         x = p.parse("把这个矩形的文字修改为你好啊\n");
-        this.curText=("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
-        this.curParsedResult = p.parse(this.curText);
-        let c = new ControllerOp(this.curParsedResult!, []);
-        this.curControllerOp = c;
+        let curText=("新建形状为矩形的红色C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边\n");
+        let curParsedResult = p.parse(curText);
+        let c = new ControllerOp(curParsedResult!, []);
+        let curControllerOp = c;
         console.log(c)
+
+        this.state = {
+            curText: undefined,
+            curParsedResult: undefined,
+            curControllerOp: undefined
+        }
         
         // Parser.prototype.parse("新建矩形A");
         // Parser.prototype.parse("新建矩形B在A的右方");
@@ -1456,7 +1468,10 @@ class App extends Component {
         this.cmdInputRef = React.createRef()
     }
 
-    displayText(text: string, parsedResult: Object, controllerOp: ControllerOp): string[] {
+    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): string[] {
+        if(text == undefined || parsedResult == undefined || controllerOp == undefined){
+            return [];
+        }
         console.log(text);
         console.log(parsedResult);
         console.log(controllerOp);
@@ -1596,15 +1611,24 @@ class App extends Component {
             let parseRes = new Parser().parse(uttr);
             let conOp = new ControllerOp(parseRes, raw_traces);
             conOp.executeOnControllerNewEle(Controller.getInstance());
+            this.updateUttrParseState(uttr, parseRes, conOp);
             this.traces = [];
             this.forceUpdate();
             return true;
         }) 
     }
 
+    updateUttrParseState(text: string | undefined, parseRes: object | undefined, conOp: ControllerOp | undefined){
+        this.setState({
+            curText: text,
+            curParsedResult: parseRes,
+            curControllerOp: conOp
+        })
+    }
+
     render() {
         let inputTexts = [];
-        for (let i of this.displayText(this.curText!, this.curParsedResult!, this.curControllerOp!)) {
+        for (let i of this.displayText(this.state.curText, this.state.curParsedResult, this.state.curControllerOp)) {
             inputTexts.push(
                 <InputText><div>{i}</div></InputText>
             );

@@ -714,7 +714,7 @@ class ControllerOp {
             })
         })
 
-        assert(toUseTraceObj.length === traces.length);
+        assert(toUseTraceObj.length <= traces.length);
         toUseTraceObj.sort((a, b)=>{
             let pos1 = 0;
             if(a instanceof ElementPlaceholder){
