@@ -75,6 +75,7 @@
 "矩形"                   return 'RECT'
 "箭头"                   return 'ARROW'
 "圆形"                   return 'CIRCLE'
+"元素"                   return 'ELEMENT'
 "把"                     return 'LET'
 
 "一点"                   return 'BIT'

@@ -482,7 +482,7 @@ class ControllerOp {
 
         // 解析修改为xxx（例如：红色）
         if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'const_value') {
-            this.assignValue = obj['adverbial']['value']['adj'][0]['val'];
+            this.assignConst = obj['adverbial']['value']['adj'][0]['val'];
         }
 
         // 解析附加条件

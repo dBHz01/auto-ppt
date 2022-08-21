@@ -1607,6 +1607,9 @@ class App extends Component {
             if(raw_traces == undefined){
                 raw_traces = this.traces;
             }
+            
+            uttr = uttr + "\n";
+            console.log(uttr);
     
             let parseRes = new Parser().parse(uttr);
             let conOp = new ControllerOp(parseRes, raw_traces);
