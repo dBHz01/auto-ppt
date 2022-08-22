@@ -100,7 +100,7 @@ class NLParser {
     }
 
     convertObjToElement(obj: { [key: string]: any }): ElementPlaceholder {
-        // console.log(obj);
+        console.log(obj);
         let ref: boolean;
         if (obj["type"] === "") {
             ref = false;
@@ -115,7 +115,7 @@ class NLParser {
         }
         let ele = new ElementPlaceholder(ref, obj["pos"], obj["end"]);
         for (let adj of obj["adj"]) {
-            if (adj["type"]) {
+            if (adj && adj["type"] && adj["val"]) {
                 ele.addRequires(adj["type"], adj["val"]);
             }
         }
