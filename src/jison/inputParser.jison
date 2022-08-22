@@ -93,7 +93,7 @@
 
 
 // [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'INPUTTEXT'
-[\u4e00-\u9fa5A-Za-z]+?(?=[和的到往在为深浅大小红粉紫蓝青蓝黄橙棕灰色它这那个\n])            return 'INPUTTEXT'
+[\u4e00-\u9fa5A-Za-z]+?(?=[和的到往在为使深浅大小红粉紫蓝青蓝黄橙棕灰色它这那个\n])            return 'INPUTTEXT'
 
 
 "\n"                     return 'BREAK_LINE'
@@ -152,15 +152,18 @@ FILLER
         {}
     ;
 
+not_ref
+    : SINGLEONE
+        {$$ = ""}
+    | /* null */
+        {$$ = ""}
+    ;
+
 ref
     : THIS
         {$$ = "ref"}
     | THAT
         {$$ = "ref"}
-    | SINGLEONE
-        {$$ = ""}
-    | /* null */
-        {$$ = ""}
     ;
 
 shape
@@ -170,6 +173,8 @@ shape
         { $$ = "circle" }
     | ARROW
         { $$ = "arrow" }
+    | ELEMENT
+        { $$ = "" }
     ;
 
 constValue
@@ -183,54 +188,93 @@ constValue
         {$$ = {"type": "text", "val": $1};}
     ;
 
-attrName
-    : COLOR
-        {$$ = "color"}
-    | TEXT
-        {$$ = "text"}
-    | SHAPE
-        {$$ = "shape"}
-    ;
+// attrName
+//     : COLOR
+//         {$$ = "color"}
+//     | TEXT
+//         {$$ = "text"}
+//     | SHAPE
+//         {$$ = "shape"}
+//     ;
 
-adjective
-    : attrName EQUAL constValue
-        {$$ = {"type": $1, "val": $3};}
-    | attrName IS constValue
-        {$$ = {"type": $1, "val": $3};}
-    | color
+// adjective
+//     : attrName EQUAL constValue
+//         {$$ = {"type": $1, "val": $3};}
+//     | attrName IS constValue
+//         {$$ = {"type": $1, "val": $3};}
+//     | color
+//         {$$ = {"type": "color", "val": $1};}
+//     ;
+
+// noun
+//     : shape
+//         {$$ = {"type": "shape", "val": $1};}
+//     | ELEMENT
+//         {$$ = {"type": "", "val": $1};}
+//     | INPUTTEXT
+//         {$$ = {"type": "text", "val": $1};}
+//     ;
+
+// adjectives
+//     : adjectives FILLER adjective
+//         {$1.push($3);
+//          $$ = $1; }
+//     | adjective
+//         {$$ = [$1]}
+//     ;
+
+color_or_not
+    : color 
         {$$ = {"type": "color", "val": $1};}
+    | 
+        {$$ = "";}
     ;
 
-noun
-    : shape
-        {$$ = {"type": "shape", "val": $1};}
-    | ELEMENT
-        {$$ = {"type": "", "val": $1};}
+shape_or_inputText
+    : shape 
+        {$$ = [{"type": "shape", "val": $1}];}
     | INPUTTEXT
-        {$$ = {"type": "text", "val": $1};}
-    ;
-
-adjectives
-    : adjectives FILLER adjective
-        {$1.push($3);
-         $$ = $1; }
-    | adjective
-        {$$ = [$1]}
+        {$$ = [{"type": "text", "val": $1}];}
+    | shape INPUTTEXT
+        {$$ = [{"type": "shape", "val": $1}, {"type": "text", "val": $2}];}
     ;
 
 object
-    : ref adjectives FILLER noun
-        {$2.push($4);
-         let pos_1 = $1 ? @1.first_column : @2.first_column;
-         $$ = {"type": $1, "adj": $2, "pos": pos_1, "end": @4.last_column};}
-    | ref noun
+    // : ref adjectives FILLER noun
+    //     {$2.push($4);
+    //      let pos_1 = $1 ? @1.first_column : @2.first_column;
+    //      $$ = {"type": $1, "adj": $2, "pos": pos_1, "end": @4.last_column};}
+    // | ref noun
+    //     {let pos_2 = $1 ? @1.first_column : @2.first_column;
+    //      $$ = {"type": $1, "adj": [$2], "pos": pos_2, "end": @2.last_column};}
+    // | ref adjectives D
+    //     {let pos_3 = $1 ? @1.first_column : @2.first_column;
+    //      $$ = {"type": $1, "adj": [$2], "pos": pos_3, "end": @3.last_column};}
+    // | IT
+    //     {$$ = {"type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
+    // ;
+    // : ref_or_not color_or_not FILLER shape_or_inputText
+    //     {$$ = {"obj": $2, "adj": [$2, $4], "pos": @1.first_column, "end": @1.last_column};}
+    : not_ref color_or_not shape_or_inputText
+        {let pos_1 = $1 ? @1.first_column : @2.first_column;
+         $3.push($2);
+         $$ = {"type": $1, "adj": $3, "pos": pos_1, "end": @3.last_column};}
+    | ref color_or_not shape_or_inputText
         {let pos_2 = $1 ? @1.first_column : @2.first_column;
-         $$ = {"type": $1, "adj": [$2], "pos": pos_2, "end": @2.last_column};}
-    | ref adjectives D
+         $3.push($2);
+         $$ = {"type": $1, "adj": $3, "pos": pos_2, "end": @3.last_column};}
+    | not_ref color D shape_or_inputText
         {let pos_3 = $1 ? @1.first_column : @2.first_column;
-         $$ = {"type": $1, "adj": [$2], "pos": pos_3, "end": @3.last_column};}
+         $4.push({"type": "color", "val": $2});
+         $$ = {"type": $1, "adj": $4, "pos": pos_3, "end": @4.last_column};}
+    | ref color D shape_or_inputText
+        {let pos_4 = $1 ? @1.first_column : @2.first_column;
+         $4.push({"type": "color", "val": $2});
+         $$ = {"type": $1, "adj": $4, "pos": pos_4, "end": @4.last_column};}
     | IT
         {$$ = {"type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
+    | ref
+        {$$ = {"type": $1, "adj": [], "pos": @1.first_column, "end": @1.last_column};}
     ;
 
 attribute
