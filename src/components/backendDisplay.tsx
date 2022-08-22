@@ -1,18 +1,15 @@
 import { SingleElement, Controller } from "./backend";
 
 enum ShipType {
-    X,//x坐标
-    LX,//左边界x坐标
-    RX,//右边界x坐标
-    Y,//y坐标
-    UY,//上边界y坐标
-    DY,//下边界y坐标
-    DISTANCE, //距离
-    XDISTANCE,//x方向的距离
-    YDISTANCE,//y方向的距离
-    ANGLE,//角度
-    WIDTH,//宽度
-    HEIGHT//高度
+    X,  //x坐标
+    LX, //左边界x坐标
+    RX, //右边界x坐标
+    Y,  //y坐标
+    UY, //上边界y坐标
+    DY, //下边界y坐标
+    DIS,   //距离
+    WIDTH,  //宽度
+    HEIGHT  //高度
 }
 
 function distance(x0: number, y0: number, x1: number, y1: number): number {
@@ -147,9 +144,9 @@ class Ship {
                 }
             }
         }
-        else if (_type === ShipType.DISTANCE) {
+        else if (_type === ShipType.DIS) {
             if (this.complex !== 2) {
-                throw new Error("the DISTANCE should be between 2 objects");
+                throw new Error("the DIS should be between 2 objects");
             }
             else {
                 let x0Attr = _related[0].getAttribute("x");
@@ -168,89 +165,12 @@ class Ship {
                 }
             }
         }
-        else if (_type === ShipType.XDISTANCE) {
-            if (this.complex !== 2) {
-                throw new Error("the XDISTANCE should be between 2 objects");
-            }
-            else {
-                let x0Attr = _related[0].getAttribute("x");
-                let x1Attr = _related[1].getAttribute("x");
-                if (x0Attr === undefined || x1Attr === undefined) {
-                    this.value = undefined;
-                }
-                else {
-                    let x0 = x0Attr.val.val;
-                    let x1 = x1Attr.val.val;
-                    let x01 = (x0 >= x1) ? (x0 - x1) : (x1 - x0);
-                    this.value = x01;
-                }
-            }
-        }
-        else if (_type === ShipType.YDISTANCE) {
-            if (this.complex !== 2) {
-                throw new Error("the YDISTANCE should be between 2 objects");
-            }
-            else {
-                let y0Attr = _related[0].getAttribute("y");
-                let y1Attr = _related[1].getAttribute("y");
-                if (y0Attr === undefined || y1Attr === undefined) {
-                    this.value = undefined;
-                }
-                else {
-                    let y0 = y0Attr.val.val;
-                    let y1 = y1Attr.val.val;
-                    let y01 = (y0 >= y1) ? (y0 - y1) : (y1 - y0);
-                    this.value = y01;
-                }
-            }
-        }
-        //第一个是顶点
-        else if (_type === ShipType.ANGLE) {
-            if (this.complex !== 3) {
-                throw new Error("the ANGLE should be between 3 objects");
-            }
-            else {
-                let x0Attr = _related[0].getAttribute("x");
-                let x1Attr = _related[1].getAttribute("x");
-                let x2Attr = _related[2].getAttribute("x");
-                let y0Attr = _related[0].getAttribute("y");
-                let y1Attr = _related[1].getAttribute("y");
-                let y2Attr = _related[2].getAttribute("y");
-                if (x0Attr === undefined || x1Attr === undefined || x2Attr === undefined || y0Attr === undefined || y1Attr === undefined || y2Attr === undefined) {
-                    this.value = undefined;
-                }
-                else {
-                    let x0 = x0Attr.val.val;
-                    let x1 = x1Attr.val.val;
-                    let x2 = x2Attr.val.val;
-                    let y0 = y0Attr.val.val;
-                    let y1 = y1Attr.val.val;
-                    let y2 = y2Attr.val.val;
-                    let a = distance(x0, y0, x1, y1);
-                    let b = distance(x0, y0, x2, y2);
-                    let c = distance(x1, y1, x2, y2);
-                    let cos = (a * a + b * b - c * c) / (2 * a * b);
-                    this.value = Math.acos(cos);
-                }
-            }
-        }
     }
     match(elements: SingleElement[]) {
         if (elements.length === this.complex) {
             for (let i = 0; i < this.complex; i++) {
                 if (elements[i] !== this.related[i]) {
                     return false;
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-    umatch(elements: SingleElement[]) {
-        if (elements.length === this.complex) {
-            for (let i = 0; i < this.complex; i++) {
-                if (elements[i] !== this.related[this.complex - 1 - i]) {
-                    return false
                 }
             }
             return true;
@@ -269,7 +189,7 @@ enum DisplayType {
 }
 
 class Display {
-    related: Ship[];//相关联的Ship
+    related: Ship[];
     complex: number;
     displaytype: DisplayType;
     times?: number;//倍数
@@ -282,7 +202,10 @@ class Display {
     }
 }
 
-function same(a: number, b: number): boolean {
+function same(a: number | undefined, b: number | undefined): boolean {
+    if (a === undefined || b === undefined) {
+        return false;
+    }
     if (a >= b && a - b < 0.0001) {
         return true;
     }
@@ -330,24 +253,17 @@ function Neighbor(controller: Controller, now: SingleElement[]): SingleElement[]
     for (let [key, value] of controller.elements) {
         elements.push(value);
     }
-
-    //console.log("elements=",elements);
-    //console.log("equations=",equations);
-
     let len = now.length;
     let lenEqu = equations.length;
     for (let i = 0; i < len; i++) {
         let center = now[i];
-        //console.log("center=",center);
         for (let j = 0; j < lenEqu; j++) {
             let combine = equations[j].leftArgs.concat(equations[j].rightArgs);
-            //console.log("combine=",combine);
             let lenC = combine.length;
             let isin = false;
             for (let k = 0; k < lenC; k++) {
                 if (combine[k].element === center) {
                     isin = true;
-                    //console.log("isin");
                     break;
                 }
             }
@@ -358,7 +274,6 @@ function Neighbor(controller: Controller, now: SingleElement[]): SingleElement[]
             }
         }
     }
-    //console.log("neighbor=",neighbor);
     return neighbor;
 }
 
@@ -368,7 +283,6 @@ function findNeighbor(controller: Controller, now: SingleElement[], times: numbe
         neighbors = Neighbor(controller, neighbors);
     }
     neighbors = single(neighbors);
-    //console.log("neighbors=", neighbors);
     return neighbors;
 }
 
@@ -380,7 +294,7 @@ function find_EQUAL(all: SingleElement[], center: SingleElement) {
     let len = all.length;
     for (let i = 0; i < len; i++) {
         if (all[i] !== center) {
-            let oneShip = new Ship(ShipType.DISTANCE, [center, all[i]]);
+            let oneShip = new Ship(ShipType.DIS, [center, all[i]]);
             distances.push(oneShip);
         }
     }
@@ -395,19 +309,17 @@ function find_EQUAL(all: SingleElement[], center: SingleElement) {
                 break;
             }
         }
-        if (thisShip != undefined && thisShip.value != undefined) {
+        if (thisShip != undefined) {
             if (thisShip.checked === false) {
                 thisShip.checked = true;
                 sameShip.push(thisShip);
+                let thisValue = thisShip.value;
                 for (let i = 0; i < ShipNum; i++) {
                     if (distances[i].checked === false) {
-                        let thisValue = thisShip.value;
                         let checkValue = distances[i].value;
-                        if (checkValue !== undefined) {
-                            if (same(thisValue, checkValue)) {
-                                distances[i].checked = true;
-                                sameShip.push(distances[i]);
-                            }
+                        if (same(thisValue, checkValue)) {
+                            distances[i].checked = true;
+                            sameShip.push(distances[i]);
                         }
                     }
                 }
@@ -428,9 +340,8 @@ function find_MULTIPLE(all: SingleElement[], center: SingleElement) {
     let distances: Ship[] = [];
     let len = all.length;
     for (let i = 0; i < len; i++) {
-
         if (all[i] !== center) {
-            let oneShip = new Ship(ShipType.DISTANCE, [center, all[i]]);
+            let oneShip = new Ship(ShipType.DIS, [center, all[i]]);
             distances.push(oneShip);
         }
     }
@@ -445,9 +356,9 @@ function find_MULTIPLE(all: SingleElement[], center: SingleElement) {
             }
         }
         if (thisShip != undefined && thisShip.value != undefined) {
+            let thisValue = thisShip.value;
             for (let i = 0; i < ShipNum; i++) {
                 let mulShip: Ship[] = [];
-                let thisValue = thisShip.value;
                 let checkValue = distances[i].value;
                 if (checkValue !== undefined) {
                     let mul;
@@ -507,16 +418,14 @@ function find_XALIGN(all: SingleElement[], center: SingleElement) {
         }
     }
     //中心x
-    if (xthisShip != undefined && xthisShip.value != undefined) {
+    if (xthisShip != undefined) {
         xsameShip.push(xthisShip);
         let thisValue = xthisShip.value;
         for (let i = 0; i < xShipNum; i++) {
             if (xaligns[i] !== xthisShip) {
                 let checkValue = xaligns[i].value;
-                if (checkValue != undefined) {
-                    if (same(thisValue, checkValue)) {
-                        xsameShip.push(xaligns[i]);
-                    }
+                if (same(thisValue, checkValue)) {
+                    xsameShip.push(xaligns[i]);
                 }
             }
         }
@@ -529,16 +438,14 @@ function find_XALIGN(all: SingleElement[], center: SingleElement) {
         }
     }
     //左x
-    if (lxthisShip != undefined && lxthisShip.value != undefined) {
+    if (lxthisShip != undefined) {
         lxsameShip.push(lxthisShip);
         let thisValue = lxthisShip.value;
         for (let i = 0; i < xShipNum; i++) {
             if (xaligns[i] !== lxthisShip) {
                 let checkValue = xaligns[i].value;
-                if (checkValue != undefined) {
-                    if (same(thisValue, checkValue)) {
-                        lxsameShip.push(xaligns[i]);
-                    }
+                if (same(thisValue, checkValue)) {
+                    lxsameShip.push(xaligns[i]);
                 }
             }
         }
@@ -551,16 +458,14 @@ function find_XALIGN(all: SingleElement[], center: SingleElement) {
         }
     }
     //右x
-    if (rxthisShip != undefined && rxthisShip.value != undefined) {
+    if (rxthisShip != undefined) {
         rxsameShip.push(rxthisShip);
         let thisValue = rxthisShip.value;
         for (let i = 0; i < xShipNum; i++) {
             if (xaligns[i] !== rxthisShip) {
                 let checkValue = xaligns[i].value;
-                if (checkValue != undefined) {
-                    if (same(thisValue, checkValue)) {
-                        rxsameShip.push(xaligns[i]);
-                    }
+                if (same(thisValue, checkValue)) {
+                    rxsameShip.push(xaligns[i]);
                 }
             }
         }
@@ -613,16 +518,14 @@ function find_YALIGN(all: SingleElement[], center: SingleElement) {
         }
     }
     //中心y
-    if (ythisShip != undefined && ythisShip.value != undefined) {
+    if (ythisShip != undefined) {
         ysameShip.push(ythisShip);
         let thisValue = ythisShip.value;
         for (let i = 0; i < yShipNum; i++) {
             if (yaligns[i] !== ythisShip) {
                 let checkValue = yaligns[i].value;
-                if (checkValue != undefined) {
-                    if (same(thisValue, checkValue)) {
-                        ysameShip.push(yaligns[i]);
-                    }
+                if (same(thisValue, checkValue)) {
+                    ysameShip.push(yaligns[i]);
                 }
             }
         }
@@ -635,16 +538,14 @@ function find_YALIGN(all: SingleElement[], center: SingleElement) {
         }
     }
     //上y
-    if (uythisShip != undefined && uythisShip.value != undefined) {
+    if (uythisShip != undefined) {
         uysameShip.push(uythisShip);
         let thisValue = uythisShip.value;
         for (let i = 0; i < yShipNum; i++) {
             if (yaligns[i] !== uythisShip) {
                 let checkValue = yaligns[i].value;
-                if (checkValue != undefined) {
-                    if (same(thisValue, checkValue)) {
-                        uysameShip.push(yaligns[i]);
-                    }
+                if (same(thisValue, checkValue)) {
+                    uysameShip.push(yaligns[i]);
                 }
             }
         }
@@ -657,16 +558,14 @@ function find_YALIGN(all: SingleElement[], center: SingleElement) {
         }
     }
     //下y
-    if (dythisShip != undefined && dythisShip.value != undefined) {
+    if (dythisShip != undefined) {
         dysameShip.push(dythisShip);
         let thisValue = dythisShip.value;
         for (let i = 0; i < yShipNum; i++) {
             if (yaligns[i] !== dythisShip) {
                 let checkValue = yaligns[i].value;
-                if (checkValue != undefined) {
-                    if (same(thisValue, checkValue)) {
-                        dysameShip.push(yaligns[i]);
-                    }
+                if (same(thisValue, checkValue)) {
+                    dysameShip.push(yaligns[i]);
                 }
             }
         }
@@ -698,13 +597,13 @@ function find_EWIDTH(all: SingleElement[], center: SingleElement) {
             break;
         }
     }
-    if (wthisShip != undefined && wthisShip.value != undefined) {
+    if (wthisShip != undefined) {
         wsameShip.push(wthisShip);
+        let thisValue = wthisShip.value;
         for (let i = 0; i < wShipNum; i++) {
             if (widths[i] !== wthisShip) {
-                let thisValue = wthisShip.value;
                 let checkValue = widths[i].value;
-                if (thisValue === checkValue) {
+                if (same(thisValue, checkValue)) {
                     wsameShip.push(widths[i]);
                 }
             }
@@ -737,13 +636,13 @@ function find_EHEIGHT(all: SingleElement[], center: SingleElement) {
             break;
         }
     }
-    if (hthisShip != undefined && hthisShip.value != undefined) {
+    if (hthisShip != undefined) {
         hsameShip.push(hthisShip);
+        let thisValue = hthisShip.value;
         for (let i = 0; i < hShipNum; i++) {
             if (heights[i] !== hthisShip) {
-                let thisValue = hthisShip.value;
                 let checkValue = heights[i].value;
-                if (thisValue === checkValue) {
+                if (same(thisValue, checkValue)) {
                     hsameShip.push(heights[i]);
                 }
             }
@@ -758,18 +657,15 @@ function find_EHEIGHT(all: SingleElement[], center: SingleElement) {
     }
 }
 
-
 function check(all: Controller, center: SingleElement): Display[] {
     displays = [];
     let elements = findNeighbor(all, [center], 2);
-
     find_EQUAL(elements, center);
     find_MULTIPLE(elements, center);
     find_XALIGN(elements, center);
     find_YALIGN(elements, center);
     find_EWIDTH(elements, center);
     find_EHEIGHT(elements, center);
-
     return displays;
 }
 
