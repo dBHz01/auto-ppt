@@ -1433,7 +1433,7 @@ class App extends Component {
         // x = p.parse("把这个矩形的文字修改为你好啊\n");
         // x = p.parse("新建一个元素在这个元素的右边\n");
         // x = p.parse("修改这个矩形的宽度为这个矩形的水平位置和那个矩形的竖直位置的差的三分之一\n");
-        let curText=("新建红色矩形A使它的水平位置等于A的水平位置和B的竖直位置的差的三分之一\n");
+        let curText=("新建一个红色的元素A使它的水平位置等于A的水平位置和B的竖直位置的差的三分之一\n");
         // curText=("新建红色的矩形A在这里使它的水平位置等于A的水平位置和B的竖直位置的差的三分之一\n");
         let curParsedResult = p.parse(curText);
         let c = new ControllerOp(curParsedResult!, []);
