@@ -60,8 +60,8 @@ function floatLe(f1: number, f2: number){
     return f1 < f2 || floatEq(f1, f2);
 }
 
-function randomID(){
-    return 'rand' + Math.random().toString(36).slice(2);
+function randomID(prefix='rand'){
+    return prefix + Math.random().toString(36).slice(2);
 }
 
 function range(start:number, end:number) {

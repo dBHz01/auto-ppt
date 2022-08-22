@@ -1131,6 +1131,17 @@ class Controller {
         this.nextPosCdtCache = undefined;
     }
 
+    searchOrCreateConstByVal(v: number): Attribute{
+        for(let entry of this.constElement.attributes){
+            if(entry[1].val.val === v){
+                return entry[1];
+            }
+        }
+        let newConst = new Attribute(randomID('const'), new RawNumber(v), this.constElement);
+        this.constElement.addAttribute(newConst);
+        return newConst;
+    }
+
     getConstDisAttr(){
         return this.getAttribute(0, 'const_dis');
     }
@@ -2629,11 +2640,24 @@ class Controller {
         inferChangeStr: string, 
         newEleRange: string, 
         RawTraces: Array<Array<[number, number]>>, 
-        traceEleRelation: string): boolean{
+        traceEleRelation: string,
+        eleAttrMod?: Map<Attribute, any>,
+        elePosMod?:Map<Attribute, number>): boolean{
         
         let traces = RawTraces.map(rt=>new Trace(rt));
         let unchangedAttr: Attribute[] = [];
         let inferChangedAttr: Attribute[] = [];
+        if(eleAttrMod == undefined){
+            eleAttrMod = new Map();
+        }
+
+        if(elePosMod == undefined){
+            elePosMod = new Map();
+        }
+
+        eleAttrMod.forEach((val, attr)=>{
+            attr.element.changeCertainAttribute(attr.name, val, true);
+        })
 
         if(forceUnchangeStr.length > 0){
             forceUnchangeStr.split(';').forEach((s)=>{
@@ -2787,7 +2811,7 @@ class Controller {
             pcComb.push(pcList);
         }
 
-        let new_attr_values: Map<Attribute, number> = new Map(); // 用户会主动输入取值吗
+        let new_attr_values: Map<Attribute, number> = new Map(elePosMod); // 用户会主动输入取值吗
 
         pcComb.forEach((pcList, idx)=>{
             if(pcList.length > 0){

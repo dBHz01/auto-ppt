@@ -1096,6 +1096,9 @@ class HelperGUI extends React.Component {
             }
         })
 
+        let lastRecommand = this.state.nextModifyRecommand.filter((x)=>x.check());
+        results.push(... lastRecommand); // 在交互过程中显式清空
+
         this.setState({
             nextModifyRecommand: results
         })
@@ -1614,7 +1617,12 @@ class App extends Component {
     
             let parseRes = new Parser().parse(uttr);
             let conOp = new ControllerOp(parseRes, raw_traces);
-            conOp.executeOnControllerNewEle(Controller.getInstance());
+            if(conOp.isCreate){
+                conOp.executeOnControllerNewEle(Controller.getInstance());
+            } else {
+                conOp.executeOnControllerModify(Controller.getInstance());
+            }
+            
             this.updateUttrParseState(uttr, parseRes, conOp);
             this.traces = [];
             this.forceUpdate();

@@ -1,4 +1,5 @@
 import assert, { throws } from 'assert';
+import { arg, max, min } from 'mathjs';
 import { AssignOp, Attribute, Controller, FuncTree, SingleElement, str2AssignOp, String2OP, allPossibleShape, OperatorNode, Operator, Trace, ElementType, RawNumber, Equation } from './components/backend'
 class ElementPlaceholder {
     // 表示一个待定的元素
@@ -52,6 +53,10 @@ class AttributePlaceholder {
     static constAttr(constValue: number): AttributePlaceholder {
         return new AttributePlaceholder(undefined, undefined, constValue);
     }
+
+    getActualAttr(){
+        return this.element?.actualEle?.getAttribute(this.name!);
+    }
 }
 
 class EqPlaceholder {
@@ -72,7 +77,11 @@ class EqPlaceholder {
 
     toString(){
         let args = [...this.leftArgs, ...this.rightArgs].map((aPh)=>{
-            return aPh.element!.actualEle!.getAttribute(aPh.name!)!;
+            if(aPh.constValue == undefined){
+                return aPh.element!.actualEle!.getAttribute(aPh.name!)!;
+            } else {
+                return Controller.getInstance().searchOrCreateConstByVal(aPh.constValue);
+            }
         })
         let actualLeft = args.slice(0, this.leftArgs.length);
         let actualRight = args.slice(this.leftArgs.length);
@@ -149,9 +158,9 @@ class NLParser {
                     let obj_1 = this.convertObjToElement(val['obj_1']);
                     let obj_2 = this.convertObjToElement(val['obj_2']);
                     if (val["val"] === "horidist") {
-                        return [new OperatorNode(Operator.MINUS), [new AttributePlaceholder(obj_1, "y"), new AttributePlaceholder(obj_2, "y")]];
-                    } else if (val["val"] === "vertidist") {
                         return [new OperatorNode(Operator.MINUS), [new AttributePlaceholder(obj_1, "x"), new AttributePlaceholder(obj_2, "x")]];
+                    } else if (val["val"] === "vertidist") {
+                        return [new OperatorNode(Operator.MINUS), [new AttributePlaceholder(obj_1, "y"), new AttributePlaceholder(obj_2, "y")]];
                     } else {
                         throw Error("unknown double attribute")
                     }
@@ -393,7 +402,7 @@ class ControllerOp {
     inc: boolean = false;
     dec: boolean = false;
 
-    // 赋成的值
+    // 赋成的值（运算）
     assignValue?: [FuncTree, AttributePlaceholder[]];
 
     // 赋成的属性
@@ -530,9 +539,11 @@ class ControllerOp {
 
         let elePh2id: Map<ElementPlaceholder, string> = new Map();
         let elePhSet: Set<ElementPlaceholder> = new Set();
+        let lastIt: string | undefined = undefined;
         if(this.targetElement != undefined){
             if(this.isCreate){
                 createElePh = this.targetElement;
+                lastIt = 'new';
             }
             elePhSet.add(this.targetElement);
         }
@@ -569,6 +580,12 @@ class ControllerOp {
             })
         }
 
+        if(this.assignAttr != undefined){
+            if(this.assignAttr.element != undefined){
+                elePhSet.add(this.assignAttr.element);
+            }
+        }
+
         let eqs = [];
 
         if(this.extraEqs != undefined){
@@ -586,6 +603,14 @@ class ControllerOp {
                 }
             })
         })
+
+        if(this.extraMap != undefined){
+            this.extraMap.forEach((_, attrPh)=>{
+                if(attrPh.element != undefined){
+                    elePhSet.add(attrPh.element);
+                }
+            })
+        }
 
         let elePhs = [... elePhSet].sort((e1, e2)=>e1.pos - e2.pos);
         let eleIds: string[] = [];
@@ -605,25 +630,60 @@ class ControllerOp {
                 return;
             }
             if(! elePh.ref){ // 没有使用路径
+                if(elePh.attrRequires.size === 0 && lastIt != undefined){
+                    eleIds.push(lastIt);
+                    return;
+                }
+
+                let possibleNewCreate = createElePh;
+                if(possibleNewCreate != undefined){
+                    // 检查新生成的元素是否满足
+                    if(!this.elementPhSatisfyRequires(possibleNewCreate, elePh.attrRequires)){
+                        possibleNewCreate = undefined;
+                    }
+                }
                 if(allElements.length === 1){
+                    if(elePh.attrRequires.size === 0){
+                        lastIt = `${allElements[0].id}`;
+                    }
+
                     eleIds.push(`${allElements[0].id}`);
                     return;
                 }
                 // 如果历史指代的和这个表里有重叠，找到最后一个历史指代的
                 let allIds = allElements.map((ele)=>`${ele.id}`);
+                if(possibleNewCreate != undefined){
+                    allIds.push('new');
+                }
                 for(let refferedId of [... eleIds].reverse()){
                     if(allIds.includes(refferedId)){
+                        if(elePh.attrRequires.size === 0){
+                            lastIt = refferedId;
+                        }
+
                         eleIds.push(refferedId);
                         return;
                     }
                 }
                 // 所有找到元素中ts最大的那一个
+                if(allIds.includes('new')){
+                    // 存在新建的话，必然是最大的
+                    eleIds.push('new');
+                    if(elePh.attrRequires.size === 0){
+                        lastIt = `new`;
+                    }
+                    return;
+                }
                 allElements.sort((ele1, ele2)=>ele2.timestamp - ele1.timestamp);
+                if(elePh.attrRequires.size === 0){
+                    lastIt = `${allElements[0].id}`;
+                }
                 eleIds.push(`${allElements[0].id}`);
                 return;
             } else {
                 // 使用路径进行额外的处理
                 // 找到与路径中点最近的元素
+                // 如果使用路径的话，不可能去指代一个还没有出现的元素
                 let crtTrace: Trace = traceUseInfo.get(elePh)![1];
                 allElements.sort((ele1, ele2)=>{
                     let dis1 = (ele1.getAttrVal('x', 0) - crtTrace.center[0]) ** 2
@@ -640,7 +700,7 @@ class ControllerOp {
         })
 
         assert(elePhs.length === eleIds.length);
-        let phs2id = new Map();
+        let phs2id: Map<ElementPlaceholder, string> = new Map();
         elePhs.forEach((ph, idx)=>{
             phs2id.set(ph, eleIds[idx]);
 
@@ -664,6 +724,24 @@ class ControllerOp {
             // 做更多的输入文本和内部取值的映射；
             // 也可能是在另外地方处理
             if(element.attributes.get(attrName)?.val.val !== attrValue){
+                return false; // 支持模糊筛选？
+            }
+        }
+
+        return true;
+    }
+
+    elementPhSatisfyRequires(element: ElementPlaceholder, requires: Map<string, any>){
+        for(let req of requires){
+            let attrName = req[0];
+            let attrValue = req[1];
+            if(attrName === 'name'){
+                attrName = 'text';
+            }
+
+            // 做更多的输入文本和内部取值的映射；
+            // 也可能是在另外地方处理
+            if(element.attrRequires.get(attrName)?.val.val !== attrValue){
                 return false; // 支持模糊筛选？
             }
         }
@@ -696,12 +774,26 @@ class ControllerOp {
             toUseTraceObj.push(this.pos);
         }
 
+        if(this.pos?.elements){
+            this.pos.elements.forEach((elePh)=>{
+                if(elePh.ref){
+                    toUseTraceObj.push(elePh);
+                }
+            })
+        }
+
         if(this.assignValue != undefined){
             this.assignValue[1].forEach((attrPh)=>{
                 if(attrPh.element?.ref){
                     toUseTraceObj.push(attrPh.element);
                 }
             })
+        }
+
+        if(this.assignAttr != undefined){
+            if(this.assignAttr.element?.ref){
+                toUseTraceObj.push(this.assignAttr.element);
+            }
         }
 
         let eqs = [... (this.extraEqs || []), ... (this.extraRanges || [])];
@@ -712,6 +804,14 @@ class ControllerOp {
                 }
             })
         })
+
+        if(this.extraMap != undefined){
+            this.extraMap.forEach((_, attrPh)=>{
+                if(attrPh.element?.ref){
+                    toUseTraceObj.push(attrPh.element);
+                }
+            })
+        }
 
         assert(toUseTraceObj.length <= traces.length);
         toUseTraceObj.sort((a, b)=>{
@@ -783,6 +883,9 @@ class ControllerOp {
 
             // 元素不支持直接赋值
             assert(this.assignValue === undefined);
+            assert(this.assignAttr === undefined);
+            assert(this.assignConst === undefined); 
+
             if(this.extraEqs != undefined){
                 this.extraEqs.forEach((eq)=>{
                     eqStrings.push(eq.toString());
@@ -794,6 +897,16 @@ class ControllerOp {
                     rangeStrings.push(eq.toString());
                 })
             }
+
+            if(this.extraMap != undefined){
+                this.extraMap.forEach((attrVal, attrPh)=>{
+                    if(elePh2id.get(attrPh.element!) != 'new'){
+                        console.warn("新建过程中仅允许额外调整新建元素的属性");
+                        return;
+                    }
+                    newEleAttrs.set(attrPh.name!, attrVal);
+                })
+            }
         } else {
             throw Error('新建指令的目标必然要是一个element');
         }
@@ -803,6 +916,131 @@ class ControllerOp {
             this.rawTraces, traceEleStrings.join(';'), eqStrings.join(';'), rangeStrings.join(';'), newEleAttrs
         );
 
+    }
+
+    executeOnControllerModify(con: Controller){
+        if(this.isCreate){
+            throw Error('期望元素修改指令');
+        }
+        // 分离指代路径和绘制路径
+        let traceUseInfo = this.obj2trace;
+        let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
+        let eqStrings: string[] = [];
+        let rangeStrings: string[] = []; 
+        let traceEleStrings: string[] = []; // 元素与绘制路径的位置
+        let eleAttrMod: Map<Attribute, any> = new Map(); // attr 必然已经存在
+        let elePosMod: Map<Attribute, any> = new Map();
+
+        let forceUnchanged: string[] = [];
+        let inferChanged: string[] = [];
+        if(this.targetElement != undefined){
+            // 位置
+            if(this.pos != undefined){
+                // 处理位置相关的
+                if(this.pos.posAtSentence != undefined){
+                    // 描述的是元素和绘制路径之间的关系
+                    traceEleStrings.push(this.pos.toStringExprForEle(
+                        this.targetElement, elePh2id, traceUseInfo
+                    ))
+                } else if(this.pos.pos === PosToElement.CENTER){
+                    // 说明是属性之间的等于关系
+                    eqStrings.push(this.pos.toStringExprForEle(this.targetElement, elePh2id, traceUseInfo));
+                } else {
+                    // 说明是属性之间的偏序关系
+                    rangeStrings.push(this.pos.toStringExprForEle(this.targetElement, elePh2id, traceUseInfo));
+                }
+            }
+
+            // 一下，必须存在targetAttr时生效
+            assert(this.inc === false);
+            assert(this.dec === false); 
+            assert(this.assignValue == undefined);
+            assert(this.assignAttr == undefined);
+            assert(this.assignConst == undefined);
+        } else if(this.targetAttr != undefined){
+            assert(this.pos == undefined); // 
+            let actualTgt = this.targetAttr.element!.actualEle!.getAttribute(this.targetAttr.name!)!;
+            if(this.inc || this.dec){
+
+                let tgtVal = this.genValForStepChange(actualTgt, this.inc);
+                if(actualTgt.name === 'x' || actualTgt.name === 'y'){
+                    elePosMod.set(actualTgt, tgtVal);
+                } else {
+                    eleAttrMod.set(actualTgt, tgtVal);
+                }
+            }
+
+            if(this.assignValue != undefined){
+                assert(this.targetAttr.name === 'x' || this.targetAttr.name === 'y');
+                
+                let eqPh = new EqPlaceholder(FuncTree.simpleEq(), this.assignValue[0], 
+                    [this.targetAttr], this.assignValue[1], AssignOp.eq);
+                eqStrings.push(eqPh.toString());
+            }
+
+            if(this.assignAttr != undefined){
+                assert(this.targetAttr.name !== 'x' && this.targetAttr.name !== 'y');
+                let tgtVal = this.assignAttr.getActualAttr()!.val.val;
+                eleAttrMod.set(actualTgt, tgtVal);
+            }
+
+            if(this.assignConst != undefined){
+                assert(this.targetAttr.name === 'text');
+                eleAttrMod.set(actualTgt, this.assignConst);
+            }
+        } else if(this.targetRelation != undefined){
+            assert(this.pos = undefined);
+            assert(this.inc === false && this.dec === false);
+            
+            if(this.assignValue != undefined){
+                let eqPh = new EqPlaceholder(this.targetRelation[0], this.assignValue[0], 
+                        this.targetRelation[1], this.assignValue[1], AssignOp.eq);
+                eqStrings.push(eqPh.toString());
+            }
+
+            assert(this.assignAttr == undefined);
+            assert(this.assignConst == undefined);
+        }
+
+        if(this.extraEqs != undefined){
+            this.extraEqs.forEach((eq)=>{
+                eqStrings.push(eq.toString());
+            })
+        }
+
+        if(this.extraRanges != undefined){
+            this.extraRanges.forEach((eq)=>{
+                rangeStrings.push(eq.toString());
+            })
+        }
+
+        if(this.extraMap != undefined){
+            this.extraMap.forEach((val, attrPh)=>{
+                eleAttrMod.set(attrPh.getActualAttr()!, val);
+            })
+        }
+
+
+        con.handleUserModify(
+            eqStrings.join(';'), forceUnchanged.join(';'), inferChanged.join(';'), 
+            rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), eleAttrMod
+        )
+    }
+
+    genValForStepChange(attr:Attribute, inc:boolean): any{
+        if(['w', 'h', 'x', 'y'].includes(attr.name)){
+            return attr.val.val + (inc? 10: -10);
+        }
+
+        if(attr.name === 'lightness'){
+            if(inc){
+                return min(900, attr.val.val + 100);
+            } else {
+                return max(0, attr.val.val - 100)
+            }
+        }
+
+        throw Error('不支持的微调属性')
     }
 }
 
