@@ -100,7 +100,7 @@ class NLParser {
     }
 
     convertObjToElement(obj: { [key: string]: any }): ElementPlaceholder {
-        console.log(obj);
+        // console.log(obj);
         let ref: boolean;
         if (obj["type"] === "") {
             ref = false;
@@ -115,7 +115,7 @@ class NLParser {
         }
         let ele = new ElementPlaceholder(ref, obj["pos"], obj["end"]);
         for (let adj of obj["adj"]) {
-            if (adj && adj["type"] && adj["val"]) {
+            if (adj["type"]) {
                 ele.addRequires(adj["type"], adj["val"]);
             }
         }
@@ -741,7 +741,7 @@ class ControllerOp {
 
             // 做更多的输入文本和内部取值的映射；
             // 也可能是在另外地方处理
-            if(element.attrRequires.get(attrName)?.val.val !== attrValue){
+            if(element.attrRequires.get(attrName) !== attrValue){
                 return false; // 支持模糊筛选？
             }
         }
@@ -1023,7 +1023,8 @@ class ControllerOp {
 
         con.handleUserModify(
             eqStrings.join(';'), forceUnchanged.join(';'), inferChanged.join(';'), 
-            rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), eleAttrMod
+            rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), 
+            eleAttrMod, elePosMod
         )
     }
 

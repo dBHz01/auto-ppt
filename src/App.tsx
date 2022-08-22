@@ -15,6 +15,8 @@ import { convertObjToMap, floatEq, getOrDefault, reader, splitRange} from './com
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp } from './NLParser';
+import { ASR } from './ASR';
+import { useSpeechRecognition } from 'react-speech-recognition';
 
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
@@ -24,8 +26,6 @@ function delay(ms: number) {
     let crt = Date.now();
     while (Date.now() - crt < ms) { }
 }
-
-
 class AllComponents extends React.Component {
     controller: Controller;
     state: {
@@ -1387,7 +1387,7 @@ class App extends Component {
     elemRangeRef: React.RefObject<HTMLInputElement>;
     addArrowRef: React.RefObject<HTMLInputElement>;
     textForNewEleRef: React.RefObject<HTMLInputElement>;
-
+    crtASR?: ASR;
     // curText?: string;
     // curParsedResult?: Object;
     // curControllerOp?: ControllerOp;
@@ -1397,14 +1397,15 @@ class App extends Component {
     state: {
         curText: string | undefined,
         curParsedResult: any | undefined,
-        curControllerOp: ControllerOp | undefined
+        curControllerOp: ControllerOp | undefined,
+        listening: boolean
     };
     constructor(props: any) {
         super(props);
         this.allComponentsRef = React.createRef<AllComponents>();
         testBackend();
-        let u = new TestParser();
-        u.parse("这个红色的矩形\n");
+        // let u = new TestParser();
+        // u.parse("这个红色的矩形\n");
         let p = new Parser()
         // let x = p.parse("新建矩形C在A的下方使A和B的水平距离等于A和C的竖直距离且A和B的水平距离等于A和C的竖直距离且B在C的左边");
         // let x = p.parse("修改A和B的水平距离为A和B的水平距离的三分之一");
@@ -1446,7 +1447,8 @@ class App extends Component {
         this.state = {
             curText: undefined,
             curParsedResult: undefined,
-            curControllerOp: undefined
+            curControllerOp: undefined,
+            listening: false
         }
         
         // Parser.prototype.parse("新建矩形A");
@@ -1641,6 +1643,23 @@ class App extends Component {
         })
     }
 
+    handleListenClick(){
+        if(!this.state.listening){
+            this.crtASR = new ASR((txt=>{
+                this.setState({
+                    listening: false
+                })
+                this.cmdInputRef.current!.value = txt;
+            }));
+            this.crtASR.start();
+            this.setState({
+                listening: true
+            })
+        } else {
+            this.crtASR!.stop();
+        }
+    }
+
     render() {
         let inputTexts = [];
         for (let i of this.displayText(this.state.curText, this.state.curParsedResult, this.state.curControllerOp)) {
@@ -1704,6 +1723,9 @@ class App extends Component {
                         <button onClick={()=>{
                             this.handleInputFinished(this.cmdInputRef.current!.value);
                         }}>确认</button>
+                    </div>
+                    <div>
+                        <button onClick={this.handleListenClick.bind(this)}>{this.state.listening? "结束输入":"开始输入"}</button>
                     </div>
                     <div>
                     添加箭头：<input ref={this.addArrowRef} type='text'/>
