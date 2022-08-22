@@ -478,8 +478,10 @@ adverbial
         {$$ = {"type": "computable", "value": $2};}
     | IS uncomputableValue
         {$$ = {"type": "uncomputable", "value": $2};}
-    | IS object
-        {$$ = {"type": "const_value", "value": $2};}
+    | IS not_ref color
+        {$$ = {"type": "color", "value": $3};}
+    | IS not_ref color_or_not INPUTTEXT
+        {$$ = {"type": "text", "value": $4};}
     | adverb
         {$$ = {"type": "adverb", "value": $1};}
     ;
