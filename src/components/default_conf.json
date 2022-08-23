@@ -30,7 +30,7 @@
         "pointerAtBeginning": false,
         "pointerAtEnding": true,
         "dashEnabled": false,
-        "const_dis": 65
+        "const_dis": 115
     },
     "matrix": {
         "w": 40,

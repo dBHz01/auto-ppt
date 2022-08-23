@@ -25,7 +25,7 @@ class ElementPlaceholder {
     }
 
     addRequires(k: string, v: any): ElementPlaceholder {
-        if(k === 'shape' || k === 'type'){
+        if((k === 'shape' || k === 'type') && v.length > 0){
             let eleType = ElementType.RECTANGLE;
             if(v === 'circle'){
                 eleType = ElementType.CIRCLE;
@@ -45,6 +45,12 @@ class AttributePlaceholder {
     constructor(ele?: ElementPlaceholder, attrName?: string, constValue?: number) {
         // 通过判断constValue是否存在来判断类型
         this.element = ele;
+        if(attrName === 'width'){
+            attrName = 'w';
+        }
+        if(attrName === 'height'){
+            attrName = 'h';
+        }
         this.name = attrName;
         this.actualAttribute = undefined;
         this.constValue = constValue;
@@ -967,6 +973,11 @@ class ControllerOp {
             let actualTgt = this.targetAttr.element!.actualEle!.getAttribute(this.targetAttr.name!)!;
             if(this.inc || this.dec){
 
+                if(this.targetAttr.name === 'color'){
+                    // 实际上是颜色亮度的调整
+                    actualTgt = this.targetAttr.element!.actualEle!.getAttribute('lightness')!;
+                } 
+
                 let tgtVal = this.genValForStepChange(actualTgt, this.inc);
                 if(actualTgt.name === 'x' || actualTgt.name === 'y'){
                     elePosMod.set(actualTgt, tgtVal);
@@ -990,7 +1001,7 @@ class ControllerOp {
             }
 
             if(this.assignConst != undefined){
-                assert(this.targetAttr.name === 'text');
+                assert(this.targetAttr.name !== 'x' && this.targetAttr.name !== 'y');
                 eleAttrMod.set(actualTgt, this.assignConst);
             }
         } else if(this.targetRelation != undefined){

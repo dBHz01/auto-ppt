@@ -883,7 +883,7 @@ class HelperGUI extends React.Component {
     }
 
     genShapes(attrList: Attribute[], values: number[]){
-        let ele2AttrVals: Map<SingleElement, Map<string, number>> = new Map();
+        let ele2AttrVals: Map<SingleElement, Map<string, any>> = new Map();
         let focusAttrNames = ['x', 'y'] // w, h
         for(let i = 0; i < attrList.length; ++ i){
             let attr = attrList[i];
@@ -897,7 +897,7 @@ class HelperGUI extends React.Component {
 
             if(!ele2AttrVals.has(attr.element)){
                 ele2AttrVals.set(attr.element, new Map([
-                    ['x', 0], ['y', 0], ['w', 50], ['h', 50]
+                    ['x', 0], ['y', 0]
                 ]))
             }
             ele2AttrVals.get(attr.element)!.set(attr.name, values[i]);
@@ -906,15 +906,26 @@ class HelperGUI extends React.Component {
         return [... ele2AttrVals.entries()].map((v)=>{
             let ele: SingleElement = v[0];
             let attrVMap: Map<string, number> = v[1];
-            return <Rect
-                x={(attrVMap.get('x')! - attrVMap.get('w')!) * HelperGUI.ratio}
-                y={(attrVMap.get('y')! - attrVMap.get('h')!) *  HelperGUI.ratio }
-                width={attrVMap.get('w')!  * HelperGUI.ratio}
-                height={attrVMap.get('h')!  * HelperGUI.ratio}
-                fill={"green"}
-                shadowBlur={5}
-                key={`${ele.id}-cdt`}
-            />
+            let color = ele.getCertainAttribute("color").val.val + "-" + ele.getCertainAttribute("lightness").val.val.toString()
+            if(ele.type === ElementType.RECTANGLE){
+                return <Rect
+                    x={(attrVMap.get('x')! - ele.getAttrVal('w', 50)) * HelperGUI.ratio}
+                    y={(attrVMap.get('y')! - ele.getAttrVal('h', 50)) *  HelperGUI.ratio }
+                    width={ele.getAttrVal('w', 50) * HelperGUI.ratio}
+                    height={ele.getAttrVal('h', 50) * HelperGUI.ratio}
+                    fill={ALLCOLORS[color]}
+                    key={`${ele.id}-cdt`}
+                />
+            } else {
+                return <Ellipse
+                    x={(attrVMap.get('x')!) * HelperGUI.ratio}
+                    y={(attrVMap.get('y')!) *  HelperGUI.ratio }
+                    radiusX={ele.getAttrVal('w', 50)  * HelperGUI.ratio / 2}
+                    radiusY={ele.getAttrVal('h', 50)  * HelperGUI.ratio / 2}
+                    fill={ALLCOLORS[color]}
+                    key={`${ele.id}-cdt`}
+                />
+            }
         })
 
     }
@@ -1619,19 +1630,25 @@ class App extends Component {
             
             uttr = uttr + "\n";
             console.log(uttr);
-    
-            let parseRes = new Parser().parse(uttr);
-            let conOp = new ControllerOp(parseRes, raw_traces);
-            if(conOp.isCreate){
-                conOp.executeOnControllerNewEle(Controller.getInstance());
-            } else {
-                conOp.executeOnControllerModify(Controller.getInstance());
+
+            try{
+                let parseRes = new Parser().parse(uttr);
+                let conOp = new ControllerOp(parseRes, raw_traces);
+                if(conOp.isCreate){
+                    conOp.executeOnControllerNewEle(Controller.getInstance());
+                } else {
+                    conOp.executeOnControllerModify(Controller.getInstance());
+                }
+                
+                this.updateUttrParseState(uttr, parseRes, conOp);
+                this.traces = [];
+                this.forceUpdate();
+                return true;
+            } catch(error){
+                console.error(error);
+                alert('运行出错，请检查指令')
+                return false;
             }
-            
-            this.updateUttrParseState(uttr, parseRes, conOp);
-            this.traces = [];
-            this.forceUpdate();
-            return true;
         }) 
     }
 
@@ -1645,11 +1662,16 @@ class App extends Component {
 
     handleListenClick(){
         if(!this.state.listening){
-            this.crtASR = new ASR((txt=>{
-                this.setState({
-                    listening: false
-                })
+            this.crtASR = new ASR(((txt, finished)=>{
                 this.cmdInputRef.current!.value = txt;
+                if(finished){
+                    this.setState({
+                        listening: false
+                    })
+                    this.crtASR = undefined;
+                } else {
+                    this.crtASR!.start();
+                }
             }));
             this.crtASR.start();
             this.setState({
@@ -1668,7 +1690,7 @@ class App extends Component {
             );
         }
         return (
-            <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed'}}>
+            <div style={{display: 'flex', flexDirection: 'row', overflow: 'hidden', position:'fixed', touchAction: 'none'}}>
                 <div style={{flex: '3', backgroundColor: '#ffffff' /*'#f0f0f0'*/}}>
                     <Stage width={window.innerWidth / 4.0 * 3.0} 
                         height={window.innerHeight - 200}

@@ -28,7 +28,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "set HOST = 0.0.0.0 && react-scripts start --experimental-repl-await",
+    "start": "set HOST = 0.0.0.0 &&react-scripts start --experimental-repl-await",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

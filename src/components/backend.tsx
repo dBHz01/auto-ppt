@@ -1101,9 +1101,9 @@ class Controller {
 
     constructor() {
         this.attrNameToDefault = new Map();
-        this.loadDefaultFromFile('matrix')
+        // this.loadDefaultFromFile('matrix')
         // this.loadDefaultFromFile('cube')
-        // this.loadDefaultFromFile('transformer')
+        this.loadDefaultFromFile('transformer')
         // this.loadDefaultFromFile('mendelian')
 
         this.hints = new Map<number, SingleElement>();
@@ -2655,8 +2655,10 @@ class Controller {
             elePosMod = new Map();
         }
 
+        let nonPosAttrUpdated = false;
         eleAttrMod.forEach((val, attr)=>{
             attr.element.changeCertainAttribute(attr.name, val, true);
+            nonPosAttrUpdated = true;
         })
 
         if(forceUnchangeStr.length > 0){
@@ -2750,8 +2752,10 @@ class Controller {
 
 
         if(newEqInExpr.length === 0 && newRangeInExpr.length === 0 && traceRelations.length === 0){
-            alert('没有识别出任何操作意图')
-            return false;
+            if(!nonPosAttrUpdated){
+                alert('没有识别出任何操作意图')
+            }
+            return nonPosAttrUpdated;
         }
 
         // 检查：所有的inferChanges都有对应的newEleEq；筛选出那些没有对应的
