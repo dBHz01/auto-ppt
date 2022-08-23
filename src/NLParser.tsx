@@ -488,9 +488,14 @@ class ControllerOp {
             this.assignAttr = nlParser.convertObjToAttr(obj['adverbial']['value']);
         }
 
-        // 解析修改为xxx（例如：红色）
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'const_value') {
-            this.assignConst = obj['adverbial']['value']['adj'][0]['val'];
+        // 解析修改为xx色
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'color') {
+            this.assignConst = obj['adverbial']['value'];
+        }
+
+        // 解析修改为xxx（文字）
+        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'text') {
+            this.assignConst = obj['adverbial']['value'];
         }
 
         // 解析附加条件
