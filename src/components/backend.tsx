@@ -1103,8 +1103,8 @@ class Controller {
         this.attrNameToDefault = new Map();
         // this.loadDefaultFromFile('matrix')
         // this.loadDefaultFromFile('cube')
-        this.loadDefaultFromFile('transformer')
-        // this.loadDefaultFromFile('mendelian')
+        // this.loadDefaultFromFile('transformer')
+        this.loadDefaultFromFile('mendelian')
 
         this.hints = new Map<number, SingleElement>();
         this.hidAllocator = 0;
@@ -1251,6 +1251,9 @@ class Controller {
                 } else {
                     newElement.addAttribute(new Attribute(attrName, mostSimilarEle.getAttribute(attrName)!.val.clone(), newElement));
                 }
+            }
+            if(newElement.getAttribute('text') == undefined){
+                newElement.addAttribute(new Attribute('text', new RawText(''), newElement));
             }
         } else if(_type === ElementType.ARROW){
             newElement = new SingleElement(_id == undefined? this.idAllocator: _id, _type, _name);
@@ -2839,6 +2842,8 @@ class Controller {
             }
         })
 
+        pcComb = pcComb.filter((x)=>x.length > 0);
+
         let allCandidateComb = getAllCase(pcComb);
 
         let combCandidate:[Equation[], Attribute[], number[], number][] = []; // 属性列表、属性取值、误差
@@ -2866,7 +2871,6 @@ class Controller {
                 combCandidate.push(... cal_res)
             }
         } else {
-            let new_attr_values: Map<Attribute, number> = new Map();
             let new_equations: Equation[] = [...newEqInExpr];
 
             let cal_res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);

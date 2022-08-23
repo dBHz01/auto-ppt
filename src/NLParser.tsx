@@ -51,6 +51,12 @@ class AttributePlaceholder {
         if(attrName === 'height'){
             attrName = 'h';
         }
+        if(attrName === 'vertiloc'){
+            attrName = 'y'
+        }
+        if(attrName === 'horiloc'){
+            attrName = 'x'
+        }
         this.name = attrName;
         this.actualAttribute = undefined;
         this.constValue = constValue;
@@ -972,18 +978,29 @@ class ControllerOp {
             assert(this.pos == undefined); // 
             let actualTgt = this.targetAttr.element!.actualEle!.getAttribute(this.targetAttr.name!)!;
             if(this.inc || this.dec){
+                if(this.targetAttr.name === 'size'){
+                    let actualWTgt = this.targetAttr.element!.actualEle!.getAttribute('w')!;
+                    let actualHTgt = this.targetAttr.element!.actualEle!.getAttribute('h')!;
+                    let tgtWVal = this.genValForStepChange(actualWTgt, this.inc);
+                    let tgtHVal = this.genValForStepChange(actualHTgt, this.inc);
 
-                if(this.targetAttr.name === 'color'){
-                    // 实际上是颜色亮度的调整
-                    actualTgt = this.targetAttr.element!.actualEle!.getAttribute('lightness')!;
-                } 
-
-                let tgtVal = this.genValForStepChange(actualTgt, this.inc);
-                if(actualTgt.name === 'x' || actualTgt.name === 'y'){
-                    elePosMod.set(actualTgt, tgtVal);
+                    eleAttrMod.set(actualWTgt, tgtWVal);
+                    eleAttrMod.set(actualHTgt, tgtHVal);
                 } else {
-                    eleAttrMod.set(actualTgt, tgtVal);
+                    if(this.targetAttr.name === 'color'){
+                        // 实际上是颜色亮度的调整
+                        actualTgt = this.targetAttr.element!.actualEle!.getAttribute('lightness')!;
+                    } 
+    
+                    let tgtVal = this.genValForStepChange(actualTgt, this.inc);
+                    if(actualTgt.name === 'x' || actualTgt.name === 'y'){
+                        elePosMod.set(actualTgt, tgtVal);
+                    } else {
+                        eleAttrMod.set(actualTgt, tgtVal);
+                    }
                 }
+
+                
             }
 
             if(this.assignValue != undefined){
@@ -996,8 +1013,29 @@ class ControllerOp {
 
             if(this.assignAttr != undefined){
                 assert(this.targetAttr.name !== 'x' && this.targetAttr.name !== 'y');
-                let tgtVal = this.assignAttr.getActualAttr()!.val.val;
-                eleAttrMod.set(actualTgt, tgtVal);
+                
+                if(this.targetAttr.name === 'size' && this.assignAttr.name === 'size'){
+                    let wAttr = this.targetAttr.element?.actualEle?.getAttribute('w');
+                    let tgtWVal = this.assignAttr.element?.actualEle?.getAttrVal('w', undefined);
+
+                    let hAttr = this.targetAttr.element?.actualEle?.getAttribute('h');
+                    let tgtHVal = this.assignAttr.element?.actualEle?.getAttrVal('h', undefined);
+
+                    eleAttrMod.set(wAttr!, tgtWVal);
+                    eleAttrMod.set(hAttr!, tgtHVal);
+
+                } else {
+                    let tgtVal = this.assignAttr.getActualAttr()!.val.val;
+                    eleAttrMod.set(actualTgt, tgtVal);
+                    if(this.targetAttr.name === 'color' && this.assignAttr.name === 'color'){
+                        // 实际上亮度也要调整
+                        let lightnessAttr = this.targetAttr.element?.actualEle?.getAttribute('lightness');
+                        let tgtLightnessVal = this.assignAttr.element?.actualEle?.getAttrVal('lightness', undefined);
+                        if(lightnessAttr != undefined && tgtLightnessVal != undefined){
+                            eleAttrMod.set(lightnessAttr, tgtLightnessVal);
+                        }
+                    }
+                }
             }
 
             if(this.assignConst != undefined){
