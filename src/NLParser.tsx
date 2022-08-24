@@ -243,6 +243,33 @@ class NLParser {
                     }
                     return [newRoot, newArgs];
 
+                case "middle":
+                    newRoot = new OperatorNode(Operator.DEVIDED);
+                    let leftRoot = new OperatorNode(Operator.PLUS);
+                    if (val["val_1"]["type"] === "single") {
+                        let obj = this.convertObjToElement(val["val_1"]["obj"]);
+                        newArgs.push(new AttributePlaceholder(obj, val["val_1"]["val"]));
+                    } else {
+                        ret_1 = valToNode(val["val_1"]);
+                        leftRoot.leftNode = ret_1[0];
+                        for (let i of ret_1[1]) {
+                            newArgs.push(i);
+                        }
+                    }
+                    if (val["val_2"]["type"] === "single") {
+                        let obj = this.convertObjToElement(val["val_2"]["obj"]);
+                        newArgs.push(new AttributePlaceholder(obj, val["val_2"]["val"]));
+                    } else {
+                        ret_2 = valToNode(val["val_2"]);
+                        leftRoot.rightNode = ret_2[0];
+                        for (let i of ret_2[1]) {
+                            newArgs.push(i);
+                        }
+                    }
+                    newArgs.push(AttributePlaceholder.constAttr(2));
+                    newRoot.leftNode = leftRoot;
+                    return [newRoot, newArgs];
+
                 default:
                     throw Error("unknown type");
             }
@@ -388,6 +415,7 @@ class PosToElement {
 
 class ControllerOp {
     isCreate: boolean = false; // 是否新建元素
+    isArrow: boolean = false; // 是否新建箭头
 
     allElements: ElementPlaceholder[];
     targetElement?: ElementPlaceholder;
@@ -416,6 +444,10 @@ class ControllerOp {
     extraRanges?: EqPlaceholder[];
     extraMap?: Map<AttributePlaceholder, string>;
 
+    // 箭头
+    arrowFrom?: ElementPlaceholder;
+    arrowTo?: ElementPlaceholder;
+
 
 
     static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc'];
@@ -431,103 +463,109 @@ class ControllerOp {
         this.allElements = new Array<ElementPlaceholder>();
         let nlParser = new NLParser(this.allElements)
 
-        // 解析整体操作类型
-        assert(obj['predicate'] != undefined);
-        this.isCreate = obj['predicate'] === 'new';
-
-        // 解析操作目标
-        assert(obj['target'] != undefined);
-        if (obj['target']['val'] === 'loc') {
-            this.targetElement = nlParser.convertObjToElement(obj['target']['obj']);
-        } else if (ControllerOp.POSSIBLE_ATTRS.includes(obj['target']['val'])) {
-            this.targetAttr = nlParser.convertObjToAttr(obj['target'])
-        } else if (ControllerOp.POSSIBLE_BI_ATTRS.includes(obj['target']['val'])) {
-            this.targetRelation = nlParser.convertValToFunc(obj['target'])
-        } else {
-            throw Error(`未知的target类型 ${obj['target']['val']}`);
-        }
-
-        // 解析元素的目标新建/移动到的位置
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'loc') {
-            this.pos = new PosToElement();
-            let locObj = obj['adverbial']['loc'];
-            if (locObj['type'] === 'single') {
-                this.pos.elements = [nlParser.convertObjToElement(locObj['obj'])];
-                this.pos.pos = locObj['direction'];
-            } else if (locObj['type'] === 'ref') {
-                this.pos.posAtSentence = locObj['pos'];
-                this.pos.endAtSentence = locObj['end'];
+        if (obj["type"] === "simple") {
+            // 解析整体操作类型
+            assert(obj['predicate'] != undefined);
+            this.isCreate = obj['predicate'] === 'new';
+    
+            // 解析操作目标
+            assert(obj['target'] != undefined);
+            if (obj['target']['val'] === 'loc') {
+                this.targetElement = nlParser.convertObjToElement(obj['target']['obj']);
+            } else if (ControllerOp.POSSIBLE_ATTRS.includes(obj['target']['val'])) {
+                this.targetAttr = nlParser.convertObjToAttr(obj['target'])
+            } else if (ControllerOp.POSSIBLE_BI_ATTRS.includes(obj['target']['val'])) {
+                this.targetRelation = nlParser.convertValToFunc(obj['target'])
             } else {
-                assert(locObj['type'] === 'double' && locObj['loc'] === 'middle');
-                this.pos.elements = [
-                    nlParser.convertObjToElement(locObj['obj_1']),
-                    nlParser.convertObjToElement(locObj['obj_2'])]
-                this.pos.pos = PosToElement.CENTER;
+                throw Error(`未知的target类型 ${obj['target']['val']}`);
             }
-        }
-
-        // 解析元素的上下左右的微调
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === "direction") {
-            this.inc = obj['adverbial']['direction'] === 'right' || obj['adverbial']['direction'] === 'down';
-            this.dec = obj['adverbial']['direction'] === 'left' || obj['adverbial']['direction'] === 'up';
-        }
-
-        // 解析副词
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'adverb') {
-            this.inc = obj['adverbial']['value'] === 'big' || obj['adverbial']['value'] === 'deep';
-            this.dec = obj['adverbial']['value'] === 'small' || obj['adverbial']['value'] === 'shallow';
-        }
-
-        // 解析修改为可计算的值
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'computable') {
-            this.assignValue = nlParser.convertValToFunc(obj['adverbial']['value']);
-        }
-
-        // 解析修改为不可计算的值
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'uncomputable') {
-            this.assignAttr = nlParser.convertObjToAttr(obj['adverbial']['value']);
-        }
-
-        // 解析修改为xx色
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'color') {
-            this.assignConst = obj['adverbial']['value'];
-        }
-
-        // 解析修改为xxx（文字）
-        if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'text') {
-            this.assignConst = obj['adverbial']['value'];
-        }
-
-        // 解析附加条件
-        if (obj['conditions'] != undefined) {
-            let eqList = new Array<EqPlaceholder>();
-            for (let condition of obj['conditions']) {
-                if (condition["type"] === "assignment") {
-                    if (this.extraMap === undefined) {
-                        this.extraMap = new Map<AttributePlaceholder, string>();
-                    }
-                    let newMap = nlParser.convertRelationToMap(condition);
-                    for (let i of newMap.entries()) {
-                        this.extraMap.set(i[0], i[1]);
-                    }
-                    // console.log(this.extraMap);
+    
+            // 解析元素的目标新建/移动到的位置
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'loc') {
+                this.pos = new PosToElement();
+                let locObj = obj['adverbial']['loc'];
+                if (locObj['type'] === 'single') {
+                    this.pos.elements = [nlParser.convertObjToElement(locObj['obj'])];
+                    this.pos.pos = locObj['direction'];
+                } else if (locObj['type'] === 'ref') {
+                    this.pos.posAtSentence = locObj['pos'];
+                    this.pos.endAtSentence = locObj['end'];
                 } else {
-                    eqList.push(nlParser.convertRelationToEq(condition));
+                    assert(locObj['type'] === 'double' && locObj['loc'] === 'middle');
+                    this.pos.elements = [
+                        nlParser.convertObjToElement(locObj['obj_1']),
+                        nlParser.convertObjToElement(locObj['obj_2'])]
+                    this.pos.pos = PosToElement.CENTER;
                 }
             }
-            eqList.forEach((eq) => {
-                if (eq.op === AssignOp.eq) {
-                    if (this.extraEqs == undefined) {
-                        this.extraEqs = [];
+    
+            // 解析元素的上下左右的微调
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === "direction") {
+                this.inc = obj['adverbial']['direction'] === 'right' || obj['adverbial']['direction'] === 'down';
+                this.dec = obj['adverbial']['direction'] === 'left' || obj['adverbial']['direction'] === 'up';
+            }
+    
+            // 解析副词
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'adverb') {
+                this.inc = obj['adverbial']['value'] === 'big' || obj['adverbial']['value'] === 'deep';
+                this.dec = obj['adverbial']['value'] === 'small' || obj['adverbial']['value'] === 'shallow';
+            }
+    
+            // 解析修改为可计算的值
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'computable') {
+                this.assignValue = nlParser.convertValToFunc(obj['adverbial']['value']);
+            }
+    
+            // 解析修改为不可计算的值
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'uncomputable') {
+                this.assignAttr = nlParser.convertObjToAttr(obj['adverbial']['value']);
+            }
+    
+            // 解析修改为xx色
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'color') {
+                this.assignConst = obj['adverbial']['value'];
+            }
+    
+            // 解析修改为xxx（文字）
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'text') {
+                this.assignConst = obj['adverbial']['value'];
+            }
+    
+            // 解析附加条件
+            if (obj['conditions'] != undefined) {
+                let eqList = new Array<EqPlaceholder>();
+                for (let condition of obj['conditions']) {
+                    if (condition["type"] === "assignment") {
+                        if (this.extraMap === undefined) {
+                            this.extraMap = new Map<AttributePlaceholder, string>();
+                        }
+                        let newMap = nlParser.convertRelationToMap(condition);
+                        for (let i of newMap.entries()) {
+                            this.extraMap.set(i[0], i[1]);
+                        }
+                        // console.log(this.extraMap);
+                    } else {
+                        eqList.push(nlParser.convertRelationToEq(condition));
                     }
-                    this.extraEqs.push(eq);
-                } else {
-                    if (this.extraRanges == undefined) {
-                        this.extraRanges = [];
-                    }
-                    this.extraRanges.push(eq);
                 }
-            })
+                eqList.forEach((eq) => {
+                    if (eq.op === AssignOp.eq) {
+                        if (this.extraEqs == undefined) {
+                            this.extraEqs = [];
+                        }
+                        this.extraEqs.push(eq);
+                    } else {
+                        if (this.extraRanges == undefined) {
+                            this.extraRanges = [];
+                        }
+                        this.extraRanges.push(eq);
+                    }
+                })
+            }
+        } else if (obj["type"] === "arrow") {
+            this.isArrow = true;
+            this.arrowFrom = nlParser.convertObjToElement(obj["obj_1"]);
+            this.arrowTo = nlParser.convertObjToElement(obj["obj_2"]);
         }
 
         this.rawTraces = rawTraces.map(x=>{
@@ -589,6 +627,14 @@ class ControllerOp {
             if(this.assignAttr.element != undefined){
                 elePhSet.add(this.assignAttr.element);
             }
+        }
+
+        if(this.arrowFrom != undefined) {
+            elePhSet.add(this.arrowFrom);
+        }
+
+        if(this.arrowTo != undefined) {
+            elePhSet.add(this.arrowTo);
         }
 
         let eqs = [];
@@ -801,6 +847,18 @@ class ControllerOp {
             }
         }
 
+        if(this.arrowFrom != undefined) {
+            if(this.arrowFrom.ref) {
+                toUseTraceObj.push(this.arrowFrom);
+            }
+        }
+
+        if(this.arrowTo != undefined) {
+            if(this.arrowTo.ref) {
+                toUseTraceObj.push(this.arrowTo);
+            }
+        }
+
         let eqs = [... (this.extraEqs || []), ... (this.extraRanges || [])];
         eqs.forEach((eq)=>{
             [... eq.leftArgs, ... eq.rightArgs].forEach((arg)=>{
@@ -994,7 +1052,7 @@ class ControllerOp {
                 eleAttrMod.set(actualTgt, this.assignConst);
             }
         } else if(this.targetRelation != undefined){
-            assert(this.pos = undefined);
+            assert(this.pos == undefined);
             assert(this.inc === false && this.dec === false);
             
             if(this.assignValue != undefined){
@@ -1033,6 +1091,12 @@ class ControllerOp {
         )
     }
 
+    executeOnAddArrow(con: Controller) {
+        let traceUseInfo = this.obj2trace;
+        let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
+        con.addArrow(Number(elePh2id.get(this.arrowFrom!)), Number(elePh2id.get(this.arrowTo!)))
+    }
+
     genValForStepChange(attr:Attribute, inc:boolean): any{
         if(['w', 'h', 'x', 'y'].includes(attr.name)){
             return attr.val.val + (inc? 10: -10);
@@ -1054,4 +1118,4 @@ ControllerOp.tmpNew.addAttribute(new Attribute('x', new RawNumber(0), Controller
 ControllerOp.tmpNew.addAttribute(new Attribute('y', new RawNumber(0), ControllerOp.tmpNew));
 
 
-export { ControllerOp }
+export { ControllerOp, ElementPlaceholder }

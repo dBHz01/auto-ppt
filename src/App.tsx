@@ -5,7 +5,7 @@ import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
 import { testBackend } from './components/test_backend';
 import { Parser } from './jison/inputParser';
-import { Parser as TestParser } from './jison/unicode';
+import { Parser as ArrowParser } from './jison/arrowParser';
 import { Button, Tag as InputText } from 'antd';
 import Konva from 'konva';
 
@@ -14,7 +14,7 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import { convertObjToMap, floatEq, getOrDefault, reader, splitRange} from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
-import { ControllerOp } from './NLParser';
+import { ControllerOp, ElementPlaceholder } from './NLParser';
 import { ASR } from './ASR';
 import { useSpeechRecognition } from 'react-speech-recognition';
 
@@ -1477,23 +1477,28 @@ class App extends Component {
         this.cmdInputRef = React.createRef()
     }
 
-    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): string[] {
+    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], SingleElement[]] {
+        // 返回[分组后的text, 对应的element]
         if(text == undefined || parsedResult == undefined || controllerOp == undefined){
-            return [];
+            return [[], []];
         }
+        text = text.trim();
         console.log(text);
         console.log(parsedResult);
         console.log(controllerOp);
         let r: number[][] = [];
+        let allElements: ElementPlaceholder[] = [];
         for (let i of controllerOp.allElements) {
             r.push([i.pos, i.end]);
+            allElements.push(i);
         }
+        allElements.sort((a, b) => {return a.pos - b.pos;});
         let ranges = splitRange(text.length, r);
         let splitText: string[] = [];
         for (let i of ranges) {
             splitText.push(text.substring(i[0], i[1]));
         }
-        return splitText;
+        return [splitText, allElements.map((x) => {return x.actualEle!})];
     }
 
     nextSolution() {
@@ -1619,11 +1624,20 @@ class App extends Component {
             
             uttr = uttr + "\n";
             console.log(uttr);
+
+            let parseRes: any;
     
-            let parseRes = new Parser().parse(uttr);
+            if (uttr.includes("箭头")) {
+                parseRes = new ArrowParser().parse(uttr);
+                console.log(parseRes);
+            } else {
+                parseRes = new Parser().parse(uttr);
+            }
             let conOp = new ControllerOp(parseRes, raw_traces);
             if(conOp.isCreate){
                 conOp.executeOnControllerNewEle(Controller.getInstance());
+            } else if (conOp.isArrow) {
+                conOp.executeOnAddArrow(Controller.getInstance());
             } else {
                 conOp.executeOnControllerModify(Controller.getInstance());
             }
@@ -1662,9 +1676,10 @@ class App extends Component {
 
     render() {
         let inputTexts = [];
-        for (let i of this.displayText(this.state.curText, this.state.curParsedResult, this.state.curControllerOp)) {
+        let displayArray = this.displayText(this.state.curText, this.state.curParsedResult, this.state.curControllerOp)
+        for (let i in displayArray) {
             inputTexts.push(
-                <InputText><div>{i}</div></InputText>
+                <InputText key={`tag-${i}`}><div>{displayArray[0][i]}</div></InputText>
             );
         }
         return (
