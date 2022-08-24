@@ -1184,7 +1184,15 @@ class ControllerOp {
 
         if(this.extraMap != undefined){
             this.extraMap.forEach((val, attrPh)=>{
-                eleAttrMod.set(attrPh.getActualAttr()!, val);
+                if(attrPh.name === 'shape'){
+                    let tgtType = ElementType.RECTANGLE;
+                    if(val === 'circle'){
+                        tgtType = ElementType.CIRCLE;
+                    }
+                    eleTypeMod.set(attrPh.element!.actualEle!, tgtType);
+                } else {
+                    eleAttrMod.set(attrPh.getActualAttr()!, val);
+                }
             })
         }
 
