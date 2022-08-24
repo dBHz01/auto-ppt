@@ -449,8 +449,14 @@ class ControllerOp {
     // 赋成的属性
     assignAttr?: AttributePlaceholder;
 
-    // 赋成的常值(当前仅为string)
-    assignConst?: string;
+    // 赋成的文字
+    assignText?: string;
+
+    // 赋成的颜色
+    assignColor?: string;
+
+    // 赋成的形状
+    assignShape?: ElementType;
 
     // 附加条件，仅仅支持对位置属性的运算
     extraEqs?: EqPlaceholder[];
@@ -463,7 +469,7 @@ class ControllerOp {
 
 
 
-    static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc'];
+    static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc', 'shape'];
     static POSSIBLE_BI_ATTRS = ['horidist', 'vertidist'/*, 'dist'*/];
     static specialIDForTmpNew = 65535;
     static tmpNew = new SingleElement(ControllerOp.specialIDForTmpNew, ElementType.RECTANGLE, 'tmpNew');
@@ -536,12 +542,28 @@ class ControllerOp {
     
             // 解析修改为xx色
             if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'color') {
-                this.assignConst = obj['adverbial']['value'];
+                this.assignColor = obj['adverbial']['value'];
             }
     
             // 解析修改为xxx（文字）
             if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'text') {
-                this.assignConst = obj['adverbial']['value'];
+                this.assignText = obj['adverbial']['value'];
+            }
+
+            // 解析修改为x形（形状）
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'shape') {
+                switch (obj['adverbial']['value']) {
+                    case "rect":
+                        this.assignShape = ElementType.RECTANGLE;
+                        break;
+
+                    case "circle":
+                        this.assignShape = ElementType.CIRCLE;
+                        break;
+                
+                    default:
+                        break;
+                }
             }
     
             // 解析附加条件
@@ -971,7 +993,7 @@ class ControllerOp {
             // 元素不支持直接赋值
             assert(this.assignValue === undefined);
             assert(this.assignAttr === undefined);
-            assert(this.assignConst === undefined); 
+            assert(this.assignText === undefined); 
 
             if(this.extraEqs != undefined){
                 this.extraEqs.forEach((eq)=>{
@@ -1026,6 +1048,7 @@ class ControllerOp {
         let traceEleStrings: string[] = []; // 元素与绘制路径的位置
         let eleAttrMod: Map<Attribute, any> = new Map(); // attr 必然已经存在
         let elePosMod: Map<Attribute, any> = new Map();
+        let eleTypeMod: Map<SingleElement, ElementType> = new Map();
 
         let forceUnchanged: string[] = [];
         let inferChanged: string[] = [];
@@ -1052,7 +1075,7 @@ class ControllerOp {
             assert(this.dec === false); 
             assert(this.assignValue == undefined);
             assert(this.assignAttr == undefined);
-            assert(this.assignConst == undefined);
+            assert(this.assignText == undefined);
         } else if(this.targetAttr != undefined){
             assert(this.pos == undefined); // 
             let actualTgt = this.targetAttr.element!.actualEle!.getAttribute(this.targetAttr.name!)!;
@@ -1114,10 +1137,21 @@ class ControllerOp {
                 }
             }
 
-            if(this.assignConst != undefined){
-                assert(this.targetAttr.name !== 'x' && this.targetAttr.name !== 'y');
-                eleAttrMod.set(actualTgt, this.assignConst);
+            if(this.assignText != undefined){
+                assert(this.targetAttr.name === 'text');
+                eleAttrMod.set(actualTgt, this.assignText);
             }
+
+            if(this.assignColor != undefined){
+                assert(this.targetAttr.name === 'color');
+                eleAttrMod.set(actualTgt, this.assignColor);
+            }
+            
+            if(this.assignShape != undefined){
+                assert(this.targetAttr.name === 'shape');
+                eleTypeMod.set(this.targetAttr.element!.actualEle!, this.assignShape);
+            }
+
         } else if(this.targetRelation != undefined){
             assert(this.pos == undefined);
             assert(this.inc === false && this.dec === false);
@@ -1129,7 +1163,9 @@ class ControllerOp {
             }
 
             assert(this.assignAttr == undefined);
-            assert(this.assignConst == undefined);
+            assert(this.assignText == undefined);
+            assert(this.assignShape == undefined);
+            assert(this.assignColor == undefined);
         }
 
         if(this.extraEqs != undefined){
@@ -1154,7 +1190,7 @@ class ControllerOp {
         con.handleUserModify(
             eqStrings.join(';'), forceUnchanged.join(';'), inferChanged.join(';'), 
             rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), 
-            eleAttrMod, elePosMod
+            eleAttrMod, elePosMod, eleTypeMod
         )
     }
 

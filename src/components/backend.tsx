@@ -2645,7 +2645,8 @@ class Controller {
         RawTraces: Array<Array<[number, number]>>, 
         traceEleRelation: string,
         eleAttrMod?: Map<Attribute, any>,
-        elePosMod?:Map<Attribute, number>): boolean{
+        elePosMod?:Map<Attribute, number>,
+        eleTypeMod?:Map<SingleElement, ElementType>): boolean{
         
         let traces = RawTraces.map(rt=>new Trace(rt));
         let unchangedAttr: Attribute[] = [];
@@ -2658,7 +2659,16 @@ class Controller {
             elePosMod = new Map();
         }
 
+        if(eleTypeMod == undefined){
+            eleTypeMod = new Map();
+        }
+
         let nonPosAttrUpdated = false;
+        eleTypeMod.forEach((eleType, ele)=>{
+            ele.changeElementType(eleType);
+            nonPosAttrUpdated = true;
+        })
+
         eleAttrMod.forEach((val, attr)=>{
             attr.element.changeCertainAttribute(attr.name, val, true);
             nonPosAttrUpdated = true;

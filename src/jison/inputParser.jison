@@ -493,6 +493,8 @@ adverbial
         {$$ = {"type": "uncomputable", "value": $2};}
     | IS not_ref color
         {$$ = {"type": "color", "value": $3};}
+    | IS not_ref color_or_not shape
+        {$$ = {"type": "shape", "value": $4};}
     | IS not_ref color_or_not INPUTTEXT
         {$$ = {"type": "text", "value": $4};}
     | EQUAL value
@@ -501,6 +503,8 @@ adverbial
         {$$ = {"type": "uncomputable", "value": $2};}
     | EQUAL not_ref color
         {$$ = {"type": "color", "value": $3};}
+    | EQUAL not_ref color_or_not shape
+        {$$ = {"type": "shape", "value": $4};}
     | EQUAL not_ref color_or_not INPUTTEXT
         {$$ = {"type": "text", "value": $4};}
     | adverb
