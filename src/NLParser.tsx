@@ -579,8 +579,10 @@ class ControllerOp {
                             this.extraMap.set(i[0], i[1]);
                         }
                         // console.log(this.extraMap);
-                    } else {
+                    } else if (condition["type"] === "equation" ){
                         eqList.push(nlParser.convertRelationToEq(condition));
+                    } else if (condition["type"] === "assignment-eq") {
+                        // TODO
                     }
                 }
                 eqList.forEach((eq) => {

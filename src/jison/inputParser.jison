@@ -137,6 +137,9 @@ expressions
     | predicate target FOR conditions EOF
         { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": $4});
           return {"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": $4}; }
+    | predicate FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $1, "target": undefined, "adverbial": undefined, "conditions": $3});
+          return {"type": "simple", "predicate": $1, "target": undefined, "adverbial": undefined, "conditions": $3}; }
     | predicate target EOF
         { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined});
           return {"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined}; }
@@ -161,12 +164,12 @@ FILLER
         {}
     ;
 
-not_ref
-    : SINGLEONE
-        {$$ = ""}
-    | /* null */
-        {$$ = ""}
-    ;
+// not_ref
+//     : SINGLEONE
+//         {$$ = ""}
+//     | /* null */
+//         {$$ = ""}
+//     ;
 
 ref
     : THIS
@@ -264,22 +267,26 @@ object
     // ;
     // : ref_or_not color_or_not FILLER shape_or_inputText
     //     {$$ = {"obj": $2, "adj": [$2, $4], "pos": @1.first_column, "end": @1.last_column};}
-    : not_ref color_or_not shape_or_inputText
-        {let pos_1 = $1 ? @1.first_column : ($2 ? @2.first_column : @3.first_column);
-         $3.push($2);
-         $$ = {"type": $1, "adj": $3, "pos": pos_1, "end": @3.last_column};}
+    : SINGLEONE color_or_not shape_or_inputText
+        {$3.push($2);
+         $$ = {"type": "", "adj": $3, "pos": @1.first_column, "end": @3.last_column};}
+    | SINGLEONE color D shape_or_inputText
+        {$4.push({"type": "color", "val": $2});
+         $$ = {"type": $1, "adj": $4, "pos": @1.first_column, "end": @4.last_column};}
     | ref color_or_not shape_or_inputText
-        {let pos_2 = $1 ? @1.first_column : ($2 ? @2.first_column : @3.first_column);
-         $3.push($2);
-         $$ = {"type": $1, "adj": $3, "pos": pos_2, "end": @3.last_column};}
-    | not_ref color D shape_or_inputText
-        {let pos_3 = $1 ? @1.first_column : ($2 ? @2.first_column : @3.first_column);
-         $4.push({"type": "color", "val": $2});
-         $$ = {"type": $1, "adj": $4, "pos": pos_3, "end": @4.last_column};}
+        {$3.push($2);
+         $$ = {"type": $1, "adj": $3, "pos": @1.first_column, "end": @3.last_column};}
     | ref color D shape_or_inputText
-        {let pos_4 = $1 ? @1.first_column : ($2 ? @2.first_column : @3.first_column);
-         $4.push({"type": "color", "val": $2});
-         $$ = {"type": $1, "adj": $4, "pos": pos_4, "end": @4.last_column};}
+        {$4.push({"type": "color", "val": $2});
+         $$ = {"type": $1, "adj": $4, "pos": @1.first_column, "end": @4.last_column};}
+    | color shape_or_inputText
+        {$2.push($1);
+         $$ = {"type": "", "adj": $2, "pos": @1.first_column, "end": @2.last_column};}
+    | color D shape_or_inputText
+        {$3.push({"type": "color", "val": $1});
+         $$ = {"type": "", "adj": $3, "pos": @1.first_column, "end": @3.last_column};}
+    | shape_or_inputText
+        {$$ = {"type": "", "adj": $1, "pos": @1.first_column, "end": @1.last_column};}
     | IT
         {$$ = {"type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
     | ref
@@ -456,10 +463,14 @@ relation
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": ">"};}
     | object AT object D direction
         {$$ = {"type": "direction", "obj_1": $1, "obj_2": $3, "direction": $5};}
-    | uncomputableValue EQUAL constValue
-        {$$ = {"type": "assignment", "left_value": $1, "right_value": $3};}
+    // | uncomputableValue EQUAL constValue
+    //     {$$ = {"type": "assignment", "left_value": $1, "right_value": $3};}
     | uncomputableValue IS constValue
         {$$ = {"type": "assignment", "left_value": $1, "right_value": $3};}
+    | uncomputableValue EQUAL uncomputableValue
+        {$$ = {"type": "assignment-eq", "left_value": $1, "right_value": $3};}
+    // | uncomputableValue IS uncomputableValue
+    //     {$$ = {"type": "assignment", "left_value": $1, "right_value": $3};}
     ;
 
 predicate
@@ -491,22 +502,22 @@ adverbial
         {$$ = {"type": "computable", "value": $2};}
     | IS uncomputableValue
         {$$ = {"type": "uncomputable", "value": $2};}
-    | IS not_ref color
-        {$$ = {"type": "color", "value": $3};}
-    | IS not_ref color_or_not shape
-        {$$ = {"type": "shape", "value": $4};}
-    | IS not_ref color_or_not INPUTTEXT
-        {$$ = {"type": "text", "value": $4};}
+    | IS color
+        {$$ = {"type": "color", "value": $2};}
+    | IS shape
+        {$$ = {"type": "shape", "value": $2};}
+    | IS INPUTTEXT
+        {$$ = {"type": "text", "value": $2};}
     | EQUAL value
         {$$ = {"type": "computable", "value": $2};}
     | EQUAL uncomputableValue
         {$$ = {"type": "uncomputable", "value": $2};}
-    | EQUAL not_ref color
-        {$$ = {"type": "color", "value": $3};}
-    | EQUAL not_ref color_or_not shape
-        {$$ = {"type": "shape", "value": $4};}
-    | EQUAL not_ref color_or_not INPUTTEXT
-        {$$ = {"type": "text", "value": $4};}
+    | EQUAL color
+        {$$ = {"type": "color", "value": $2};}
+    | EQUAL shape
+        {$$ = {"type": "shape", "value": $2};}
+    | EQUAL INPUTTEXT
+        {$$ = {"type": "text", "value": $2};}
     | adverb
         {$$ = {"type": "adverb", "value": $1};}
     ;
