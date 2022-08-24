@@ -80,6 +80,9 @@
 "圆形"                   return 'CIRCLE'
 "元素"                   return 'ELEMENT'
 "把"                     return 'LET'
+"连接"                   return 'CONNECT'
+"从"                     return 'FROM'
+"指向"                   return 'TO'
 
 "一点"                   return 'BIT'
 "分之一"                 return 'FRACTION'
@@ -96,7 +99,7 @@
 
 
 // [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'INPUTTEXT'
-[\u4e00-\u9fa5A-Za-z0123456789]+?(?=[和的到往在为使深浅大小红粉紫蓝青蓝黄橙棕灰色它这那个\n])            return 'INPUTTEXT'
+[\u4e00-\u9fa5A-Za-z0123456789]+?(?=[和的到往在为使深浅大小红粉紫蓝青蓝黄橙棕灰色它这那个指向\n])            return 'INPUTTEXT'
 
 
 "\n"                     return 'BREAK_LINE'
@@ -128,30 +131,24 @@
 //     ;
 
 expressions
-    : predicate target adverbial EOF
-        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined});
-          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined}; }
-    | predicate target adverbial FOR conditions EOF
-        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": $5});
-          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": $5}; }
-    | predicate target FOR conditions EOF
-        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": $4});
-          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": $4}; }
-    | predicate target EOF
-        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined});
-          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined}; }
-    | LET target predicate adverbial FOR conditions EOF
-        { console.log({"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": $6});
-          return {"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": $6}; }
-    | LET target predicate adverbial EOF
-        { console.log({"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined});
-          return {"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined}; }
-    | adverbial predicate target EOF
-        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined});
-          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined}; }
-    | adverbial predicate target FOR conditions EOF
-        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": $5});
-          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": $5}; }
+    : NEW CONNECT object AND object D ARROW EOF
+        { console.log({"type": "arrow", "obj_1": $3, "obj_2": $5});
+          return {"type": "arrow", "obj_1": $3, "obj_2": $5}; }
+    | NEW not_ref ARROW CONNECT object AND object EOF
+        { console.log({"type": "arrow", "obj_1": $5, "obj_2": $7});
+          return {"type": "arrow", "obj_1": $5, "obj_2": $7}; }
+    | NEW FROM object TO object D ARROW EOF
+        { console.log({"type": "arrow", "obj_1": $3, "obj_2": $5});
+          return {"type": "arrow", "obj_1": $3, "obj_2": $5}; }
+    | NEW not_ref ARROW FROM object TO object EOF
+        { console.log({"type": "arrow", "obj_1": $5, "obj_2": $7});
+          return {"type": "arrow", "obj_1": $5, "obj_2": $7}; }
+    | NEW FROM object DAO object D ARROW EOF
+        { console.log({"type": "arrow", "obj_1": $3, "obj_2": $5});
+          return {"type": "arrow", "obj_1": $3, "obj_2": $5}; }
+    | NEW not_ref ARROW FROM object DAO object EOF
+        { console.log({"type": "arrow", "obj_1": $5, "obj_2": $7});
+          return {"type": "arrow", "obj_1": $5, "obj_2": $7}; }
     ;
 
 FILLER
@@ -189,48 +186,11 @@ shape
 constValue
     : color
         {$$ = {"type": "color", "val": $1};}
-    // | const
-    //     {$$ = {"type": "const", "val": $1};}
     | shape
         {$$ = {"type": "shape", "val": $1};}
     | INPUTTEXT
         {$$ = {"type": "text", "val": $1};}
     ;
-
-// attrName
-//     : COLOR
-//         {$$ = "color"}
-//     | TEXT
-//         {$$ = "text"}
-//     | SHAPE
-//         {$$ = "shape"}
-//     ;
-
-// adjective
-//     : attrName EQUAL constValue
-//         {$$ = {"type": $1, "val": $3};}
-//     | attrName IS constValue
-//         {$$ = {"type": $1, "val": $3};}
-//     | color
-//         {$$ = {"type": "color", "val": $1};}
-//     ;
-
-// noun
-//     : shape
-//         {$$ = {"type": "shape", "val": $1};}
-//     | ELEMENT
-//         {$$ = {"type": "", "val": $1};}
-//     | INPUTTEXT
-//         {$$ = {"type": "text", "val": $1};}
-//     ;
-
-// adjectives
-//     : adjectives FILLER adjective
-//         {$1.push($3);
-//          $$ = $1; }
-//     | adjective
-//         {$$ = [$1]}
-//     ;
 
 color_or_not
     : color 
@@ -249,21 +209,6 @@ shape_or_inputText
     ;
 
 object
-    // : ref adjectives FILLER noun
-    //     {$2.push($4);
-    //      let pos_1 = $1 ? @1.first_column : @2.first_column;
-    //      $$ = {"type": $1, "adj": $2, "pos": pos_1, "end": @4.last_column};}
-    // | ref noun
-    //     {let pos_2 = $1 ? @1.first_column : @2.first_column;
-    //      $$ = {"type": $1, "adj": [$2], "pos": pos_2, "end": @2.last_column};}
-    // | ref adjectives D
-    //     {let pos_3 = $1 ? @1.first_column : @2.first_column;
-    //      $$ = {"type": $1, "adj": [$2], "pos": pos_3, "end": @3.last_column};}
-    // | IT
-    //     {$$ = {"type": "it", "adj": [], "pos": @1.first_column, "end": @1.last_column};}
-    // ;
-    // : ref_or_not color_or_not FILLER shape_or_inputText
-    //     {$$ = {"obj": $2, "adj": [$2, $4], "pos": @1.first_column, "end": @1.last_column};}
     : not_ref color_or_not shape_or_inputText
         {let pos_1 = $1 ? @1.first_column : ($2 ? @2.first_column : @3.first_column);
          $3.push($2);
@@ -432,8 +377,6 @@ value
         {$$ = {"val_1": $1, "val_2": $3, "type": "diff"};}
     | value AND value D AND
         {$$ = {"val_1": $1, "val_2": $3, "type": "sum"};}
-    | value AND value D MIDDLE
-        {$$ = {"val_1": $1, "val_2": $3, "type": "middle"};}
     | object D computableAttribute
         {$$ = {"obj": $1, "type": "single", "val": $3};}
     | object AND object D doubleAttribute
@@ -447,8 +390,6 @@ uncomputableValue
 
 relation
     : value EQUAL value
-        {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "="};}
-    | value IS value
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "="};}
     | value LEQ value
         {$$ = {"type": "equation", "val_1": $1, "val_2": $3, "op": "<"};}
