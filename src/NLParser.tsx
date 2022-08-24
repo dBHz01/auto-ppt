@@ -436,8 +436,14 @@ class ControllerOp {
     // 赋成的属性
     assignAttr?: AttributePlaceholder;
 
-    // 赋成的常值(当前仅为string)
-    assignConst?: string;
+    // 赋成的文字
+    assignText?: string;
+
+    // 赋成的颜色
+    assignColor?: string;
+
+    // 赋成的形状
+    assignShape?: ElementType;
 
     // 附加条件，仅仅支持对位置属性的运算
     extraEqs?: EqPlaceholder[];
@@ -450,7 +456,7 @@ class ControllerOp {
 
 
 
-    static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc'];
+    static POSSIBLE_ATTRS = ['size', 'height', 'width', 'color', 'text', 'horiloc', 'vertiloc', 'shape'];
     static POSSIBLE_BI_ATTRS = ['horidist', 'vertidist'/*, 'dist'*/];
     static specialIDForTmpNew = 65535;
     static tmpNew = new SingleElement(ControllerOp.specialIDForTmpNew, ElementType.RECTANGLE, 'tmpNew');
@@ -523,12 +529,28 @@ class ControllerOp {
     
             // 解析修改为xx色
             if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'color') {
-                this.assignConst = obj['adverbial']['value'];
+                this.assignColor = obj['adverbial']['value'];
             }
     
             // 解析修改为xxx（文字）
             if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'text') {
-                this.assignConst = obj['adverbial']['value'];
+                this.assignText = obj['adverbial']['value'];
+            }
+
+            // 解析修改为x形（形状）
+            if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'shape') {
+                switch (obj['adverbial']['value']) {
+                    case "rect":
+                        this.assignShape = ElementType.RECTANGLE;
+                        break;
+
+                    case "circle":
+                        this.assignShape = ElementType.CIRCLE;
+                        break;
+                
+                    default:
+                        break;
+                }
             }
     
             // 解析附加条件
@@ -947,7 +969,7 @@ class ControllerOp {
             // 元素不支持直接赋值
             assert(this.assignValue === undefined);
             assert(this.assignAttr === undefined);
-            assert(this.assignConst === undefined); 
+            assert(this.assignText === undefined); 
 
             if(this.extraEqs != undefined){
                 this.extraEqs.forEach((eq)=>{
@@ -1019,7 +1041,7 @@ class ControllerOp {
             assert(this.dec === false); 
             assert(this.assignValue == undefined);
             assert(this.assignAttr == undefined);
-            assert(this.assignConst == undefined);
+            assert(this.assignText == undefined);
         } else if(this.targetAttr != undefined){
             assert(this.pos == undefined); // 
             let actualTgt = this.targetAttr.element!.actualEle!.getAttribute(this.targetAttr.name!)!;
@@ -1047,9 +1069,9 @@ class ControllerOp {
                 eleAttrMod.set(actualTgt, tgtVal);
             }
 
-            if(this.assignConst != undefined){
+            if(this.assignText != undefined){
                 assert(this.targetAttr.name === 'text');
-                eleAttrMod.set(actualTgt, this.assignConst);
+                eleAttrMod.set(actualTgt, this.assignText);
             }
         } else if(this.targetRelation != undefined){
             assert(this.pos == undefined);
@@ -1062,7 +1084,7 @@ class ControllerOp {
             }
 
             assert(this.assignAttr == undefined);
-            assert(this.assignConst == undefined);
+            assert(this.assignText == undefined);
         }
 
         if(this.extraEqs != undefined){
