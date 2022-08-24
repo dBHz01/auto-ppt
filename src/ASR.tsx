@@ -14,8 +14,19 @@ class ASR {
         this.sr.onresult = (ev)=>{
             this.res = ev.results[0][0].transcript
                 .replaceAll('举行', '矩形')
+                .replaceAll('局行', '矩形')
                 .replaceAll('兴建', '新建')
+                .replaceAll('新晋', '新建')
+                .replaceAll('梦境', '新建')
+                .replaceAll('是得', '使得')
+                .replaceAll('数值', '竖直')
+                .replaceAll('数据', '竖直')
+                .replaceAll('监控', '箭头')
+                .replaceAll('大象', '大小')
+                .replaceAll('人住', '元素')
+                .replaceAll('一栋', '移动')
                 .replaceAll('他', '它')
+                .replaceAll('她', '它')
             console.log(this.res)
             cb(this.res, this.finished);
         }

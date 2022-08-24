@@ -910,8 +910,8 @@ class HelperGUI extends React.Component {
             let color = ele.getCertainAttribute("color").val.val + "-" + ele.getCertainAttribute("lightness").val.val.toString()
             if(ele.type === ElementType.RECTANGLE){
                 return <Rect
-                    x={(attrVMap.get('x')! - ele.getAttrVal('w', 50)) * HelperGUI.ratio}
-                    y={(attrVMap.get('y')! - ele.getAttrVal('h', 50)) *  HelperGUI.ratio }
+                    x={(attrVMap.get('x')! - ele.getAttrVal('w', 50) / 2) * HelperGUI.ratio}
+                    y={(attrVMap.get('y')! - ele.getAttrVal('h', 50) / 2) *  HelperGUI.ratio }
                     width={ele.getAttrVal('w', 50) * HelperGUI.ratio}
                     height={ele.getAttrVal('h', 50) * HelperGUI.ratio}
                     fill={ALLCOLORS[color]}

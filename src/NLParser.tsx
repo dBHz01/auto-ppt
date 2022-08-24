@@ -31,8 +31,9 @@ class ElementPlaceholder {
                 eleType = ElementType.CIRCLE;
             }
             this.attrRequires.set('type', eleType);
+        } else {
+            this.attrRequires.set(k, v);
         }
-        this.attrRequires.set(k, v);
         return this;
     }
 }
@@ -686,12 +687,6 @@ class ControllerOp {
             let allElements = [... con.elements.values()].filter((ele)=>ele.id > 0);
             // 根据requires筛选所有的元素
             allElements =  allElements.filter((ele)=>this.elementSatisfyRequires(ele, elePh.attrRequires));
-            if(allElements.length === 0){
-                eleIds.push('UNKNOWN');
-                console.warn("没有找到满足条件的元素，具体信息如下：");
-                console.warn(elePh);
-                return;
-            }
             if(! elePh.ref){ // 没有使用路径
                 if(elePh.attrRequires.size === 0 && lastIt != undefined){
                     eleIds.push(lastIt);
@@ -704,6 +699,12 @@ class ControllerOp {
                     if(!this.elementPhSatisfyRequires(possibleNewCreate, elePh.attrRequires)){
                         possibleNewCreate = undefined;
                     }
+                }
+                if(allElements.length === 0){
+                    eleIds.push('UNKNOWN');
+                    console.warn("没有找到满足条件的元素，具体信息如下：");
+                    console.warn(elePh);
+                    return;
                 }
                 if(allElements.length === 1){
                     if(elePh.attrRequires.size === 0){
@@ -744,6 +745,12 @@ class ControllerOp {
                 eleIds.push(`${allElements[0].id}`);
                 return;
             } else {
+                if(allElements.length === 0){
+                    eleIds.push('UNKNOWN');
+                    console.warn("没有找到满足条件的元素，具体信息如下：");
+                    console.warn(elePh);
+                    return;
+                }
                 // 使用路径进行额外的处理
                 // 找到与路径中点最近的元素
                 // 如果使用路径的话，不可能去指代一个还没有出现的元素
@@ -784,6 +791,11 @@ class ControllerOp {
                 attrName = 'text';
             }
 
+            if(attrName === 'type'){
+                if(element.type !== attrValue){
+                    return false;
+                }
+            } else
             // 做更多的输入文本和内部取值的映射；
             // 也可能是在另外地方处理
             if(element.attributes.get(attrName)?.val.val !== attrValue){
@@ -979,7 +991,16 @@ class ControllerOp {
                         console.warn("新建过程中仅允许额外调整新建元素的属性");
                         return;
                     }
-                    newEleAttrs.set(attrPh.name!, attrVal);
+                    if(attrPh.name === 'shape'){
+                        let v = ElementType.RECTANGLE;
+                        if(attrVal === 'circle'){
+                            v = ElementType.CIRCLE;
+                        }
+                        newEleAttrs.set('type', v);
+                    } else {
+                        newEleAttrs.set(attrPh.name!, attrVal);
+                    }
+                    
                 })
             }
         } else {
@@ -1057,8 +1078,6 @@ class ControllerOp {
                         eleAttrMod.set(actualTgt, tgtVal);
                     }
                 }
-
-                
             }
 
             if(this.assignValue != undefined){
@@ -1071,7 +1090,6 @@ class ControllerOp {
 
             if(this.assignAttr != undefined){
                 assert(this.targetAttr.name !== 'x' && this.targetAttr.name !== 'y');
-                
                 if(this.targetAttr.name === 'size' && this.assignAttr.name === 'size'){
                     let wAttr = this.targetAttr.element?.actualEle?.getAttribute('w');
                     let tgtWVal = this.assignAttr.element?.actualEle?.getAttrVal('w', undefined);
