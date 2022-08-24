@@ -162,6 +162,62 @@ expressions
     | adverbial predicate target FOR conditions remain EOF
         { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": $5, "remain": $6});
           return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": $5, "remain": $6}; }
+
+    | remain predicate target adverbial EOF
+        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $4, "conditions": undefined, "remain": $1});
+          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $4, "conditions": undefined, "remain": $1}; }
+    | remain predicate target adverbial FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $4, "conditions": $6, "remain": $1});
+          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $4, "conditions": $6, "remain": $1}; }
+    | remain predicate target FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": undefined, "conditions": $5, "remain": $1});
+          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": undefined, "conditions": $5, "remain": $1}; }
+    | remain predicate FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $2, "target": undefined, "adverbial": undefined, "conditions": $4, "remain": $1});
+          return {"type": "simple", "predicate": $2, "target": undefined, "adverbial": undefined, "conditions": $4, "remain": $1}; }
+    | remain predicate target EOF
+        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": undefined, "conditions": undefined, "remain": $1});
+          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": undefined, "conditions": undefined, "remain": $1}; }
+    | remain LET target predicate adverbial FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $4, "target": $3, "adverbial": $5, "conditions": $7, "remain": $1});
+          return {"type": "simple", "predicate": $4, "target": $3, "adverbial": $5, "conditions": $7, "remain": $1}; }
+    | remain LET target predicate adverbial EOF
+        { console.log({"type": "simple", "predicate": $4, "target": $3, "adverbial": $5, "conditions": undefined, "remain": $1});
+          return {"type": "simple", "predicate": $4, "target": $3, "adverbial": $5, "conditions": undefined, "remain": $1}; }
+    | remain adverbial predicate target EOF
+        { console.log({"type": "simple", "predicate": $3, "target": $4, "adverbial": $2, "conditions": undefined, "remain": $1});
+          return {"type": "simple", "predicate": $3, "target": $4, "adverbial": $2, "conditions": undefined, "remain": $1}; }
+    | remain adverbial predicate target FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $3, "target": $4, "adverbial": $2, "conditions": $6, "remain": $1});
+          return {"type": "simple", "predicate": $3, "target": $4, "adverbial": $2, "conditions": $6, "remain": $1}; }
+    
+    | predicate target adverbial EOF
+        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined, "remain": undefined});
+          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": undefined, "remain": undefined}; }
+    | predicate target adverbial FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": $5, "remain": undefined});
+          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": $3, "conditions": $5, "remain": undefined}; }
+    | predicate target FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": $4, "remain": undefined});
+          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": $4, "remain": undefined}; }
+    | predicate FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $1, "target": undefined, "adverbial": undefined, "conditions": $3, "remain": undefined});
+          return {"type": "simple", "predicate": $1, "target": undefined, "adverbial": undefined, "conditions": $3, "remain": undefined}; }
+    | predicate target EOF
+        { console.log({"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined, "remain": undefined});
+          return {"type": "simple", "predicate": $1, "target": $2, "adverbial": undefined, "conditions": undefined, "remain": undefined}; }
+    | LET target predicate adverbial FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": $6, "remain": undefined});
+          return {"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": $6, "remain": undefined}; }
+    | LET target predicate adverbial EOF
+        { console.log({"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined, "remain": undefined});
+          return {"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined, "remain": undefined}; }
+    | adverbial predicate target EOF
+        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined, "remain": undefined});
+          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined, "remain": undefined}; }
+    | adverbial predicate target FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": $5, "remain": undefined});
+          return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": $5, "remain": undefined}; }
     ;
 
 FILLER
@@ -303,7 +359,7 @@ object
 objects
     : objects AND object
         {
-         $1.push($2);
+         $1.push($3);
          $$ = $1;
         }
     | object
@@ -552,6 +608,4 @@ remain
         { $$ = $2; }
     | REMAIN OTHER NOCHANGE
         { $$ = "other"; }
-    | 
-        { $$ = undefined; }
     ;
