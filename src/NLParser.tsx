@@ -1125,6 +1125,8 @@ class ControllerOp {
                     eleAttrMod.set(wAttr!, tgtWVal);
                     eleAttrMod.set(hAttr!, tgtHVal);
 
+                } else if(this.targetAttr.name === 'shape' && this.assignAttr.name === 'shape'){
+                    eleTypeMod.set(this.targetAttr.element!.actualEle!, this.assignAttr.element!.actualEle!.type)
                 } else {
                     let tgtVal = this.assignAttr.getActualAttr()!.val.val;
                     eleAttrMod.set(actualTgt, tgtVal);
@@ -1184,7 +1186,15 @@ class ControllerOp {
 
         if(this.extraMap != undefined){
             this.extraMap.forEach((val, attrPh)=>{
-                eleAttrMod.set(attrPh.getActualAttr()!, val);
+                if(attrPh.name === 'shape'){
+                    let tgtType = ElementType.RECTANGLE;
+                    if(val === 'circle'){
+                        tgtType = ElementType.CIRCLE;
+                    }
+                    eleTypeMod.set(attrPh.element!.actualEle!, tgtType);
+                } else {
+                    eleAttrMod.set(attrPh.getActualAttr()!, val);
+                }
             })
         }
 
