@@ -361,8 +361,11 @@ break;
 case 102:
 this.$ = {"type": "direction", "obj_1": $$[$0-4], "obj_2": $$[$0-2], "direction": $$[$0]};
 break;
-case 103: case 104:
+case 103:
 this.$ = {"type": "assignment", "left_value": $$[$0-2], "right_value": $$[$0]};
+break;
+case 104:
+this.$ = {"type": "assignment-eq", "left_value": $$[$0-2], "right_value": $$[$0]};
 break;
 case 105:
 this.$ = "new";
