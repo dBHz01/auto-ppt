@@ -369,8 +369,13 @@ class NLParser {
         return ret;
     }
 
-    conductOnController(con: Controller, uttrObj: { [key: string]: any }) {
-
+    convertRelationToAttrMap(relation: { [key: string]: any }): Map<AttributePlaceholder, AttributePlaceholder> {
+        console.log(relation);
+        let ret = new Map<AttributePlaceholder, AttributePlaceholder>();
+        let leftValue = this.convertObjToAttr(relation["left_value"]);
+        let rightValue = this.convertObjToAttr(relation["right_value"])
+        ret.set(leftValue, rightValue);
+        return ret;
     }
 }
 
@@ -462,6 +467,7 @@ class ControllerOp {
     extraEqs?: EqPlaceholder[];
     extraRanges?: EqPlaceholder[];
     extraMap?: Map<AttributePlaceholder, string>;
+    extraAttrMap?: Map<AttributePlaceholder, AttributePlaceholder>;
 
     // 箭头
     arrowFrom?: ElementPlaceholder;
@@ -583,8 +589,16 @@ class ControllerOp {
                         eqList.push(nlParser.convertRelationToEq(condition));
                     } else if (condition["type"] === "assignment-eq") {
                         // TODO
+                        if (this.extraAttrMap == undefined) {
+                            this.extraAttrMap = new Map<AttributePlaceholder, AttributePlaceholder>();
+                        }
+                        let newAttrMap = nlParser.convertRelationToAttrMap(condition);
+                        for (let i of newAttrMap.entries()) {
+                            this.extraAttrMap.set(i[0], i[1]);
+                        }
                     }
                 }
+
                 eqList.forEach((eq) => {
                     if (eq.op === AssignOp.eq) {
                         if (this.extraEqs == undefined) {
@@ -696,6 +710,17 @@ class ControllerOp {
             this.extraMap.forEach((_, attrPh)=>{
                 if(attrPh.element != undefined){
                     elePhSet.add(attrPh.element);
+                }
+            })
+        }
+
+        if(this.extraAttrMap != undefined){
+            this.extraAttrMap.forEach((v, k)=>{
+                if(v.element != undefined){
+                    elePhSet.add(v.element);
+                }
+                if(k.element != undefined){
+                    elePhSet.add(k.element);
                 }
             })
         }
@@ -924,6 +949,17 @@ class ControllerOp {
             })
         }
 
+        if(this.extraAttrMap != undefined){
+            this.extraAttrMap.forEach((v, k)=>{
+                if(k.element?.ref){
+                    toUseTraceObj.push(k.element);
+                }
+                if(v.element?.ref){
+                    toUseTraceObj.push(v.element);
+                }
+            })
+        }
+
         assert(toUseTraceObj.length <= traces.length);
         toUseTraceObj.sort((a, b)=>{
             let pos1 = 0;
@@ -1027,6 +1063,35 @@ class ControllerOp {
                     
                 })
             }
+
+            if(this.extraAttrMap != undefined){
+                this.extraAttrMap.forEach((sourceAttrPh, tgtAttrPh)=>{
+                    if(elePh2id.get(tgtAttrPh.element!) != 'new'){
+                        console.warn("新建过程中仅允许额外调整新建元素的属性");
+                        return;
+                    }
+                    if(tgtAttrPh.name === 'size'){
+                        // 扩展为长宽两个
+                        let sourceEle = sourceAttrPh.element!.actualEle;
+                        newEleAttrs.set('w', sourceEle?.getAttrVal('w', undefined));
+                        newEleAttrs.set('h', sourceEle?.getAttrVal('h', undefined));
+                    } else if(tgtAttrPh.name === 'color'){
+                        // 拓展为颜色&亮度
+                        let sourceEle = sourceAttrPh.element!.actualEle;
+                        newEleAttrs.set('color', sourceEle?.getAttrVal('color', undefined));
+                        newEleAttrs.set('lightness', sourceEle?.getAttrVal('lightness', undefined));
+                    } else if(tgtAttrPh.name === 'shape'){
+                        // 转化为对应的ElementType
+                        let sourceType = sourceAttrPh.element?.actualEle?.type;
+                        newEleAttrs.set('type', sourceType);
+                    } else {
+                        // 默认处理
+                        let sourceVal = sourceAttrPh.getActualAttr()?.val.val;
+                        newEleAttrs.set(tgtAttrPh.name!, sourceVal);
+                    }
+                })
+            }
+
         } else {
             throw Error('新建指令的目标必然要是一个element');
         }
@@ -1194,6 +1259,30 @@ class ControllerOp {
                     eleTypeMod.set(attrPh.element!.actualEle!, tgtType);
                 } else {
                     eleAttrMod.set(attrPh.getActualAttr()!, val);
+                }
+            })
+        }
+
+        if(this.extraAttrMap != undefined){
+            this.extraAttrMap.forEach((sourceAttrPh, tgtAttrPh)=>{
+                if(tgtAttrPh.name === 'shape'){
+                    eleTypeMod.set(tgtAttrPh.element!.actualEle!, sourceAttrPh.element!.actualEle!.type);
+                } else if (tgtAttrPh.name === 'size'){
+                    let tgtAttrW = tgtAttrPh.element!.actualEle!.getAttribute('w');
+                    let tgtAttrH = tgtAttrPh.element!.actualEle!.getAttribute('h');
+                    let sourceWVal = sourceAttrPh.element!.actualEle!.getAttrVal('w', undefined);
+                    let sourceHVal = sourceAttrPh.element!.actualEle!.getAttrVal('h', undefined);
+                    eleAttrMod.set(tgtAttrW!, sourceWVal);
+                    eleAttrMod.set(tgtAttrH!, sourceHVal);
+                } else if (tgtAttrPh.name === 'color'){
+                    let tgtAttrL = tgtAttrPh.element!.actualEle!.getAttribute('lightness');
+                    let tgtAttrC = tgtAttrPh.element!.actualEle!.getAttribute('color');
+                    let sourceLVal = sourceAttrPh.element!.actualEle!.getAttrVal('lightness', undefined);
+                    let sourceCVal = sourceAttrPh.element!.actualEle!.getAttrVal('color', undefined);
+                    eleAttrMod.set(tgtAttrL!, sourceLVal);
+                    eleAttrMod.set(tgtAttrC!, sourceCVal);
+                } else {
+                    eleAttrMod.set(tgtAttrPh.getActualAttr()!, sourceAttrPh.getActualAttr()?.val.val);
                 }
             })
         }

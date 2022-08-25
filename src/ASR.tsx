@@ -25,8 +25,10 @@ class ASR {
                 .replaceAll('大象', '大小')
                 .replaceAll('人住', '元素')
                 .replaceAll('一栋', '移动')
+                .replaceAll('不该', '修改')
                 .replaceAll('他', '它')
                 .replaceAll('她', '它')
+                .replaceAll('达', '大')
             console.log(this.res)
             cb(this.res, this.finished);
         }

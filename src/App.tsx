@@ -1657,6 +1657,30 @@ class App extends Component {
             if(raw_traces == undefined){
                 raw_traces = this.traces;
             }
+
+            uttr = uttr.replaceAll('两', '二')
+            
+            // uttr 预处理
+            if(uttr.includes('使得')){
+                let splitIdx = uttr.indexOf('使得');
+                let firstHalf = uttr.slice(0, splitIdx);
+                let secondHalf = uttr.slice(splitIdx + 2);
+                let processedSecond = secondHalf.split('且').map((s)=>{
+                    if(s.includes('等于')){
+                        if(!s.split('等于')[1].includes('的')){
+                            return s.replaceAll('等于', '为')
+                        }
+                    } else if(s.includes('为')){
+                        if(s.split('为')[1].includes('的')){
+                            return s.replaceAll('为', '等于')
+                        }
+                    }
+                    return s;
+                }).join();
+
+                uttr = firstHalf + '使得' + processedSecond;
+            }
+
             
             uttr = uttr + "\n";
             console.log(uttr);
