@@ -1689,7 +1689,7 @@ class App extends Component {
 
                 let parseRes: any;
     
-                if (uttr.includes("箭头")) {
+                if (uttr.includes("箭头") || uttr.includes("线")) {
                     parseRes = new ArrowParser().parse(uttr);
                     console.log(parseRes);
                 } else {
@@ -1699,8 +1699,23 @@ class App extends Component {
                 let conOp = new ControllerOp(parseRes, raw_traces);
                 if(conOp.isCreate){
                     conOp.executeOnControllerNewEle(Controller.getInstance());
-                } else if (conOp.isArrow) {
-                    conOp.executeOnAddArrow(Controller.getInstance());
+                } else if (conOp.isArrow || conOp.isLine) {
+                    switch (conOp.arrowOperation) {
+                        case "new":
+                            conOp.executeOnAddArrow(Controller.getInstance());
+                            break;
+
+                        case "delete":
+                            conOp.executeOnDeleteArrow(Controller.getInstance());
+                            break;
+
+                        case "change":
+                            conOp.executeOnChangeArrow(Controller.getInstance());
+                            break;
+                    
+                        default:
+                            break;
+                    }
                 } else {
                     conOp.executeOnControllerModify(Controller.getInstance());
                 }

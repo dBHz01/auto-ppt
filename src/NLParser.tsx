@@ -1,6 +1,6 @@
 import assert, { throws } from 'assert';
 import { arg, max, min } from 'mathjs';
-import { AssignOp, Attribute, Controller, FuncTree, SingleElement, str2AssignOp, String2OP, allPossibleShape, OperatorNode, Operator, Trace, ElementType, RawNumber, Equation } from './components/backend'
+import { AssignOp, Attribute, Controller, FuncTree, SingleElement, str2AssignOp, String2OP, allPossibleShape, OperatorNode, Operator, Trace, ElementType, RawNumber, Equation, RawNumberNoCal } from './components/backend'
 class ElementPlaceholder {
     // 表示一个待定的元素
     // 如果不使用指点（useTrace === false），并且属性要求为空，说明用户简单地使用“它”、“这/那”指代
@@ -433,7 +433,11 @@ class PosToElement {
 
 class ControllerOp {
     isCreate: boolean = false; // 是否新建元素
-    isArrow: boolean = false; // 是否新建箭头
+    isArrow: boolean = false; // 是否箭头操作
+    isLine: boolean = false; // 是否直线操作
+
+    arrowOperation?: string; // 箭头/直线操作
+    dashed?: boolean; // 是否虚线
 
     allElements: ElementPlaceholder[];
     targetElement?: ElementPlaceholder;
@@ -625,6 +629,18 @@ class ControllerOp {
             }
         } else if (obj["type"] === "arrow") {
             this.isArrow = true;
+            this.arrowOperation = obj["operation"];
+            if (this.arrowOperation === "change") {
+                this.dashed = obj["dash"];
+            }
+            this.arrowFrom = nlParser.convertObjToElement(obj["obj_1"]);
+            this.arrowTo = nlParser.convertObjToElement(obj["obj_2"]);
+        } else if (obj["type"] === "line") {
+            this.isLine = true;
+            this.arrowOperation = obj["operation"];
+            if (this.arrowOperation === "change") {
+                this.dashed = obj["dash"];
+            }
             this.arrowFrom = nlParser.convertObjToElement(obj["obj_1"]);
             this.arrowTo = nlParser.convertObjToElement(obj["obj_2"]);
         }
@@ -1372,7 +1388,30 @@ class ControllerOp {
     executeOnAddArrow(con: Controller) {
         let traceUseInfo = this.obj2trace;
         let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
-        con.addArrow(Number(elePh2id.get(this.arrowFrom!)), Number(elePh2id.get(this.arrowTo!)))
+        let newArrow = con.addArrow(Number(elePh2id.get(this.arrowFrom!)), Number(elePh2id.get(this.arrowTo!)))
+        if (this.isLine) {
+            con.addAttribute(newArrow.id, "pointerAtBeginning", new RawNumberNoCal(false));
+            con.addAttribute(newArrow.id, "pointerAtEnding", new RawNumberNoCal(false));
+        }
+    }
+
+    executeOnDeleteArrow(con: Controller) {
+        let traceUseInfo = this.obj2trace;
+        let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
+        let fromId = Number(elePh2id.get(this.arrowFrom!));
+        let toId = Number(elePh2id.get(this.arrowTo!));
+        con.deleteArrow(con.findArrow(fromId, toId).id);
+    }
+
+    executeOnChangeArrow(con: Controller) {
+        let traceUseInfo = this.obj2trace;
+        let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
+        let fromId = Number(elePh2id.get(this.arrowFrom!));
+        let toId = Number(elePh2id.get(this.arrowTo!));
+        // let arrow = con.findArrow(fromId, toId);
+        // arrow.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.dashed), arrow));
+        let arrowId = con.findArrow(fromId, toId).id;
+        con.addAttribute(arrowId, "dashEnabled", new RawNumberNoCal(this.dashed));
     }
 
     genValForStepChange(attr:Attribute, inc:boolean): any{

@@ -11,6 +11,7 @@
 "移动"                   return 'MOVE'
 "修改"                   return 'CHANGE'
 "改"                     return 'CHANGE'
+"删除"                     return 'DELETE'
 "这个"                   return 'THIS'
 "那个"                   return 'THAT'
 "这里"                   return 'HERE'
@@ -77,12 +78,16 @@
 "形状"                   return 'SHAPE'
 "矩形"                   return 'RECT'
 "箭头"                   return 'ARROW'
+"直线"                   return 'LINE'
+"线"                     return 'LINE'
 "圆形"                   return 'CIRCLE'
 "元素"                   return 'ELEMENT'
 "把"                     return 'LET'
 "连接"                   return 'CONNECT'
 "从"                     return 'FROM'
 "指向"                   return 'TO'
+"实线"                   return 'FULLLINE'
+"虚线"                   return 'DASHLINE'
 
 "一点"                   return 'BIT'
 "分之一"                 return 'FRACTION'
@@ -130,25 +135,78 @@
 //         {$$ = $1}
 //     ;
 
+dash_or_full
+    : FULLLINE
+        { $$ = false; }
+    | DASHLINE
+        { $$ = true; }
+    ;
+
+arrow_or_line
+    : ARROW
+        { $$ = "arrow"; }
+    | LINE
+        { $$ = "line"; }
+    ;
+
 expressions
-    : NEW CONNECT object AND object D ARROW EOF
-        { console.log({"type": "arrow", "obj_1": $3, "obj_2": $5});
-          return {"type": "arrow", "obj_1": $3, "obj_2": $5}; }
-    | NEW not_ref ARROW CONNECT object AND object EOF
-        { console.log({"type": "arrow", "obj_1": $5, "obj_2": $7});
-          return {"type": "arrow", "obj_1": $5, "obj_2": $7}; }
-    | NEW FROM object TO object D ARROW EOF
-        { console.log({"type": "arrow", "obj_1": $3, "obj_2": $5});
-          return {"type": "arrow", "obj_1": $3, "obj_2": $5}; }
-    | NEW not_ref ARROW FROM object TO object EOF
-        { console.log({"type": "arrow", "obj_1": $5, "obj_2": $7});
-          return {"type": "arrow", "obj_1": $5, "obj_2": $7}; }
-    | NEW FROM object DAO object D ARROW EOF
-        { console.log({"type": "arrow", "obj_1": $3, "obj_2": $5});
-          return {"type": "arrow", "obj_1": $3, "obj_2": $5}; }
-    | NEW not_ref ARROW FROM object DAO object EOF
-        { console.log({"type": "arrow", "obj_1": $5, "obj_2": $7});
-          return {"type": "arrow", "obj_1": $5, "obj_2": $7}; }
+    : NEW CONNECT object AND object D arrow_or_line EOF
+        { console.log({"type": $7, "operation": "new", "obj_1": $3, "obj_2": $5});
+          return {"type": $7, "operation": "new", "obj_1": $3, "obj_2": $5}; }
+    | NEW not_ref arrow_or_line CONNECT object AND object EOF
+        { console.log({"type": $3, "operation": "new", "obj_1": $5, "obj_2": $7});
+          return {"type": $3, "operation": "new", "obj_1": $5, "obj_2": $7}; }
+    | NEW FROM object TO object D arrow_or_line EOF
+        { console.log({"type": $7, "operation": "new", "obj_1": $3, "obj_2": $5});
+          return {"type": $7, "operation": "new", "obj_1": $3, "obj_2": $5}; }
+    | NEW not_ref arrow_or_line FROM object TO object EOF
+        { console.log({"type": $3, "operation": "new", "obj_1": $5, "obj_2": $7});
+          return {"type": $3, "operation": "new", "obj_1": $5, "obj_2": $7}; }
+    | NEW FROM object DAO object D arrow_or_line EOF
+        { console.log({"type": $7, "operation": "new", "obj_1": $3, "obj_2": $5});
+          return {"type": $7, "operation": "new", "obj_1": $3, "obj_2": $5}; }
+    | NEW not_ref arrow_or_line FROM object DAO object EOF
+        { console.log({"type": $3, "operation": "new", "obj_1": $5, "obj_2": $7});
+          return {"type": $3, "operation": "new", "obj_1": $5, "obj_2": $7}; }
+    
+    | CHANGE CONNECT object AND object D arrow_or_line IS dash_or_full EOF
+        { console.log({"type": $7, "operation": "change", "obj_1": $3, "obj_2": $5, "dash": $9});
+          return {"type": $7, "operation": "change", "obj_1": $3, "obj_2": $5, "dash": $9}; }
+    | CHANGE not_ref arrow_or_line CONNECT object AND object IS dash_or_full EOF
+        { console.log({"type": $3, "operation": "change", "obj_1": $5, "obj_2": $7, "dash": $9});
+          return {"type": $3, "operation": "change", "obj_1": $5, "obj_2": $7, "dash": $9}; }
+    | CHANGE FROM object TO object D arrow_or_line IS dash_or_full EOF
+        { console.log({"type": $7, "operation": "change", "obj_1": $3, "obj_2": $5, "dash": $9});
+          return {"type": $7, "operation": "change", "obj_1": $3, "obj_2": $5, "dash": $9}; }
+    | CHANGE not_ref arrow_or_line FROM object TO object IS dash_or_full EOF
+        { console.log({"type": $3, "operation": "change", "obj_1": $5, "obj_2": $7, "dash": $9});
+          return {"type": $3, "operation": "change", "obj_1": $5, "obj_2": $7, "dash": $9}; }
+    | CHANGE FROM object DAO object D arrow_or_line IS dash_or_full EOF
+        { console.log({"type": $7, "operation": "change", "obj_1": $3, "obj_2": $5, "dash": $9});
+          return {"type": $7, "operation": "change", "obj_1": $3, "obj_2": $5, "dash": $9}; }
+    | CHANGE not_ref arrow_or_line FROM object DAO object IS dash_or_full EOF
+        { console.log({"type": $3, "operation": "change", "obj_1": $5, "obj_2": $7, "dash": $9});
+          return {"type": $3, "operation": "change", "obj_1": $5, "obj_2": $7, "dash": $9}; }
+    
+    | DELETE CONNECT object AND object D arrow_or_line EOF
+        { console.log({"type": $7, "operation": "delete", "obj_1": $3, "obj_2": $5});
+          return {"type": $7, "operation": "delete", "obj_1": $3, "obj_2": $5}; }
+    | DELETE not_ref arrow_or_line CONNECT object AND object EOF
+        { console.log({"type": $3, "operation": "delete", "obj_1": $5, "obj_2": $7});
+          return {"type": $3, "operation": "delete", "obj_1": $5, "obj_2": $7}; }
+    | DELETE FROM object TO object D arrow_or_line EOF
+        { console.log({"type": $7, "operation": "delete", "obj_1": $3, "obj_2": $5});
+          return {"type": $7, "operation": "delete", "obj_1": $3, "obj_2": $5}; }
+    | DELETE not_ref arrow_or_line FROM object TO object EOF
+        { console.log({"type": $3, "operation": "delete", "obj_1": $5, "obj_2": $7});
+          return {"type": $3, "operation": "delete", "obj_1": $5, "obj_2": $7}; }
+    | DELETE FROM object DAO object D arrow_or_line EOF
+        { console.log({"type": $7, "operation": "delete", "obj_1": $3, "obj_2": $5});
+          return {"type": $7, "operation": "delete", "obj_1": $3, "obj_2": $5}; }
+    | DELETE not_ref arrow_or_line FROM object DAO object EOF
+        { console.log({"type": $3, "operation": "delete", "obj_1": $5, "obj_2": $7});
+          return {"type": $3, "operation": "delete", "obj_1": $5, "obj_2": $7}; }
+
     ;
 
 FILLER
