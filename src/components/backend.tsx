@@ -2860,7 +2860,7 @@ class Controller {
         if(allCandidateComb.length > 0){
             for(let candidateComb of allCandidateComb){
                 let new_equations: Equation[] = [...newEqInExpr];
-                let unchangedAttr: Attribute[] = [];
+                // let unchangedAttr: Attribute[] = [];
                 // let inferChangedAttr: Attribute[] = [xAttr, yAttr]; 
                 
                 for(let oneNewCandidate of candidateComb){

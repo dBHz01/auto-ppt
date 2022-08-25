@@ -484,26 +484,36 @@ class ControllerOp {
     rawTraces: Array<Array<[number, number]>>;
     traces: Array<Trace>;
     
+    remainOther: boolean = false;
+    remain?: ElementPlaceholder[];
+
     constructor(obj: { [key: string]: any }, rawTraces: Array<Array<[number, number]>>) {
         this.allElements = new Array<ElementPlaceholder>();
         let nlParser = new NLParser(this.allElements)
 
         if (obj["type"] === "simple") {
             // 解析整体操作类型
-            assert(obj['predicate'] != undefined);
+            assert(obj['predicate'] != undefined)
             this.isCreate = obj['predicate'] === 'new';
-    
-            // 解析操作目标
-            assert(obj['target'] != undefined);
-            if (obj['target']['val'] === 'loc') {
-                this.targetElement = nlParser.convertObjToElement(obj['target']['obj']);
-            } else if (ControllerOp.POSSIBLE_ATTRS.includes(obj['target']['val'])) {
-                this.targetAttr = nlParser.convertObjToAttr(obj['target'])
-            } else if (ControllerOp.POSSIBLE_BI_ATTRS.includes(obj['target']['val'])) {
-                this.targetRelation = nlParser.convertValToFunc(obj['target'])
-            } else {
-                throw Error(`未知的target类型 ${obj['target']['val']}`);
+
+            if(obj['remain'] === 'other'){
+                this.remainOther = true;
+            } else if(obj['remain'] != undefined){
+                this.remain = obj['remain'].map((x: any)=>nlParser.convertObjToElement(x));
             }
+
+                // 解析操作目标
+            if(obj['target'] != undefined){
+                if (obj['target']['val'] === 'loc') {
+                    this.targetElement = nlParser.convertObjToElement(obj['target']['obj']);
+                } else if (ControllerOp.POSSIBLE_ATTRS.includes(obj['target']['val'])) {
+                    this.targetAttr = nlParser.convertObjToAttr(obj['target'])
+                } else if (ControllerOp.POSSIBLE_BI_ATTRS.includes(obj['target']['val'])) {
+                    this.targetRelation = nlParser.convertValToFunc(obj['target'])
+                } else {
+                    throw Error(`未知的target类型 ${obj['target']['val']}`);
+                }
+            } 
     
             // 解析元素的目标新建/移动到的位置
             if (obj['adverbial'] != undefined && obj['adverbial']['type'] === 'loc') {
@@ -722,6 +732,12 @@ class ControllerOp {
                 if(k.element != undefined){
                     elePhSet.add(k.element);
                 }
+            })
+        }
+
+        if(this.remain != undefined){
+            this.remain.forEach((x)=>{
+                elePhSet.add(x);
             })
         }
 
@@ -960,6 +976,14 @@ class ControllerOp {
             })
         }
 
+        if(this.remain != undefined){
+            this.remain.forEach((ele)=>{
+                if(ele.ref){
+                    toUseTraceObj.push(ele);
+                }
+            })
+        }
+
         assert(toUseTraceObj.length <= traces.length);
         toUseTraceObj.sort((a, b)=>{
             let pos1 = 0;
@@ -1119,6 +1143,7 @@ class ControllerOp {
 
         let forceUnchanged: string[] = [];
         let inferChanged: string[] = [];
+
         if(this.targetElement != undefined){
             // 位置
             if(this.pos != undefined){
@@ -1286,6 +1311,55 @@ class ControllerOp {
                 }
             })
         }
+
+        let inferChangedEle:SingleElement[] = [];
+        if(this.targetElement?.actualEle != undefined){
+            inferChangedEle.push(this.targetElement.actualEle)
+        } else if(this.targetAttr?.element?.actualEle != undefined){
+            inferChangedEle.push(this.targetAttr.element.actualEle);
+        } else {
+            [... (this.extraEqs || []), ... (this.extraRanges || [])].forEach((eq)=>{
+                [... eq.leftArgs, ...eq.rightArgs].forEach((arg)=>{
+                    if(arg.element?.actualEle){
+                        inferChangedEle.push(arg.element.actualEle);
+                    }
+                })
+            })
+        }
+
+        if(this.remainOther){
+            let allOtherEles = [... Controller.getInstance().elements.values()].filter((ele)=>{
+                if(ele.id <= 0){
+                    return false;
+                }
+                if(inferChangedEle.includes(ele)){
+                    return false;
+                }
+
+                return true;
+            })
+
+            inferChanged = inferChangedEle.flatMap((ele)=>{
+                return [`x_${ele.id}`, `y_${ele.id}`];
+            })
+
+            forceUnchanged = allOtherEles.flatMap((ele)=>{
+                return [`x_${ele.id}`, `y_${ele.id}`];
+            })
+
+        } else if(this.remain != undefined){
+            let forceUnchangedEle = new Set(this.remain.map((x)=>x.actualEle!));
+            inferChangedEle = inferChangedEle.filter(x=>!forceUnchangedEle.has(x));
+            inferChanged = inferChangedEle.flatMap((ele)=>{
+                return [`x_${ele.id}`, `y_${ele.id}`];
+            })
+            forceUnchanged = [... forceUnchangedEle].flatMap((ele)=>{
+                return [`x_${ele.id}`, `y_${ele.id}`];
+            })
+        } else {
+            // 只有用户显式提及 “不变” 才会有这个额外的处理
+        }
+
 
 
         con.handleUserModify(
