@@ -1659,7 +1659,10 @@ class App extends Component {
             }
 
             uttr = uttr.replaceAll('两', '二')
-            
+            uttr = uttr.replaceAll('并且', '且')
+            uttr = uttr.replaceAll('，', '')
+            uttr = uttr.replaceAll('。', '')
+
             // uttr 预处理
             if(uttr.includes('使得')){
                 let splitIdx = uttr.indexOf('使得');
@@ -1676,7 +1679,7 @@ class App extends Component {
                         }
                     }
                     return s;
-                }).join();
+                }).join('且');
 
                 uttr = firstHalf + '使得' + processedSecond;
             }
