@@ -52,6 +52,8 @@
     ]
   },
   "devDependencies": {
-    "@types/react-speech-recognition": "^3.9.0"
+    "@types/jszip": "^3.4.1",
+    "@types/react-speech-recognition": "^3.9.0",
+    "jszip": "^3.10.1"
   }
 }
