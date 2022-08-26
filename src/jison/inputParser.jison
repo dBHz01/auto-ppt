@@ -156,6 +156,12 @@ expressions
     | LET target predicate adverbial remain EOF
         { console.log({"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined, "remain": $5});
           return {"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined, "remain": $5}; }
+    | LET target adverbial predicate FOR conditions remain EOF
+        { console.log({"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": $6, "remain": $7});
+          return {"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": $6, "remain": $7}; }
+    | LET target adverbial predicate remain EOF
+        { console.log({"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": undefined, "remain": $5});
+          return {"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": undefined, "remain": $5}; }
     | adverbial predicate target remain EOF
         { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined, "remain": $4});
           return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined, "remain": $4}; }
@@ -212,6 +218,12 @@ expressions
     | LET target predicate adverbial EOF
         { console.log({"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined, "remain": undefined});
           return {"type": "simple", "predicate": $3, "target": $2, "adverbial": $4, "conditions": undefined, "remain": undefined}; }
+    | LET target adverbial predicate FOR conditions EOF
+        { console.log({"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": $6, "remain": undefined});
+          return {"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": $6, "remain": undefined}; }
+    | LET target adverbial predicate EOF
+        { console.log({"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": undefined, "remain": undefined});
+          return {"type": "simple", "predicate": $4, "target": $2, "adverbial": $3, "conditions": undefined, "remain": undefined}; }
     | adverbial predicate target EOF
         { console.log({"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined, "remain": undefined});
           return {"type": "simple", "predicate": $2, "target": $3, "adverbial": $1, "conditions": undefined, "remain": undefined}; }
@@ -343,7 +355,7 @@ object
         {$4.push({"type": "color", "val": $2});
          $$ = {"type": $1, "adj": $4, "pos": @1.first_column, "end": @4.last_column};}
     | color shape_or_inputText
-        {$2.push($1);
+        {$2.push({"type": "color", "val": $1});
          $$ = {"type": "", "adj": $2, "pos": @1.first_column, "end": @2.last_column};}
     | color D shape_or_inputText
         {$3.push({"type": "color", "val": $1});

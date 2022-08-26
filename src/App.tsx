@@ -3,10 +3,9 @@ import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse, Li
 import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
-import { testBackend } from './components/test_backend';
 import { Parser } from './jison/inputParser';
 import { Parser as ArrowParser } from './jison/arrowParser';
-import { Button, Tag as InputText } from 'antd';
+import { Button, Tag as AntdTag } from 'antd';
 import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
@@ -22,6 +21,7 @@ import JSZip from 'jszip';
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
 const ColorNamesCN = '红 粉 紫 蓝 青 青绿 绿 黄 橙 棕 灰 蓝灰'.split(' ');
+const { CheckableTag } = AntdTag;
 
 function delay(ms: number) {
     let crt = Date.now();
@@ -630,11 +630,14 @@ class HelperGUI extends React.Component {
     static TAG_DISP_SET = 'TAG_DISP_SET' // 展示设置内容
     static TAG_DISP_MOD = 'TAG_DISP_MOD' // 展示推荐修改内容
     static TAG_DISP_SET_GLOBAL = 'TAG_DISP_SET_GLOBAL' // 全局
+    static TAG_DISP_INS = 'TAG_DISP_INS' // 指令展示
     static ratio = 1.0 / 3.5
     state: {cdtIdx: number, selectedTag: string, 
         selectedItemId: number,
-        itemAttrObj: Map<string, any>
-        nextModifyRecommand: ModifyRecommand[]
+        itemAttrObj: Map<string, any>,
+        nextModifyRecommand: ModifyRecommand[],
+        instructionDisplay: [string[], (SingleElement | undefined)[]],
+        chosenTag: number
     };
 
     showCdtRef: React.RefObject<HTMLInputElement>;
@@ -652,7 +655,9 @@ class HelperGUI extends React.Component {
             selectedTag: HelperGUI.TAG_DISP_CDT,
             selectedItemId: -1,
             itemAttrObj: new Map(),
-            nextModifyRecommand: []
+            nextModifyRecommand: [],
+            instructionDisplay: [[], []],
+            chosenTag: -1
         }
 
         this.controller.add_switch_cdt_idx_listener((idx)=>{
@@ -1057,6 +1062,12 @@ class HelperGUI extends React.Component {
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET_GLOBAL).bind(this)}>
                 设置{this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL?"✍︎": ""}
             </div>
+
+            <div style={{flex: '1', 
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_INS? "#d6d6d6": "#ffffff"}}
+                onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_INS).bind(this)}>
+                指令展示{this.state.selectedTag === HelperGUI.TAG_DISP_INS?"✍︎": ""}
+            </div>
         </div>
     }
 
@@ -1222,6 +1233,10 @@ class HelperGUI extends React.Component {
                 return false;
             }
         })
+    }
+
+    handleCheck(tag: number, checked: boolean) {
+        console.log("checked");
     }
 
     renderGlobalTool(){
@@ -1467,6 +1482,27 @@ class HelperGUI extends React.Component {
 
     }
 
+    renderInstruction() {
+        if (this.state['selectedTag'] !== HelperGUI.TAG_DISP_INS) {
+            return null;
+        }
+        let displayArray = this.state.instructionDisplay;
+        console.log(displayArray);
+        let inputTexts = [];
+        for (let i = 0; i < displayArray[0].length; i++) {
+            if (displayArray[1][i]) {
+                inputTexts.push(
+                    <CheckableTag key={`tag-${i}`} checked={true} onChange={checked => this.handleCheck(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
+                );
+            } else {
+                inputTexts.push(
+                    <CheckableTag key={`tag-${i}`} checked={false}><div>{displayArray[0][i]}</div></CheckableTag>
+                );
+            }
+        }
+        return inputTexts;
+    }
+
     render(){
         return <div>
             {this.renderMenu()}
@@ -1474,6 +1510,7 @@ class HelperGUI extends React.Component {
             {this.renderCDT()}
             {this.renderNextMod()}
             {this.renderGlobalTool()}
+            {this.renderInstruction()}
         </div>
     }
 }
@@ -1531,7 +1568,6 @@ class App extends Component {
         Controller.getInstance(this.taskId)
 
         this.allComponentsRef = React.createRef<AllComponents>();
-        testBackend();
         // let u = new TestParser();
         // u.parse("这个红色的矩形\n");
         let p = new Parser()
@@ -1566,12 +1602,12 @@ class App extends Component {
         // x = p.parse("新建一个元素在这个元素的右边\n");
         // x = p.parse("修改这个矩形的宽度为这个矩形的水平位置和那个矩形的竖直位置的差的三分之一\n");
         */
-        let curText=("新建一个红色的元素A使它的水平位置等于A的水平位置和B的竖直位置的差的三分之一\n");
-        curText=("修改它的颜色为绿色\n");
-        let curParsedResult = p.parse(curText);
-        let c = new ControllerOp(curParsedResult!, []);
-        let curControllerOp = c;
-        console.log(c)
+        // let curText=("新建一个红色的元素A使它的水平位置等于A的水平位置和B的竖直位置的差的三分之一\n");
+        // curText=("修改它的颜色为绿色\n");
+        // let curParsedResult = p.parse(curText);
+        // let c = new ControllerOp(curParsedResult!, []);
+        // let curControllerOp = c;
+        // console.log(c)
 
         this.state = {
             curText: undefined,
@@ -1610,7 +1646,7 @@ class App extends Component {
         this.stageRef = React.createRef();
     }
 
-    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], SingleElement[]] {
+    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], (SingleElement | undefined)[]] {
         // 返回[分组后的text, 对应的element]
         if(text == undefined || parsedResult == undefined || controllerOp == undefined){
             return [[], []];
@@ -1628,10 +1664,26 @@ class App extends Component {
         allElements.sort((a, b) => {return a.pos - b.pos;});
         let ranges = splitRange(text.length, r);
         let splitText: string[] = [];
+        let allElementsWithNull: (ElementPlaceholder | undefined)[] = []
+        let cnt = 0;
         for (let i of ranges) {
             splitText.push(text.substring(i[0], i[1]));
+            if (r.includes(i)) {
+                allElementsWithNull.push(allElements[cnt]);
+                cnt += 1;
+            } else {
+                allElementsWithNull.push(undefined);
+            }
         }
-        return [splitText, allElements.map((x) => {return x.actualEle!})];
+        console.log(allElementsWithNull)
+        return [splitText, allElementsWithNull.map((x) => {
+            if (x) {
+                if (x.actualEle!.id != 65535) {
+                    return x.actualEle;
+                }
+            }
+            return undefined;
+        })];
     }
 
     nextSolution() {
@@ -1881,13 +1933,66 @@ class App extends Component {
         }
     }
 
+    handleListenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+        try {
+            let text = e.target.value + "\n";
+            let parseRes: any;
+            if (text.includes("箭头") || text.includes("线")) {
+                parseRes = new ArrowParser().parse(text);
+                console.log(parseRes);
+            } else {
+                parseRes = new Parser().parse(text);
+            }
+            let conOp = new ControllerOp(parseRes, this.traces);
+            if(conOp.isCreate){
+                conOp.executeOnControllerNewEle(Controller.getInstance(), true);
+            } else if (conOp.isArrow || conOp.isLine) {
+                switch (conOp.arrowOperation) {
+                    case "new":
+                        conOp.executeOnAddArrow(Controller.getInstance(), true);
+                        break;
+
+                    case "delete":
+                        conOp.executeOnDeleteArrow(Controller.getInstance(), true);
+                        break;
+
+                    case "change":
+                        conOp.executeOnChangeArrow(Controller.getInstance(), true);
+                        break;
+                
+                    default:
+                        break;
+                }
+            } else {
+                conOp.executeOnControllerModify(Controller.getInstance(), true);
+            }
+            let instructionDisplay = this.displayText(text, parseRes, conOp);
+            this.helpGUIRef.current?.setState({
+                instructionDisplay: instructionDisplay
+            })
+            this.helpGUIRef.current?.forceUpdate();
+        } catch (error) {
+            this.helpGUIRef.current?.setState({
+                instructionDisplay: [[], []]
+            })
+            console.log(error);
+        }
+    }
+
     render() {
         let inputTexts = [];
         let displayArray = this.displayText(this.state.curText, this.state.curParsedResult, this.state.curControllerOp)
-        for (let i in displayArray) {
-            inputTexts.push(
-                <InputText key={`tag-${i}`}><div>{displayArray[0][i]}</div></InputText>
-            );
+        // console.log(displayArray);
+        for (let i in displayArray[0]) {
+            if (displayArray[1][i]) {
+                inputTexts.push(
+                    <AntdTag key={`tag-${i}`} color="red"><div>{displayArray[0][i]}</div></AntdTag>
+                );
+            } else {
+                inputTexts.push(
+                    <AntdTag key={`tag-${i}`}><div>{displayArray[0][i]}</div></AntdTag>
+                );
+            }
         }
         return (
             <div style={{display: 'flex', flexDirection: 'column', overflow: 'hidden', position:'fixed', touchAction: 'none', overscrollBehavior: 'none'}}>
@@ -1944,7 +2049,7 @@ class App extends Component {
 
                     <div>
                         <hr/>
-                        输入指令：<textarea ref={this.cmdInputRef}/>
+                        输入指令：<textarea ref={this.cmdInputRef} onChange={(e)=>this.handleListenInput(e)}/>
                         <button style={{height: '50px'}}
                             onClick={()=>{
                             this.handleInputFinished(this.cmdInputRef.current!.value);

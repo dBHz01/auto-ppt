@@ -1029,7 +1029,7 @@ class ControllerOp {
         return res
     }
 
-    executeOnControllerNewEle(con: Controller){
+    executeOnControllerNewEle(con: Controller, noMove?: boolean){
         if(!this.isCreate){
             throw Error('期望元素创建指令');
         }
@@ -1139,14 +1139,17 @@ class ControllerOp {
             throw Error('新建指令的目标必然要是一个element');
         }
 
-        // 调用controller 对应的函数
-        con.handleUserAdd(
-            this.rawTraces, traceEleStrings.join(';'), eqStrings.join(';'), rangeStrings.join(';'), newEleAttrs
-        );
+        if (!noMove) {
+            // 调用controller 对应的函数
+            con.handleUserAdd(
+                this.rawTraces, traceEleStrings.join(';'), eqStrings.join(';'), rangeStrings.join(';'), newEleAttrs
+            );
+        }
+
 
     }
 
-    executeOnControllerModify(con: Controller){
+    executeOnControllerModify(con: Controller, noMove?: boolean){
         if(this.isCreate){
             throw Error('期望元素修改指令');
         }
@@ -1380,15 +1383,16 @@ class ControllerOp {
         }
 
 
-
-        con.handleUserModify(
-            eqStrings.join(';'), forceUnchanged.join(';'), inferChanged.join(';'), 
-            rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), 
-            eleAttrMod, elePosMod, eleTypeMod
-        )
+        if (!noMove) {
+            con.handleUserModify(
+                eqStrings.join(';'), forceUnchanged.join(';'), inferChanged.join(';'), 
+                rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), 
+                eleAttrMod, elePosMod, eleTypeMod
+            )
+        }
     }
 
-    executeOnAddArrow(con: Controller) {
+    executeOnAddArrow(con: Controller, noMove?: boolean) {
         let traceUseInfo = this.obj2trace;
         let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
         let newArrow = con.addArrow(Number(elePh2id.get(this.arrowFrom!)), Number(elePh2id.get(this.arrowTo!)))
@@ -1399,25 +1403,37 @@ class ControllerOp {
             con.addAttribute(newArrow.id, "pointerAtBeginning", new RawNumberNoCal(false));
             con.addAttribute(newArrow.id, "pointerAtEnding", new RawNumberNoCal(true));
         }
+
+        if (!noMove) {
+            let newArrow = con.addArrow(Number(elePh2id.get(this.arrowFrom!)), Number(elePh2id.get(this.arrowTo!)))
+            if (this.isLine) {
+                con.addAttribute(newArrow.id, "pointerAtBeginning", new RawNumberNoCal(false));
+                con.addAttribute(newArrow.id, "pointerAtEnding", new RawNumberNoCal(false));
+            }
+        }
     }
 
-    executeOnDeleteArrow(con: Controller) {
+    executeOnDeleteArrow(con: Controller, noMove?: boolean) {
         let traceUseInfo = this.obj2trace;
         let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
-        let fromId = Number(elePh2id.get(this.arrowFrom!));
-        let toId = Number(elePh2id.get(this.arrowTo!));
-        con.deleteArrow(con.findArrow(fromId, toId).id);
+        if (!noMove) {
+            let fromId = Number(elePh2id.get(this.arrowFrom!));
+            let toId = Number(elePh2id.get(this.arrowTo!));
+            con.deleteArrow(con.findArrow(fromId, toId).id);
+        }
     }
 
-    executeOnChangeArrow(con: Controller) {
+    executeOnChangeArrow(con: Controller, noMove?: boolean) {
         let traceUseInfo = this.obj2trace;
         let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
-        let fromId = Number(elePh2id.get(this.arrowFrom!));
-        let toId = Number(elePh2id.get(this.arrowTo!));
-        // let arrow = con.findArrow(fromId, toId);
-        // arrow.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.dashed), arrow));
-        let arrowId = con.findArrow(fromId, toId).id;
-        con.addAttribute(arrowId, "dashEnabled", new RawNumberNoCal(this.dashed));
+        if (!noMove) {
+            let fromId = Number(elePh2id.get(this.arrowFrom!));
+            let toId = Number(elePh2id.get(this.arrowTo!));
+            // let arrow = con.findArrow(fromId, toId);
+            // arrow.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.dashed), arrow));
+            let arrowId = con.findArrow(fromId, toId).id;
+            con.addAttribute(arrowId, "dashEnabled", new RawNumberNoCal(this.dashed));
+        }
     }
 
     genValForStepChange(attr:Attribute, inc:boolean): any{
