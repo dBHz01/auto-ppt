@@ -637,7 +637,7 @@ class HelperGUI extends React.Component {
         itemAttrObj: Map<string, any>,
         nextModifyRecommand: ModifyRecommand[],
         instructionDisplay: [string[], (SingleElement | undefined)[]],
-        chosenTag: number
+        chosenObj: number
     };
 
     showCdtRef: React.RefObject<HTMLInputElement>;
@@ -657,7 +657,7 @@ class HelperGUI extends React.Component {
             itemAttrObj: new Map(),
             nextModifyRecommand: [],
             instructionDisplay: [[], []],
-            chosenTag: -1
+            chosenObj: -1
         }
 
         this.controller.add_switch_cdt_idx_listener((idx)=>{
@@ -1236,7 +1236,15 @@ class HelperGUI extends React.Component {
     }
 
     handleCheck(tag: number, checked: boolean) {
-        console.log("checked");
+        if (checked) {
+            this.setState({
+                chosenObj: tag
+            })
+        } else {
+            this.setState({
+                chosenObj: -1
+            })
+        }
     }
 
     renderGlobalTool(){
@@ -1492,11 +1500,11 @@ class HelperGUI extends React.Component {
         for (let i = 0; i < displayArray[0].length; i++) {
             if (displayArray[1][i]) {
                 inputTexts.push(
-                    <CheckableTag key={`tag-${i}`} checked={true} onChange={checked => this.handleCheck(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
+                    <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheck(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
                 );
             } else {
                 inputTexts.push(
-                    <CheckableTag key={`tag-${i}`} checked={false}><div>{displayArray[0][i]}</div></CheckableTag>
+                    <AntdTag key={`tag-${i}`}><div>{displayArray[0][i]}</div></AntdTag>
                 );
             }
         }
@@ -1804,6 +1812,37 @@ class App extends Component {
         return;
     }
 
+    preprocessText(uttr: string) {
+        uttr = uttr.replaceAll('两', '二')
+        uttr = uttr.replaceAll('并且', '且')
+        uttr = uttr.replaceAll('，', '')
+        uttr = uttr.replaceAll('。', '')
+
+        // uttr 预处理
+        if(uttr.includes('使得')){
+            let splitIdx = uttr.indexOf('使得');
+            let firstHalf = uttr.slice(0, splitIdx);
+            let secondHalf = uttr.slice(splitIdx + 2);
+            let processedSecond = secondHalf.split('且').map((s)=>{
+                if(s.includes('等于')){
+                    if(!s.split('等于')[1].includes('的')){
+                        return s.replaceAll('等于', '为')
+                    }
+                } else if(s.includes('为')){
+                    if(s.split('为')[1].includes('的')){
+                        return s.replaceAll('为', '等于')
+                    }
+                }
+                return s;
+            }).join('且');
+
+            uttr = firstHalf + '使得' + processedSecond;
+        }
+
+        uttr = uttr + "\n";
+        return uttr;
+    }
+
     handleInputFinished(uttr: string, raw_traces?: Array<Array<[number, number]>>){
         Controller.saveIfSuccess(()=>{
             if(raw_traces == undefined){
@@ -1813,48 +1852,20 @@ class App extends Component {
             Log.logUttrIntoSystem(uttr, raw_traces.length);
             Log.incPicIdx()
             Log.savePic(App.instance.stageRef.current, uttr);
-
-            uttr = uttr.replaceAll('两', '二')
-            uttr = uttr.replaceAll('并且', '且')
-            uttr = uttr.replaceAll('，', '')
-            uttr = uttr.replaceAll('。', '')
-
-            // uttr 预处理
-            if(uttr.includes('使得')){
-                let splitIdx = uttr.indexOf('使得');
-                let firstHalf = uttr.slice(0, splitIdx);
-                let secondHalf = uttr.slice(splitIdx + 2);
-                let processedSecond = secondHalf.split('且').map((s)=>{
-                    if(s.includes('等于')){
-                        if(!s.split('等于')[1].includes('的')){
-                            return s.replaceAll('等于', '为')
-                        }
-                    } else if(s.includes('为')){
-                        if(s.split('为')[1].includes('的')){
-                            return s.replaceAll('为', '等于')
-                        }
-                    }
-                    return s;
-                }).join('且');
-
-                uttr = firstHalf + '使得' + processedSecond;
-            }
-
-            uttr = uttr + "\n";
-            // console.log(uttr);
-
+            
             try{
 
-                let parseRes: any;
+                let parseRes = this.state.curParsedResult!;
+                let conOp = this.state.curControllerOp!;
     
-                if (uttr.includes("箭头") || uttr.includes("线")) {
-                    parseRes = new ArrowParser().parse(uttr);
-                    console.log(parseRes);
-                } else {
-                    parseRes = new Parser().parse(uttr);
-                }
+                // if (uttr.includes("箭头") || uttr.includes("线")) {
+                //     parseRes = new ArrowParser().parse(uttr);
+                //     console.log(parseRes);
+                // } else {
+                //     parseRes = new Parser().parse(uttr);
+                // }
 
-                let conOp = new ControllerOp(parseRes, raw_traces);
+                // let conOp = new ControllerOp(parseRes, raw_traces);
                 Log.logParseResult(conOp);
                 if(conOp.isCreate){
                     conOp.executeOnControllerNewEle(Controller.getInstance());
@@ -1879,7 +1890,7 @@ class App extends Component {
                     conOp.executeOnControllerModify(Controller.getInstance());
                 }
                 
-                this.updateUttrParseState(uttr, parseRes, conOp);
+                // this.updateUttrParseState(uttr, parseRes, conOp);
                 this.traces = [];
                 this.forceUpdate(()=>{
                     Log.logExecuteCmd()
@@ -1933,9 +1944,9 @@ class App extends Component {
         }
     }
 
-    handleListenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    listenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
         try {
-            let text = e.target.value + "\n";
+            let text = this.preprocessText(e.target.value);
             let parseRes: any;
             if (text.includes("箭头") || text.includes("线")) {
                 parseRes = new ArrowParser().parse(text);
@@ -1944,29 +1955,8 @@ class App extends Component {
                 parseRes = new Parser().parse(text);
             }
             let conOp = new ControllerOp(parseRes, this.traces);
-            if(conOp.isCreate){
-                conOp.executeOnControllerNewEle(Controller.getInstance(), true);
-            } else if (conOp.isArrow || conOp.isLine) {
-                switch (conOp.arrowOperation) {
-                    case "new":
-                        conOp.executeOnAddArrow(Controller.getInstance(), true);
-                        break;
-
-                    case "delete":
-                        conOp.executeOnDeleteArrow(Controller.getInstance(), true);
-                        break;
-
-                    case "change":
-                        conOp.executeOnChangeArrow(Controller.getInstance(), true);
-                        break;
-                
-                    default:
-                        break;
-                }
-            } else {
-                conOp.executeOnControllerModify(Controller.getInstance(), true);
-            }
             let instructionDisplay = this.displayText(text, parseRes, conOp);
+            this.updateUttrParseState(text, parseRes, conOp);
             this.helpGUIRef.current?.setState({
                 instructionDisplay: instructionDisplay
             })
@@ -2049,7 +2039,7 @@ class App extends Component {
 
                     <div>
                         <hr/>
-                        输入指令：<textarea ref={this.cmdInputRef} onChange={(e)=>this.handleListenInput(e)}/>
+                        输入指令：<textarea ref={this.cmdInputRef} onChange={(e)=>this.listenInput(e)}/>
                         <button style={{height: '50px'}}
                             onClick={()=>{
                             this.handleInputFinished(this.cmdInputRef.current!.value);
