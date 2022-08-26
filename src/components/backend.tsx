@@ -1021,12 +1021,14 @@ class Controller {
     nextPosCdtCache?: [number, number, number][];
     attrNameToDefault: Map<string, any>;
 
-    static getInstance(): Controller{
+    static getInstance(taskId? :number): Controller{
         if(Controller.instance != undefined){
             return Controller.instance;
         }
 
-        Controller.instance = new Controller();
+        assert(taskId != undefined)
+
+        Controller.instance = new Controller(taskId!);
         Controller.saveToStack()
 
         // loadFile(Controller.instance!, require("./diagram_data/content.json"));
@@ -1099,12 +1101,15 @@ class Controller {
         Controller.PREDEFINE_DIS = conf['const_dis'] || 65;
     }
 
-    constructor() {
+    constructor(taskId: number) {
+        let taskNames = ['transformer', 'transformer', 'cube', 'matrix', 'mendelian']
         this.attrNameToDefault = new Map();
         // this.loadDefaultFromFile('matrix')
         // this.loadDefaultFromFile('cube')
         // this.loadDefaultFromFile('transformer')
-        this.loadDefaultFromFile('mendelian')
+        // this.loadDefaultFromFile('mendelian')
+
+        this.loadDefaultFromFile(taskNames[taskId])
 
         this.hints = new Map<number, SingleElement>();
         this.hidAllocator = 0;

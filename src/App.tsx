@@ -15,7 +15,8 @@ import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp, ElementPlaceholder } from './NLParser';
 import { ASR } from './ASR';
-import { useSpeechRecognition } from 'react-speech-recognition';
+import { Log } from './components/Log';
+import JSZip from 'jszip';
 
 const ALLCOLORS = require("./components/colors.json");
 const ColorNames = 'red pink purple blue cyan teal green yellow orange brown grey bluegrey'.split(' ');
@@ -49,7 +50,7 @@ class AllComponents extends React.Component {
             nextCdt: [],
             showCdt: false,
             selectedItemId: -1,
-            showDebug: true,
+            showDebug: false,
             showHints: true
         }
 
@@ -505,6 +506,7 @@ class ModifyRecommand {
 
     filterAttrName: string;
     filterAttrVal: any;
+    static attrToName: Map<string, string>;
     constructor(modifyAttrName: string, tgtVal: any, filterAttrName: string, filterAttrVal: any){
         this.modifyAttrName = modifyAttrName;
         this.tgtVal = tgtVal;
@@ -518,11 +520,21 @@ class ModifyRecommand {
                 if(ele.id <= 0){
                     return;
                 }
-                if(ele.getAttrVal(this.filterAttrName, undefined) != this.filterAttrVal){
+                if(typeof this.filterAttrVal === 'number'){
+                    if(!floatEq(ele.getAttrVal(this.filterAttrName, undefined), this.filterAttrVal)){
+                        return;
+                    }
+                } else if(ele.getAttrVal(this.filterAttrName, undefined) != this.filterAttrVal){
                     return;
                 }
     
                 ele.changeCertainAttribute(this.modifyAttrName, this.tgtVal, false);
+            })
+            Log.logDefault('应用推荐修改', {
+                modifyAttrName: this.modifyAttrName, 
+                tgtVal: this.tgtVal,
+                filterAttrName: this.filterAttrName,
+                filterAttrVal: this.filterAttrVal
             })
             App.instance.allComponentsRef.current?.forceUpdate();
             HelperGUI.instance.updateRecommand();
@@ -531,6 +543,9 @@ class ModifyRecommand {
     }
 
     check(){
+        if(!ModifyRecommand.attrToName.has(this.filterAttrName)){
+            return false;
+        }
         let toModEles = [... Controller.getInstance().elements.values()].filter((crtEle)=>{
             if(crtEle.id <= 0){
                 return false;
@@ -577,7 +592,7 @@ class ModifyRecommand {
         }
 
         if(typeof val === 'number'){
-            return `${val.toFixed(2)}`;
+            return `${val.toFixed(0)}`;
         }
 
         return val
@@ -585,15 +600,23 @@ class ModifyRecommand {
 
     disp(){
         return <div key={`${this.modifyAttrName}-${this.tgtVal}-${this.filterAttrName}-${this.filterAttrVal}`}>
-            将所有{this.toStrToDisp(this.filterAttrName)} 为 {this.toStrToDisp(this.filterAttrVal)} 的元素的
+            将所有 <b>{ModifyRecommand.attrToName.get(this.filterAttrName)}</b> 为 {this.toStrToDisp(this.filterAttrVal)} 的元素的
             <br/>
-            {this.toStrToDisp(this.modifyAttrName)}修改为{this.toStrToDisp(this.tgtVal)}
+            {ModifyRecommand.attrToName.get(this.modifyAttrName)}修改为{this.toStrToDisp(this.tgtVal)}
             <br/>
             <button onClick={this.apply.bind(this)}>确认</button>
             <hr/>
         </div>
     }
 }
+
+ModifyRecommand.attrToName = new Map();
+ModifyRecommand.attrToName.set('x', '水平位置')
+ModifyRecommand.attrToName.set('y', '竖直位置')
+ModifyRecommand.attrToName.set('color', '颜色')
+ModifyRecommand.attrToName.set('lightness', '亮度')
+ModifyRecommand.attrToName.set('w', '宽度')
+ModifyRecommand.attrToName.set('h', '高度')
 
 class HelperGUI extends React.Component {
     controller: Controller;
@@ -939,35 +962,47 @@ class HelperGUI extends React.Component {
     genCdtDispClicked(idx:number){
         return ()=>{
             Controller.saveIfSuccess(()=>{
+                Log.logDefault('选择候选', {idx, length: this.controller.candidates.length})
                 this.controller.crtCdtIdx = idx;
                 this.controller.update_attr();
+                Log.savePic(App.instance.stageRef.current, `候选结果切换-${idx}`);
                 return true;
             })
         }
     }
 
     genCdtDispClickedKonva(idx:number){
-        return (e: KonvaEventObject<MouseEvent>)=>{
-            this.controller.crtCdtIdx = idx;
-            this.controller.update_attr();
+        return ()=>{
+            Controller.saveIfSuccess(()=>{
+                Log.logDefault('选择候选', {idx, length: this.controller.candidates.length})
+                this.controller.crtCdtIdx = idx;
+                this.controller.update_attr();
+                Log.savePic(App.instance.stageRef.current, `候选结果切换-${idx}`);
+                return true;
+            })
         }
     }
 
     handleShowCdtClicked(e: React.ChangeEvent<HTMLInputElement>){
+        Log.logDefault('显示后续可能位置', {show: e.target.checked})
         App.instance.allComponentsRef.current?.updateCdt(e.target.checked);
     }
 
     handleShowDebugInfoClicked(e: React.ChangeEvent<HTMLInputElement>){
+        Log.logDefault('显示调试信息', {show: e.target.checked})
         App.instance.allComponentsRef.current?.updateDebug(e.target.checked);
     }
 
     handleShowHintsClicked(e: React.ChangeEvent<HTMLInputElement>){
+        Log.logDefault('显示关系信息', {show: e.target.checked})
         App.instance.allComponentsRef.current?.updateHints(e.target.checked);
     }
 
     genPointerClicked(start: boolean){
         let attrName = start? 'pointerAtBeginning': 'pointerAtEnding'
         return (e: React.ChangeEvent<HTMLInputElement>)=>{
+            Log.logDefault('修改箭头显示情况', {pointerPos: attrName, show: e.target.checked})
+
             this.controller.getElement(this.state.selectedItemId)
                 .changeCertainAttribute<boolean>(attrName, e.target.checked);
             App.instance.allComponentsRef.current?.forceUpdate();
@@ -979,6 +1014,7 @@ class HelperGUI extends React.Component {
         Controller.saveIfSuccess(()=>{
             let res = this.controller.deleteArrow(this.state.selectedItemId)
             if(res){
+                Log.logDefault('删除箭头')
                 this.updateSelectedItem(-1);
                 App.instance.allComponentsRef.current?.forceUpdate()
             }
@@ -988,6 +1024,7 @@ class HelperGUI extends React.Component {
 
     genHandleTagSelected(selected: string){
         return ()=>{
+            Log.logDefault(`切换功能栏${selected}`)
             this.setState({
                 selectedTag: selected
             })
@@ -1029,12 +1066,16 @@ class HelperGUI extends React.Component {
     }
 
     handleLigntnessInc(){
-        if(!this.state.itemAttrObj.has('lightness')){
-            return;
-        }
-        this.controller.getElement(this.state.selectedItemId).changeLightness(1);
-        App.instance.allComponentsRef.current?.forceUpdate()
-        this.updateSelectedItem();
+        Controller.saveIfSuccess(()=>{
+            if(!this.state.itemAttrObj.has('lightness')){
+                return false;
+            }
+            Log.logDefault('增加亮度')
+            this.controller.getElement(this.state.selectedItemId).changeLightness(1);
+            App.instance.allComponentsRef.current?.forceUpdate()
+            this.updateSelectedItem();
+            return true;
+        })
     }
 
     handleLigntnessDec(){
@@ -1042,6 +1083,7 @@ class HelperGUI extends React.Component {
             if(!this.state.itemAttrObj.has('lightness')){
                 return false;
             }
+            Log.logDefault('增加亮度')
             this.controller.getElement(this.state.selectedItemId).changeLightness(-1);
             App.instance.allComponentsRef.current?.forceUpdate()
             this.updateSelectedItem();
@@ -1060,6 +1102,7 @@ class HelperGUI extends React.Component {
                 }
 
                 if(res){
+                    Log.logDefault('调节元素大小', {type, inc})
                     App.instance.allComponentsRef.current?.forceUpdate();
                 }
 
@@ -1074,6 +1117,7 @@ class HelperGUI extends React.Component {
                 if(!this.state.itemAttrObj.has('color')){
                     return false;
                 }
+                Log.logDefault('选择颜色', {color: cn})
                 this.controller.getElement(this.state.selectedItemId).changeColor(cn);
                 App.instance.allComponentsRef.current?.forceUpdate()
                 this.updateSelectedItem();
@@ -1086,6 +1130,7 @@ class HelperGUI extends React.Component {
     genChangeTypeHandler(type: ElementType){
         return ()=>{
             Controller.saveIfSuccess(()=>{
+                Log.logDefault('修改元素类型', {type})
                 this.controller.getElement(this.state.selectedItemId).changeElementType(type);
                 App.instance.allComponentsRef.current?.forceUpdate();
                 return true;
@@ -1104,7 +1149,27 @@ class HelperGUI extends React.Component {
         document.body.removeChild(eleLink);
     }
 
+    async downloadUserLog(){
+        let zip = new JSZip();
+        let img = zip.folder('img')
+        Log.pics.forEach((info)=>{
+            img?.file(info.name, info.data.replace(/^data:image\/(png|jpg);base64,/, ""), {base64: true});
+        })
+
+        zip.file('log.json', JSON.stringify(Log.logs));
+        let content = await zip.generateAsync({type:"blob"});
+
+        let eleLink = document.createElement('a');
+        eleLink.download = `${App.instance.userName}-${App.instance.taskId}-${new Date().getTime()}.zip`;
+        eleLink.style.display = 'none';
+        eleLink.href = URL.createObjectURL(content);
+        document.body.appendChild(eleLink);
+        eleLink.click();
+        document.body.removeChild(eleLink);
+    }
+
     clearTrace(){
+        Log.logDefault('清空路径')
         App.instance.traces = [];
         App.instance.forceUpdate()
     }
@@ -1174,7 +1239,9 @@ class HelperGUI extends React.Component {
         }
         return <div>
             <div>
-                <button onClick={this.downloadContent.bind(this)}>点击下载</button>
+                <button onClick={this.downloadContent.bind(this)}>下载当前内容</button>
+                <button onClick={this.downloadUserLog.bind(this)}>下载当前日志</button>
+                <br/>
                 <button onClick={this.clearTrace.bind(this)}>清空路径</button>
 
                 <div>
@@ -1189,14 +1256,17 @@ class HelperGUI extends React.Component {
                     this.updateRecommand(true);
                     App.instance.allComponentsRef.current?.updateCdt(false);
                     this.showCdtRef.current!.checked = false;
+                    Log.logDefault('撤销')
                     App.instance.forceUpdate(); // 全局刷新
                 }} disabled={!Controller.canUndo()}>撤销 {'<-'}</button>
+
                 <button onClick={()=>{
                     Controller.redo();
                     this.updateSelectedItem(-1);
                     this.updateRecommand(true);
                     App.instance.allComponentsRef.current?.updateCdt(false);
                     this.showCdtRef.current!.checked = false;
+                    Log.logDefault('重做')
                     App.instance.forceUpdate(); // 全局刷新
                 }} disabled={!Controller.canRedo()}>重做 {'->'}</button>
             </div>
@@ -1342,6 +1412,8 @@ class HelperGUI extends React.Component {
                         <label className="switch">
                             <input 
                                 onChange={(e)=>{
+                                    Log.logDefault('虚线设置', {dashEnabled: e.target.checked})
+
                                     this.controller.getElement(this.state.selectedItemId)
                                         .changeCertainAttribute('dashEnabled', e.target.checked)
                                     this.updateSelectedItem()
@@ -1462,6 +1534,7 @@ class App extends Component {
     
     static instance: App;
     cmdInputRef: React.RefObject<HTMLTextAreaElement>;
+    stageRef: React.RefObject<any>;
     state: {
         curText: string | undefined,
         curParsedResult: any | undefined,
@@ -1470,8 +1543,26 @@ class App extends Component {
     };
     stageWidth: number;
     stageHeight: number;
+    taskId: number = 0;
+    userName: string = 'test';
     constructor(props: any) {
         super(props);
+        console.log(window.location.pathname)
+        
+        let attrs = window.location.pathname.trim()
+        if(attrs[0] === '/'){
+            attrs = attrs.slice(1)
+        }
+        let attrSplit = attrs.split('/');
+        if(attrSplit.length < 2){
+            alert('没有输入任务和用户信息')
+        } else {
+            this.taskId = Number(attrSplit[0]);
+            this.userName = attrSplit[1];
+        }
+
+        Controller.getInstance(this.taskId)
+
         this.allComponentsRef = React.createRef<AllComponents>();
         // let u = new TestParser();
         // u.parse("这个红色的矩形\n");
@@ -1547,6 +1638,8 @@ class App extends Component {
         this.cmdInputRef = React.createRef()
         this.stageWidth = window.innerWidth;
         this.stageHeight = window.innerHeight / 4 * 3 - 200;
+
+        this.stageRef = React.createRef();
     }
 
     displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], (SingleElement | undefined)[]] {
@@ -1685,6 +1778,7 @@ class App extends Component {
 
     handleCanvasClicked(e: KonvaEventObject<MouseEvent>){
         if(e.target.attrs['idInController'] === undefined){
+            Log.logDefault(`取消元素选择`, undefined, this.allComponentsRef.current!.state!.selectedItemId! != -1)
             this.allComponentsRef.current?.setState({
                 selectedItemId: -1
             })
@@ -1694,6 +1788,8 @@ class App extends Component {
             this.helpGUIRef.current?.updateSelectedItem(-1)
             return;
         }
+
+        Log.logDefault(`选中图表元素`);
         this.allComponentsRef.current?.setState({
             selectedItemId: Number(e.target.attrs['idInController'])
         })
@@ -1709,6 +1805,10 @@ class App extends Component {
             if(raw_traces == undefined){
                 raw_traces = this.traces;
             }
+
+            Log.logUttrIntoSystem(uttr, raw_traces.length);
+            Log.incPicIdx()
+            Log.savePic(App.instance.stageRef.current, uttr);
 
             uttr = uttr.replaceAll('两', '二')
             uttr = uttr.replaceAll('并且', '且')
@@ -1736,9 +1836,8 @@ class App extends Component {
                 uttr = firstHalf + '使得' + processedSecond;
             }
 
-            
             uttr = uttr + "\n";
-            console.log(uttr);
+            // console.log(uttr);
 
             try{
 
@@ -1752,6 +1851,7 @@ class App extends Component {
                 }
 
                 let conOp = new ControllerOp(parseRes, raw_traces);
+                Log.logParseResult(conOp);
                 if(conOp.isCreate){
                     conOp.executeOnControllerNewEle(Controller.getInstance());
                 } else if (conOp.isArrow || conOp.isLine) {
@@ -1777,7 +1877,9 @@ class App extends Component {
                 
                 this.updateUttrParseState(uttr, parseRes, conOp);
                 this.traces = [];
-                this.forceUpdate();
+                this.forceUpdate(()=>{
+                    Log.savePic(App.instance.stageRef.current, '运行结果');
+                });
                 return true;
             } catch(error){
                 console.error(error);
@@ -1798,6 +1900,8 @@ class App extends Component {
 
     handleListenClick(){
         if(!this.state.listening){
+            Log.logDefault('开始语音输入')
+            this.traces = [];
             this.crtASR = new ASR(((txt, finished)=>{
                 this.cmdInputRef.current!.value = txt;
                 if(finished){
@@ -1819,6 +1923,7 @@ class App extends Component {
                 listening: true
             })
         } else {
+            Log.logDefault('结束语音输入')
             this.crtASR!.stop();
         }
     }
@@ -1889,6 +1994,7 @@ class App extends Component {
                 <div style={{flex: '3', backgroundColor: '#ffffff' /*'#f0f0f0'*/}}>
                     <Stage /*width={window.innerWidth / 4.0 * 3.0} */
                         /*height={window.innerHeight - 200}*/
+                        ref={this.stageRef}
                         width={this.stageWidth}
                         height={this.stageHeight}
                         onMouseDown={this.handlePointerDown.bind(this)}

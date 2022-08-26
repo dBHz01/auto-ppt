@@ -491,6 +491,8 @@ class ControllerOp {
     remainOther: boolean = false;
     remain?: ElementPlaceholder[];
 
+    phs2id?: Map<ElementPlaceholder, string>
+
     constructor(obj: { [key: string]: any }, rawTraces: Array<Array<[number, number]>>) {
         this.allElements = new Array<ElementPlaceholder>();
         let nlParser = new NLParser(this.allElements)
@@ -851,9 +853,9 @@ class ControllerOp {
         })
 
         assert(elePhs.length === eleIds.length);
-        let phs2id: Map<ElementPlaceholder, string> = new Map();
+        this.phs2id = new Map();
         elePhs.forEach((ph, idx)=>{
-            phs2id.set(ph, eleIds[idx]);
+            this.phs2id!.set(ph, eleIds[idx]);
 
             ph.actualEle = ControllerOp.tmpNew;
             if(!isNaN(Number(eleIds[idx]))){
@@ -861,7 +863,7 @@ class ControllerOp {
             }
         })
 
-        return phs2id;
+        return this.phs2id!;
     }
 
     elementSatisfyRequires(element: SingleElement, requires: Map<string, any>){
