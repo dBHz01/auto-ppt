@@ -1307,6 +1307,15 @@ class Controller {
         }
         throw Error("error element");
     }
+
+    getElementByName(_name: string): SingleElement {
+        for(let ele of this.elements.values()){
+            if(ele.name === _name){
+                return ele;
+            }
+        }
+        throw Error("error element");
+    }
     
     getHint(_id: number): SingleElement {
         for(let ele of this.hints.values()){
@@ -1348,7 +1357,8 @@ class Controller {
         }
     }
 
-    addArrow(_from: number, _to: number, _text?: string) {
+    addArrow(_from: number, _to: number, _text?: string): SingleElement {
+        // return created arrow
         let fromElement = this.getElement(_from);
         let toElement = this.getElement(_to);
         let newArrow = this.getElement(this.createElement(ElementType.ARROW, `arrow-${fromElement.name}-${toElement.name}`));
@@ -1360,6 +1370,14 @@ class Controller {
         if (_text) {
             newArrow.addAttribute(new Attribute("text", new RawText(_text), newArrow));
         }
+        return newArrow;
+    }
+
+    findArrow(_from: number, _to: number): SingleElement {
+        let fromElement = this.getElement(_from);
+        let toElement = this.getElement(_to);
+        let arrowName = `arrow-${fromElement.name}-${toElement.name}`;
+        return this.getElementByName(arrowName);
     }
 
     deleteArrow(eleId: number){
