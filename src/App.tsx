@@ -112,11 +112,17 @@ class AllComponents extends React.Component {
             let forceUnchangStr = App.instance.forceUnchangedRef.current!.value;
             let forceUnchangAttr = this.controller.parseAttrListByStr(forceUnchangStr);
 
+            Log.logDefault('结束对元素的拖拽')
+            Log.incPicIdx()
+            Log.savePic(App.instance.stageRef.current, '元素拖拽')
 
             Controller.saveIfSuccess(()=>{
                 let res = this.controller.update_contents(newAttrs, [], forceUnchangAttr, inferChangedAttr);
                 if(res){
-                    this.forceUpdate()
+                    this.forceUpdate(()=>{
+                        Log.logExecuteCmd()
+                        Log.savePic(App.instance.stageRef.current, '运行结果')
+                    })
                 }
                 return res;
             })
@@ -1224,15 +1230,7 @@ class HelperGUI extends React.Component {
         }
         return <div>
             <div>
-                <button onClick={this.downloadContent.bind(this)}>下载当前内容</button>
-                <button onClick={this.downloadUserLog.bind(this)}>下载当前日志</button>
-                <br/>
                 <button onClick={this.clearTrace.bind(this)}>清空路径</button>
-
-                <div>
-                    <input type="file" name="file" ref={this.uploadFileRef} ></input>
-                    <button onClick={this.handleUploadFileClick.bind(this)}>上传文件</button>    
-                </div>
             </div>
             <div>
                 <button onClick={()=>{
@@ -1287,6 +1285,12 @@ class HelperGUI extends React.Component {
                         />
                     <span className="slider round"></span>
                 </label>
+            </div>
+            <div>
+                <button onClick={this.downloadContent.bind(this)}>下载当前内容</button>
+                <button onClick={this.downloadUserLog.bind(this)}>下载当前日志</button>
+                <input type="file" name="file" ref={this.uploadFileRef} ></input>
+                <button onClick={this.handleUploadFileClick.bind(this)}>上传文件</button>    
             </div>
             
         </div>
@@ -1520,8 +1524,8 @@ class App extends Component {
         if(attrSplit.length < 2){
             alert('没有输入任务和用户信息')
         } else {
-            this.taskId = Number(attrSplit[0]);
-            this.userName = attrSplit[1];
+            this.taskId = Number(attrSplit[1]);
+            this.userName = attrSplit[0];
         }
 
         Controller.getInstance(this.taskId)
@@ -1826,6 +1830,7 @@ class App extends Component {
                 this.updateUttrParseState(uttr, parseRes, conOp);
                 this.traces = [];
                 this.forceUpdate(()=>{
+                    Log.logExecuteCmd()
                     Log.savePic(App.instance.stageRef.current, '运行结果');
                 });
                 return true;

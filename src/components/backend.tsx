@@ -140,6 +140,9 @@ class RawText implements Value {
     val: string;
     constructor(_val: string) {
         this.val = _val;
+        if(this.val === '空'){
+            this.val = ""
+        }
     }
     clone(): Value {
         return new RawText(this.val);
@@ -1373,11 +1376,20 @@ class Controller {
         return newArrow;
     }
 
-    findArrow(_from: number, _to: number): SingleElement {
+    findArrow(_from: number, _to: number, tryIfFail=true): SingleElement {
         let fromElement = this.getElement(_from);
         let toElement = this.getElement(_to);
         let arrowName = `arrow-${fromElement.name}-${toElement.name}`;
-        return this.getElementByName(arrowName);
+        try{
+            return this.getElementByName(arrowName);
+        } catch (error){
+            if(tryIfFail){
+                return this.findArrow(_to, _from, false);
+            }
+
+            throw Error("Arrow Not Found");
+        }
+        
     }
 
     deleteArrow(eleId: number){

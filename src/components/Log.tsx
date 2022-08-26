@@ -1,5 +1,6 @@
 import { Stage } from "konva/lib/Stage";
 import { ControllerOp, ElementPlaceholder } from "../NLParser";
+import { Controller } from "./backend";
 
 class Log{
     static logs: any[];
@@ -41,7 +42,8 @@ class Log{
         Log.l({
             msg: '解析结束', 
             create: res.isCreate,
-            arrow: res.isArrow,
+            arrow: res.isArrow || res.isLine,
+            arrowOp: res.arrowOperation,
             traceEleNum: [... res.obj2trace.keys()].filter((x)=>(x instanceof ElementPlaceholder)).length,
             tracePosNum: [... res.obj2trace.keys()].filter((x)=>(!(x instanceof ElementPlaceholder))).length,
             involvedEleNum: res.phs2id?.size || 0,
@@ -65,7 +67,10 @@ class Log{
         Log.subIdx = 0;
     }
 
-    static logExecuteCmd(cdtNum: number){
+    static logExecuteCmd(cdtNum?: number){
+        if(cdtNum === undefined){
+            cdtNum = Controller.getInstance().candidates.length;
+        }
         Log.l({
             msg: '指令执行结束',
             cdtNum,

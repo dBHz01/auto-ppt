@@ -653,6 +653,7 @@ class ControllerOp {
 
         this.traces = this.rawTraces.map((x)=>new Trace(x));
         this.obj2trace = this.calObj2trace(this.traces);
+        this.phs2id = this.mapPlaceholderToActual(Controller.getInstance(), this.obj2trace);
     }
 
     mapPlaceholderToActual(con: Controller, traceUseInfo: Map<ElementPlaceholder|PosToElement, [number, Trace]>){
@@ -1035,7 +1036,7 @@ class ControllerOp {
 
         // 分离指代路径和绘制路径
         let traceUseInfo = this.obj2trace;
-        let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
+        let elePh2id = this.phs2id!;
 
         let eqStrings: string[] = [];
         let rangeStrings: string[] = []; 
@@ -1151,7 +1152,7 @@ class ControllerOp {
         }
         // 分离指代路径和绘制路径
         let traceUseInfo = this.obj2trace;
-        let elePh2id = this.mapPlaceholderToActual(con, traceUseInfo);
+        let elePh2id = this.phs2id!;
         let eqStrings: string[] = [];
         let rangeStrings: string[] = []; 
         let traceEleStrings: string[] = []; // 元素与绘制路径的位置
@@ -1394,6 +1395,9 @@ class ControllerOp {
         if (this.isLine) {
             con.addAttribute(newArrow.id, "pointerAtBeginning", new RawNumberNoCal(false));
             con.addAttribute(newArrow.id, "pointerAtEnding", new RawNumberNoCal(false));
+        } else if(this.isArrow) {
+            con.addAttribute(newArrow.id, "pointerAtBeginning", new RawNumberNoCal(false));
+            con.addAttribute(newArrow.id, "pointerAtEnding", new RawNumberNoCal(true));
         }
     }
 
