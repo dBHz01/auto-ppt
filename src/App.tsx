@@ -2023,20 +2023,6 @@ class App extends Component {
     }
 
     render() {
-        let inputTexts = [];
-        let displayArray = this.displayText(this.state.curText, this.state.curParsedResult, this.state.curControllerOp)
-        // console.log(displayArray);
-        for (let i in displayArray[0]) {
-            if (displayArray[1][i]) {
-                inputTexts.push(
-                    <AntdTag key={`tag-${i}`} color="red"><div>{displayArray[0][i]}</div></AntdTag>
-                );
-            } else {
-                inputTexts.push(
-                    <AntdTag key={`tag-${i}`}><div>{displayArray[0][i]}</div></AntdTag>
-                );
-            }
-        }
         return (
             <div style={{display: 'flex', flexDirection: 'column', overflow: 'hidden', position:'fixed', touchAction: 'none', overscrollBehavior: 'none'}}>
                 <div style={{flex: '3', backgroundColor: '#ffffff' /*'#f0f0f0'*/}}>
@@ -2111,9 +2097,6 @@ class App extends Component {
                                 return true;
                             })
                             }}>添加箭头</button>
-                    </div>
-                    <div>
-                        {inputTexts}
                     </div>
                 </div>
                 <div style={{flex: '1'}}>
