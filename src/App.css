@@ -38,3 +38,11 @@
     transform: rotate(360deg);
   }
 }
+
+.myTag .ant-tag {
+    background-color: #fff1f0 !important;
+    /* font-size: .14rem; */
+    /* color: #555555  !important; */
+    border: #282c34;
+    user-select: none;
+}
