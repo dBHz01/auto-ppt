@@ -1335,6 +1335,8 @@ class ControllerOp {
         }
 
         let inferChangedEle:SingleElement[] = [];
+        let inferUnchangedEle: SingleElement[] = [];
+
         if(this.targetElement?.actualEle != undefined){
             inferChangedEle.push(this.targetElement.actualEle)
         } else if(this.targetAttr?.element?.actualEle != undefined){
@@ -1347,6 +1349,14 @@ class ControllerOp {
                     }
                 })
             })
+        }
+
+        if(this.pos?.elements){
+            inferUnchangedEle.push(... (this.pos.elements || []).map(ph=>ph.actualEle!));
+        }
+
+        if(this.assignValue != undefined){
+            inferUnchangedEle.push(... this.assignValue[1].map((x)=>x.element!.actualEle!));
         }
 
         if(this.remainOther){
@@ -1371,6 +1381,8 @@ class ControllerOp {
 
         } else if(this.remain != undefined){
             let forceUnchangedEle = new Set(this.remain.map((x)=>x.actualEle!));
+            inferUnchangedEle.forEach((x)=>{forceUnchangedEle.add(x)});
+
             inferChangedEle = inferChangedEle.filter(x=>!forceUnchangedEle.has(x));
             inferChanged = inferChangedEle.flatMap((ele)=>{
                 return [`x_${ele.id}`, `y_${ele.id}`];
@@ -1379,7 +1391,12 @@ class ControllerOp {
                 return [`x_${ele.id}`, `y_${ele.id}`];
             })
         } else {
-            // 只有用户显式提及 “不变” 才会有这个额外的处理
+            inferChanged = inferChangedEle.flatMap((ele)=>{
+                return [`x_${ele.id}`, `y_${ele.id}`];
+            })
+            forceUnchanged = [... inferUnchangedEle].flatMap((ele)=>{
+                return [`x_${ele.id}`, `y_${ele.id}`];
+            })
         }
 
 
