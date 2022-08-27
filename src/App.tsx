@@ -636,7 +636,7 @@ class HelperGUI extends React.Component {
         selectedItemId: number,
         itemAttrObj: Map<string, any>,
         nextModifyRecommand: ModifyRecommand[],
-        instructionDisplay: [string[], (SingleElement | undefined)[]],
+        instructionDisplay: [string[], (ElementPlaceholder | undefined)[]],
         chosenObj: number
     };
 
@@ -884,7 +884,30 @@ class HelperGUI extends React.Component {
         }
     }
 
-    updateSelectedItem(itemId?: number){
+    // eleIdToTagId(itemId: number) {
+    //     let actualEles = this.state.instructionDisplay[1];
+    //     for (let i = 0; i < actualEles.length; i++) {
+    //         if (actualEles[i] && actualEles[i]!.actualEle!.id === itemId) {
+    //             return i;
+    //         }
+    //     }
+    //     return -1;
+    // }
+
+    tagIdToeleId(tagId: number): number {
+        let chosenEle = this.state.instructionDisplay[1][tagId];
+        if (chosenEle) {
+            return chosenEle.actualEle!.id;
+        } else {
+            return -1;
+        }
+    }
+
+    tagIdToele(tagId: number) {
+        return this.state.instructionDisplay[1][tagId];
+    }
+
+    updateSelectedItem(itemId?: number, fromTag?: boolean){
         if(itemId == undefined){
             itemId = this.state.selectedItemId;
             this.deletehints();
@@ -893,12 +916,24 @@ class HelperGUI extends React.Component {
             this.setState({
                 selectedItemId: -1,
                 itemAttrObj: new Map(),
+                chosenObj: -1
             })
             this.deletehints();
             return;
         }
-
         let ele = this.controller.getElement(itemId);
+        if (!fromTag) {
+            if (this.state.chosenObj >= 0) {
+                let textPos = this.state.instructionDisplay[0][this.state.chosenObj];
+                console.log(textPos);
+                let newTextArray = this.state.instructionDisplay[0];
+                console.log(ele.getAttribute("text")!.val.val);
+                newTextArray[this.state.chosenObj] = ele.getAttribute("text")!.val.val;
+                let newText = newTextArray.join("");
+                App.instance.cmdInputRef.current!.value = newText;
+                App.instance.updateWithTextAndTrace(newText);
+            }
+        }
         this.setState({
             selectedItemId: itemId,
             itemAttrObj: ele.copyAttrMap(),
@@ -1235,12 +1270,15 @@ class HelperGUI extends React.Component {
         })
     }
 
-    handleCheck(tag: number, checked: boolean) {
+    handleCheckTag(tag: number, checked: boolean) {
         if (checked) {
+            // this.updateSelectedItem(this.tagIdToeleId(tag));
+            App.instance.updateSelectedItemId(this.tagIdToeleId(tag), true);
             this.setState({
                 chosenObj: tag
             })
         } else {
+            App.instance.updateSelectedItemId(-1, true);
             this.setState({
                 chosenObj: -1
             })
@@ -1500,7 +1538,7 @@ class HelperGUI extends React.Component {
         for (let i = 0; i < displayArray[0].length; i++) {
             if (displayArray[1][i]) {
                 inputTexts.push(
-                    <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheck(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
+                    <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheckTag(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
                 );
             } else {
                 inputTexts.push(
@@ -1654,7 +1692,7 @@ class App extends Component {
         this.stageRef = React.createRef();
     }
 
-    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], (SingleElement | undefined)[]] {
+    displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], (ElementPlaceholder | undefined)[]] {
         // 返回[分组后的text, 对应的element]
         if(text == undefined || parsedResult == undefined || controllerOp == undefined){
             return [[], []];
@@ -1687,7 +1725,7 @@ class App extends Component {
         return [splitText, allElementsWithNull.map((x) => {
             if (x) {
                 if (x.actualEle!.id != 65535) {
-                    return x.actualEle;
+                    return x;
                 }
             }
             return undefined;
@@ -1745,6 +1783,7 @@ class App extends Component {
         let crtTrace = this.traces[this.traces.length - 1];
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
         this.isDown = false;
+        this.updateWithTextAndTrace(this.state.curText!);
         // console.log(crtTrace)
         this.forceUpdate()
     }
@@ -1757,6 +1796,7 @@ class App extends Component {
         // crtTrace.push([event.evt.touches[event.evt.touches.length-1].clientX, event.evt.touches[event.evt.touches.length-1].clientY]);
         this.isDown = false;
         // console.log(crtTrace)
+        this.updateWithTextAndTrace(this.state.curText!);
         this.forceUpdate()
     }
 
@@ -1788,27 +1828,22 @@ class App extends Component {
         })
     }
 
+    updateSelectedItemId(id: number, fromTag?: boolean) {
+        this.allComponentsRef.current?.setState({
+            selectedItemId: id
+        })
+        this.helpGUIRef.current?.updateSelectedItem(id, fromTag);
+    }
+
     handleCanvasClicked(e: KonvaEventObject<MouseEvent>){
         if(e.target.attrs['idInController'] === undefined){
             Log.logDefault(`取消元素选择`, undefined, this.allComponentsRef.current!.state!.selectedItemId! != -1)
-            this.allComponentsRef.current?.setState({
-                selectedItemId: -1
-            })
-            // this.helpGUIRef.current?.setState({
-            //     selectedItemId: -1
-            // })
-            this.helpGUIRef.current?.updateSelectedItem(-1)
+            this.updateSelectedItemId(-1);
             return;
         }
 
         Log.logDefault(`选中图表元素`);
-        this.allComponentsRef.current?.setState({
-            selectedItemId: Number(e.target.attrs['idInController'])
-        })
-        // this.helpGUIRef.current?.setState({
-        //     selectedItemId: Number(e.target.attrs['idInController'])
-        // })
-        this.helpGUIRef.current?.updateSelectedItem(Number(e.target.attrs['idInController']))
+        this.updateSelectedItemId(Number(e.target.attrs['idInController']));
         return;
     }
 
@@ -1944,9 +1979,12 @@ class App extends Component {
         }
     }
 
-    listenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    updateWithTextAndTrace(inputText: string) {
         try {
-            let text = this.preprocessText(e.target.value);
+            let text = this.preprocessText(inputText);
+            this.setState({
+                curText: text,
+            })
             let parseRes: any;
             if (text.includes("箭头") || text.includes("线")) {
                 parseRes = new ArrowParser().parse(text);
@@ -1967,6 +2005,10 @@ class App extends Component {
             })
             console.log(error);
         }
+    }
+
+    listenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+        this.updateWithTextAndTrace(e.target.value);
     }
 
     render() {

@@ -39,10 +39,49 @@
   }
 }
 
-.myTag .ant-tag {
-    background-color: #fff1f0 !important;
+/* .myTag .ant-tag { */
+    /* background-color: #fff1f0 !important; */
     /* font-size: .14rem; */
     /* color: #555555  !important; */
-    border: #282c34;
+    /* border: #282c34;
     user-select: none;
+} */
+
+.ant-tag {
+    border: none;
+    background: white;
+}
+
+.ant-tag-checkable{
+    background: #fff1f0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    color: #cf1322;
+    font-size: 14px;
+    font-variant: tabular-nums;
+    line-height: 1.5715;
+    list-style: none;
+    font-feature-settings: 'tnum', "tnum";
+    display: inline-block;
+    height: auto;
+    margin-right: 8px;
+    padding: 0 7px;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+    border: 1px solid #ffa39e;
+    border-radius: 2px;
+    opacity: 1;
+    transition: all 0.3s;
+}
+
+.ant-tag-checkable-checked {
+    background: #ed5a65;
+    color: white;
+}
+
+.ant-tag-checkable:active {
+    background: #ed5a65;
+    color: white;
 }
