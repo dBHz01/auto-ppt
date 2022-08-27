@@ -10,7 +10,7 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { convertObjToMap, floatEq, getOrDefault, reader, splitRange} from './components/utility';
+import { convertObjToMap, floatEq, getOrDefault, reader, splitRange, uniquifyList} from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp, ElementPlaceholder } from './NLParser';
@@ -623,6 +623,7 @@ ModifyRecommand.attrToName.set('color', '颜色')
 ModifyRecommand.attrToName.set('lightness', '亮度')
 ModifyRecommand.attrToName.set('w', '宽度')
 ModifyRecommand.attrToName.set('h', '高度')
+ModifyRecommand.attrToName.set('text', '文本')
 
 class HelperGUI extends React.Component {
     controller: Controller;
@@ -1075,31 +1076,36 @@ class HelperGUI extends React.Component {
     renderMenu(){
         return <div style={{display: 'flex'}}>
             <div style={{flex: '1', 
-                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_CDT? "#d6d6d6": "#ffffff"}}
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_CDT? "#d6d6d6": "#ffffff",
+                lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_CDT).bind(this)}>
                 候选方案{this.state.selectedTag === HelperGUI.TAG_DISP_CDT?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
-                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET? "#d6d6d6": "#ffffff"}}
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET? "#d6d6d6": "#ffffff",
+                lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET).bind(this)}>
                 元素微调{this.state.selectedTag === HelperGUI.TAG_DISP_SET?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
-                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_MOD? "#d6d6d6": "#ffffff"}}
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_MOD? "#d6d6d6": "#ffffff",
+                lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_MOD).bind(this)}>
                 修改预测{this.state.selectedTag === HelperGUI.TAG_DISP_MOD?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
-                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL? "#d6d6d6": "#ffffff"}}
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL? "#d6d6d6": "#ffffff",
+                lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET_GLOBAL).bind(this)}>
                 设置{this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
-                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_INS? "#d6d6d6": "#ffffff"}}
+                backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_INS? "#d6d6d6": "#ffffff",
+                lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_INS).bind(this)}>
                 指令展示{this.state.selectedTag === HelperGUI.TAG_DISP_INS?"✍︎": ""}
             </div>
@@ -1233,7 +1239,13 @@ class HelperGUI extends React.Component {
 
         let lastRecommand = this.state.nextModifyRecommand.filter((x)=>x.check());
         results.push(... lastRecommand); // 在交互过程中显式清空
-
+        results = uniquifyList(results, (mr)=>{
+            let filterV = mr.filterAttrVal;
+            if(typeof(filterV) === 'number'){
+                filterV = filterV.toFixed(2)
+            }
+            return `${mr.filterAttrName}-${mr.modifyAttrName}-${filterV}`
+        })
         this.setState({
             nextModifyRecommand: results
         })
@@ -1382,16 +1394,15 @@ class HelperGUI extends React.Component {
                         <div style={{flex: 'none', verticalAlign: '-webkit-baseline-middle'}}>
                             深浅设置：
                         </div>
-                        <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}
-                            onClick={this.handleLigntnessInc.bind(this)}>
-                            变深
+                        <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}>
+                            <button onClick={this.handleLigntnessInc.bind(this)}>变深</button>
                         </div>
                         <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}>
                             {this.state.itemAttrObj.get('lightness')}
                         </div>
                         <div style={{flex: '1', verticalAlign: '-webkit-baseline-middle'}}
                             onClick={this.handleLigntnessDec.bind(this)}>
-                            变浅
+                            <button onClick={this.handleLigntnessDec.bind(this)}>变浅</button>
                         </div>
                     </div>
                     <div>

@@ -1,6 +1,6 @@
 import { typeList } from 'antd/lib/message';
 import axios from 'axios';
-import { abs, e, ifft, max, min, number, sqrt } from 'mathjs';
+import { abs, e, ifft, max, min, number, ones, sqrt } from 'mathjs';
 import App from '../App';
 import { ControllerCloner } from './ControllerCloner';
 import {loadFile, parseNewEquation} from './load_file'
@@ -958,7 +958,7 @@ class PostResultCandidate {
         return - sum / tgtConf;
     }
 
-    calValue(newEquation: Equation[], con: Controller):number{
+    calValue(newEquation: Equation[], con: Controller, canDependAttr?: Attribute[]):number{
         if(this.val >= 0){
             return this.val;
         }
@@ -967,10 +967,18 @@ class PostResultCandidate {
             return this.val;
         }
 
+        if(canDependAttr == undefined){
+            canDependAttr = [];
+        }
+
         let new_attr_values: Map<Attribute, number> = new Map();
         let new_equations: Equation[] = [...newEquation];
+
+        let argsInGivenEq = newEquation.flatMap((eq)=>[... eq.leftArgs, ...eq.rightArgs]);
         let unchangedAttr: Attribute[] = 
-            [... this.newEq.leftArgs, ... this.newEq.rightArgs].filter((x)=>(x!=this.target));
+            [... this.newEq.leftArgs, ... this.newEq.rightArgs].filter((x)=>(x!=this.target && !argsInGivenEq.includes(x)));
+        
+        // unchangedAttr = [... new Set([... unchangedAttr, ... canDependAttr])]
         let inferChangedAttr: Attribute[] = []; 
         
         
@@ -1362,6 +1370,15 @@ class Controller {
 
     addArrow(_from: number, _to: number, _text?: string): SingleElement {
         // return created arrow
+        let eles = [... this.elements.values()].filter((ele)=>{
+            return ele.getAttrVal('startElement', undefined) === _from && ele.getAttrVal('endElement', undefined) === _to
+        })
+
+        if(eles.length > 0){
+            alert('箭头已经绘制，不重复新建')
+            return eles[0]
+        }
+        
         let fromElement = this.getElement(_from);
         let toElement = this.getElement(_to);
         let newArrow = this.getElement(this.createElement(ElementType.ARROW, `arrow-${fromElement.name}-${toElement.name}`));
@@ -1712,7 +1729,7 @@ class Controller {
                         }
                         let newEq = new Equation(equation.leftFunc, equation.rightFunc, leftArgList, rightArgList)
                         let pc = new PostResultCandidate(equation, newEq, tgtAttr);
-                        pc.calValue(userGivenNewEq, this);
+                        pc.calValue(userGivenNewEq, this, canDependAttr);
                         genRes.push(pc);
                     }
                 }
@@ -2811,8 +2828,14 @@ class Controller {
         let inferChangeWithoutNewEq = inferChangedAttr.filter((x)=>(!allAttrInEqs.has(x)));
         
         let attrList = this.get_all_attributes();
+        let argsInGivenEq = newEqInExpr.flatMap((eq)=>[...eq.leftArgs, ...eq.rightArgs]);
         let canDependAttr = [...attrList, ... this.get_all_val_const_attr()]
-            .filter((attr)=>!inferChangedAttr.includes(attr));
+            .filter((attr)=>!inferChangedAttr.includes(attr) && !argsInGivenEq.includes(attr)); // eq 中的内容可能会发生变化
+        for(let arg of unchangedAttr){
+            if(!canDependAttr.includes(arg)){
+                canDependAttr.push(arg);
+            }
+        }
         
         let pcComb: Array<PostResultCandidate[]> = [];
         for(let attr of inferChangeWithoutNewEq){
@@ -2935,6 +2958,27 @@ class Controller {
             return true;
         })
 
+        // 超出边界筛选
+        combCandidate = combCandidate.filter((one_res)=>{
+            for(let i = 0; i < one_res[1].length; ++ i){
+                let crtAttr = one_res[1][i];
+                let val = one_res[2][i];
+                if(crtAttr.name !== 'x' && crtAttr.name !== 'y'){
+                    continue;
+                }
+                if(val < 0){
+                    return false;
+                }
+                if(crtAttr.name === 'x' && val > App.instance.stageWidth){
+                    return false;
+                }
+
+                if(crtAttr.name === 'y' && val > App.instance.stageHeight){
+                    return false;
+                }
+            }
+            return true;
+        })
 
         combCandidate = combCandidate.filter((one_res)=>{
             let attrList = one_res[1];
@@ -2980,6 +3024,10 @@ class Controller {
                 return 0;
             }
             return 1;
+        })
+
+        combCandidate = uniquifyList(combCandidate, (comb)=>{
+            return comb[2].map((x)=>x.toFixed(0)).join();
         })
 
         if(combCandidate.length > 0){

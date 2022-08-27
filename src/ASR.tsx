@@ -21,8 +21,10 @@ class ASR {
                 .replaceAll('听见', '新建')
                 .replaceAll('引线', '新建')
                 .replaceAll('清洁', '新建')
+                .replaceAll('新鲜', '新建')
                 .replaceAll('是得', '使得')
                 .replaceAll('时的', '使得')
+                .replaceAll('式的', '使得')
                 .replaceAll('数值', '竖直')
                 .replaceAll('数据', '竖直')
                 .replaceAll('监控', '箭头')
@@ -43,6 +45,7 @@ class ASR {
                 .replaceAll('叠加于归一化', '叠加与归一化')
                 .replaceAll('民间', '新建')
                 .replaceAll('执行', '直线')
+                .replaceAll('梦见', '新建')
             console.log(this.res)
             cb(this.res, this.finished);
         }
