@@ -175,6 +175,7 @@ class AllComponents extends React.Component {
                                     idInController={`${idx}`}
                                     strokeWidth={1}
                                     stroke={'black'}
+                                    hitStrokeWidth={w_val < 10? 10: undefined}
                                 />
                             );
                         } else if(i.type === ElementType.CIRCLE){
@@ -191,6 +192,7 @@ class AllComponents extends React.Component {
                                     onDragEnd={this.create_drag_end_handler(i).bind(this)}
                                     idInController={`${idx}`}
                                     strokeWidth={0}
+                                    hitStrokeWidth={w_val >= 30? 0: 30-w_val}
                                 />
                             );
                         }
@@ -1203,6 +1205,7 @@ class HelperGUI extends React.Component {
         })
 
         zip.file('log.json', JSON.stringify(Log.logs));
+        zip.file('content.json', JSON.stringify(this.controller.exportAsJson()));
         let content = await zip.generateAsync({type:"blob"});
 
         let eleLink = document.createElement('a');
@@ -1306,23 +1309,31 @@ class HelperGUI extends React.Component {
             </div>
             <div>
                 <button onClick={()=>{
+                    Log.incPicIdx()
+                    Log.savePic(App.instance.stageRef.current, '撤销');
                     Controller.undo();
                     this.updateSelectedItem(-1)
                     this.updateRecommand(true);
                     App.instance.allComponentsRef.current?.updateCdt(false);
                     this.showCdtRef.current!.checked = false;
                     Log.logDefault('撤销')
-                    App.instance.forceUpdate(); // 全局刷新
+                    App.instance.forceUpdate(()=>{
+                        Log.savePic(App.instance.stageRef.current, '撤销完成');
+                    }); // 全局刷新
                 }} disabled={!Controller.canUndo()}>撤销 {'<-'}</button>
 
                 <button onClick={()=>{
+                    Log.incPicIdx()
+                    Log.savePic(App.instance.stageRef.current, '重做');
                     Controller.redo();
                     this.updateSelectedItem(-1);
                     this.updateRecommand(true);
                     App.instance.allComponentsRef.current?.updateCdt(false);
                     this.showCdtRef.current!.checked = false;
                     Log.logDefault('重做')
-                    App.instance.forceUpdate(); // 全局刷新
+                    App.instance.forceUpdate(()=>{
+                        Log.savePic(App.instance.stageRef.current, '重做完成');
+                    }); // 全局刷新
                 }} disabled={!Controller.canRedo()}>重做 {'->'}</button>
             </div>
             <div>
@@ -2078,12 +2089,12 @@ class App extends Component {
 
                     <div>
                         <hr/>
-                        输入指令：<textarea ref={this.cmdInputRef} onChange={(e)=>this.listenInput(e)}/>
+                        <textarea ref={this.cmdInputRef} onChange={(e)=>this.listenInput(e)}/>
                         <button style={{height: '50px'}}
                             onClick={()=>{
                             this.handleInputFinished(this.cmdInputRef.current!.value);
                         }}>确认</button>
-                        --------
+                        ------
                         <button 
                             style={{height: '50px'}}
                             onClick={this.handleListenClick.bind(this)}>{this.state.listening? "结束输入":"开始输入"}</button>
