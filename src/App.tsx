@@ -1316,12 +1316,14 @@ class HelperGUI extends React.Component {
 
     handleCheckTag(tag: number, checked: boolean) {
         if (checked) {
+            Log.logDefault('选择元素标签', {name: this.state.instructionDisplay[0][tag]})
             // this.updateSelectedItem(this.tagIdToeleId(tag));
             App.instance.updateSelectedItemId(this.tagIdToeleId(tag), true);
             this.setState({
                 chosenObj: tag
             })
         } else {
+            Log.logDefault('取消选择元素标签', {name: this.state.instructionDisplay[0][tag]})
             App.instance.updateSelectedItemId(-1, true);
             this.setState({
                 chosenObj: -1
