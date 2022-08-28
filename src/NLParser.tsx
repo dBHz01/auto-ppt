@@ -666,7 +666,7 @@ class ControllerOp {
         if(this.targetElement != undefined){
             if(this.isCreate){
                 createElePh = this.targetElement;
-                lastIt = 'new';
+                // lastIt = 'new';
             }
             elePhSet.add(this.targetElement);
         }
@@ -784,13 +784,13 @@ class ControllerOp {
                         possibleNewCreate = undefined;
                     }
                 }
-                if(allElements.length === 0){
+                if(allElements.length === 0 && possibleNewCreate == undefined){
                     eleIds.push('UNKNOWN');
                     console.warn("没有找到满足条件的元素，具体信息如下：");
                     console.warn(elePh);
                     return;
                 }
-                if(allElements.length === 1){
+                if(allElements.length === 1 && possibleNewCreate == undefined){
                     if(elePh.attrRequires.size === 0){
                         lastIt = `${allElements[0].id}`;
                     }
@@ -1331,32 +1331,36 @@ class ControllerOp {
             })
         }
 
-        let inferChangedEle:SingleElement[] = [];
-        let inferUnchangedEle: SingleElement[] = [];
+        let inferChangedAttr:Attribute[] = [];
+        let inferUnchangedAttr: Attribute[] = [];
 
         if(this.targetElement?.actualEle != undefined){
-            inferChangedEle.push(this.targetElement.actualEle)
+            inferChangedAttr.push(this.targetElement.actualEle.getAttribute('x')!)
+            inferChangedAttr.push(this.targetElement.actualEle.getAttribute('y')!)
         } else if(this.targetAttr?.element?.actualEle != undefined){
-            inferChangedEle.push(this.targetAttr.element.actualEle);
+            inferChangedAttr.push(this.targetAttr.getActualAttr()!);
         } else {
             [... (this.extraEqs || []), ... (this.extraRanges || [])].forEach((eq)=>{
-                [... eq.leftArgs, ...eq.rightArgs].forEach((arg)=>{
-                    if(arg.element?.actualEle){
-                        inferChangedEle.push(arg.element.actualEle);
+                [... eq.leftArgs/*, ...eq.rightArgs*/].forEach((arg, idx)=>{
+                    if(arg.element?.actualEle && idx === 0){
+                        inferChangedAttr.push(arg.getActualAttr()!);
                     }
                 })
             })
         }
 
         if(this.pos?.elements){
-            inferUnchangedEle.push(... (this.pos.elements || []).map(ph=>ph.actualEle!));
+            inferUnchangedAttr.push(... (this.pos.elements || []).flatMap(ph=>{
+                return [ph.actualEle!.getAttribute('x')!, ph.actualEle!.getAttribute('y')!]
+            }));
         }
 
         if(this.assignValue != undefined){
-            inferUnchangedEle.push(... this.assignValue[1].map((x)=>x.element!.actualEle!));
+            inferUnchangedAttr.push(... this.assignValue[1].map((x)=>x.getActualAttr()!));
         }
 
         if(this.remainOther){
+            let inferChangedEle = inferChangedAttr.map((x)=>x.element);
             let allOtherEles = [... Controller.getInstance().elements.values()].filter((ele)=>{
                 if(ele.id <= 0){
                     return false;
@@ -1368,8 +1372,8 @@ class ControllerOp {
                 return true;
             })
 
-            inferChanged = inferChangedEle.flatMap((ele)=>{
-                return [`x_${ele.id}`, `y_${ele.id}`];
+            inferChanged = inferChangedAttr.flatMap((attr)=>{
+                return [`${attr.name}_${attr.element.id}`]
             })
 
             forceUnchanged = allOtherEles.flatMap((ele)=>{
@@ -1378,21 +1382,21 @@ class ControllerOp {
 
         } else if(this.remain != undefined){
             let forceUnchangedEle = new Set(this.remain.map((x)=>x.actualEle!));
-            inferUnchangedEle.forEach((x)=>{forceUnchangedEle.add(x)});
+            inferUnchangedAttr.forEach((x)=>{forceUnchangedEle.add(x.element)});
 
-            inferChangedEle = inferChangedEle.filter(x=>!forceUnchangedEle.has(x));
-            inferChanged = inferChangedEle.flatMap((ele)=>{
-                return [`x_${ele.id}`, `y_${ele.id}`];
+            inferChangedAttr = inferChangedAttr.filter(x=>!forceUnchangedEle.has(x.element));
+            inferChanged = inferChangedAttr.flatMap((attr)=>{
+                return [`${attr.name}_${attr.element.id}`];
             })
             forceUnchanged = [... forceUnchangedEle].flatMap((ele)=>{
                 return [`x_${ele.id}`, `y_${ele.id}`];
             })
         } else {
-            inferChanged = inferChangedEle.flatMap((ele)=>{
-                return [`x_${ele.id}`, `y_${ele.id}`];
+            inferChanged = inferChangedAttr.flatMap((attr)=>{
+                return [`${attr.name}_${attr.element.id}`];
             })
-            forceUnchanged = [... inferUnchangedEle].flatMap((ele)=>{
-                return [`x_${ele.id}`, `y_${ele.id}`];
+            forceUnchanged = [... inferUnchangedAttr].flatMap((attr)=>{
+                return [`${attr.name}_${attr.element.id}`];
             })
         }
 

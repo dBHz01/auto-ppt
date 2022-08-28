@@ -609,7 +609,6 @@ class ModifyRecommand {
             将所有 <b>{ModifyRecommand.attrToName.get(this.filterAttrName)}</b> 为 {this.toStrToDisp(this.filterAttrVal)} 的元素的
             <br/>
             {ModifyRecommand.attrToName.get(this.modifyAttrName)}修改为{this.toStrToDisp(this.tgtVal)}
-            <br/>
             <button onClick={this.apply.bind(this)}>确认</button>
             <hr/>
         </div>
