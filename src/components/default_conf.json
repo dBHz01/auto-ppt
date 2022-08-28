@@ -42,5 +42,16 @@
         "pointerAtEnding": true,
         "dashEnabled": false,
         "const_dis": 40
+    },
+    "test": {
+        "w": 40,
+        "h": 40,
+        "color": "blue",
+        "lightness": 400,
+        "elementType": "RECTANGLE",
+        "pointerAtBeginning": false,
+        "pointerAtEnding": true,
+        "dashEnabled": false,
+        "const_dis": 65
     }
 }

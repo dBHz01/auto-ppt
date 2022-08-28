@@ -1113,7 +1113,7 @@ class Controller {
     }
 
     constructor(taskId: number) {
-        let taskNames = ['transformer', 'transformer', 'cube', 'matrix', 'mendelian']
+        let taskNames = ['test', 'transformer', 'cube', 'matrix', 'mendelian']
         this.attrNameToDefault = new Map();
         // this.loadDefaultFromFile('matrix')
         // this.loadDefaultFromFile('cube')
@@ -1573,7 +1573,7 @@ class Controller {
 
                 // tgt - depend  = attr1 - attr2  1 & 2 的顺序在前面已经处理过了
                 let nextVal = attr1.val.val - attr2.val.val + dependAttr.val.val;
-                if(nextVal < 0){
+                if(nextVal <= 0){
                     continue;
                 }
 
@@ -2015,14 +2015,14 @@ class Controller {
                     }
                     if(attr.name === 'x'){
                         element_to_pos.get(attr.element)![0] = oneGroup[idx];
-                        if(oneGroup[idx] < 0){
+                        if(oneGroup[idx] <= 0 || oneGroup[idx] >= App.instance.stageWidth){
                             posInvalid = true;
                         }
                     }
 
                     if(attr.name === 'y'){
                         element_to_pos.get(attr.element)![1] = oneGroup[idx];
-                        if(oneGroup[idx] < 0){
+                        if(oneGroup[idx] <= 0 || oneGroup[idx] >= App.instance.stageHeight){
                             posInvalid = true;
                         }
                     }
@@ -2966,7 +2966,7 @@ class Controller {
                 if(crtAttr.name !== 'x' && crtAttr.name !== 'y'){
                     continue;
                 }
-                if(val < 0){
+                if(val <= 0){
                     return false;
                 }
                 if(crtAttr.name === 'x' && val > App.instance.stageWidth){

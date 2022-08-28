@@ -14,6 +14,7 @@ class ASR {
         this.sr.onresult = (ev)=>{
             this.res = ev.results[0][0].transcript
                 .replaceAll('举行', '矩形')
+                .replaceAll('剧情', '矩形')
                 .replaceAll('局行', '矩形')
                 .replaceAll('兴建', '新建')
                 .replaceAll('新晋', '新建')
@@ -22,9 +23,12 @@ class ASR {
                 .replaceAll('引线', '新建')
                 .replaceAll('清洁', '新建')
                 .replaceAll('新鲜', '新建')
+                .replaceAll('新件', '新建')
                 .replaceAll('是得', '使得')
                 .replaceAll('时的', '使得')
                 .replaceAll('式的', '使得')
+                .replaceAll('取得', '使得')
+                .replaceAll('写得', '使得')
                 .replaceAll('数值', '竖直')
                 .replaceAll('数据', '竖直')
                 .replaceAll('监控', '箭头')
@@ -46,7 +50,10 @@ class ASR {
                 .replaceAll('叠加于归一化', '叠加与归一化')
                 .replaceAll('民间', '新建')
                 .replaceAll('执行', '直线')
+                .replaceAll('局限', '直线')
                 .replaceAll('梦见', '新建')
+                .replaceAll('成色', '橙色')
+                .replaceAll('上访', '上方')
             console.log(this.res)
             cb(this.res, this.finished);
         }
