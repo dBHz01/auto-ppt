@@ -1966,6 +1966,7 @@ class App extends Component {
             this.traces = [];
             this.crtASR = new ASR(((txt, finished)=>{
                 this.cmdInputRef.current!.value = txt;
+                this.updateWithTextAndTrace(txt);
                 if(finished){
                     this.setState({
                         listening: false

@@ -30,6 +30,7 @@ class ASR {
                 .replaceAll('监控', '箭头')
                 .replaceAll('大象', '大小')
                 .replaceAll('人住', '元素')
+                .replaceAll('人数', '元素')
                 .replaceAll('一栋', '移动')
                 .replaceAll('你懂', '移动')
                 .replaceAll('不该', '修改')
