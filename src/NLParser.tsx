@@ -491,11 +491,14 @@ class ControllerOp {
     remainOther: boolean = false;
     remain?: ElementPlaceholder[];
 
-    phs2id?: Map<ElementPlaceholder, string>
+    phs2id?: Map<ElementPlaceholder, string>;
 
-    constructor(obj: { [key: string]: any }, rawTraces: Array<Array<[number, number]>>) {
+    specialMap?: Map<number, SingleElement>;
+
+    constructor(obj: { [key: string]: any }, rawTraces: Array<Array<[number, number]>>, specialMap?: Map<number, SingleElement>) {
         this.allElements = new Array<ElementPlaceholder>();
         let nlParser = new NLParser(this.allElements)
+        this.specialMap = specialMap;
 
         if (obj["type"] === "simple") {
             // 解析整体操作类型
@@ -838,6 +841,14 @@ class ControllerOp {
                 // 使用路径进行额外的处理
                 // 找到与路径中点最近的元素
                 // 如果使用路径的话，不可能去指代一个还没有出现的元素
+                // 如果有specialMap，则尝试从specialMap中获取元素
+                if (this.specialMap) {
+                    let specialEle = this.specialMap.get(idx);
+                    if (specialEle) {
+                        eleIds.push(`${specialEle.id}`);
+                        return;
+                    }
+                }
                 let crtTrace: Trace = traceUseInfo.get(elePh)![1];
                 allElements.sort((ele1, ele2)=>{
                     let dis1 = (ele1.getAttrVal('x', 0) - crtTrace.center[0]) ** 2

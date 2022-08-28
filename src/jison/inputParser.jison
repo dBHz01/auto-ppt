@@ -23,6 +23,8 @@
 "文本"                   return 'TEXT'
 "水平位置"               return 'HORILOC'
 "竖直位置"               return 'VERTILOC'
+"横坐标"                 return 'HORILOC'
+"纵坐标"                 return 'VERTILOC'
 "位置"                   return 'LOC'
 "水平距离"               return 'HORIDIST'
 "竖直距离"               return 'VERTIDIST'
@@ -351,7 +353,7 @@ object
          $$ = {"type": "", "adj": $3, "pos": @1.first_column, "end": @3.last_column};}
     | SINGLEONE color D shape_or_inputText
         {$4.push({"type": "color", "val": $2});
-         $$ = {"type": $1, "adj": $4, "pos": @1.first_column, "end": @4.last_column};}
+         $$ = {"type": "", "adj": $4, "pos": @1.first_column, "end": @4.last_column};}
     | ref color_or_not shape_or_inputText
         {$3.push($2);
          $$ = {"type": $1, "adj": $3, "pos": @1.first_column, "end": @3.last_column};}

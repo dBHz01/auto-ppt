@@ -55,8 +55,7 @@
 .ant-tag-checkable{
     background: #fff1f0;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+    margin-bottom: 10px;
     color: #cf1322;
     font-size: 14px;
     font-variant: tabular-nums;
@@ -65,7 +64,6 @@
     font-feature-settings: 'tnum', "tnum";
     display: inline-block;
     height: auto;
-    margin-right: 8px;
     padding: 0 7px;
     font-size: 12px;
     line-height: 20px;
@@ -84,4 +82,9 @@
 .ant-tag-checkable:active {
     background: #ed5a65;
     color: white;
+}
+
+.display-row {
+    border: 1px solid #ffa39e;
+    border-radius: 2px;
 }

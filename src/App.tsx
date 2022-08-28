@@ -5,7 +5,7 @@ import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
 import { Parser } from './jison/inputParser';
 import { Parser as ArrowParser } from './jison/arrowParser';
-import { Button, Tag as AntdTag } from 'antd';
+import { Button, Col, Row, Tag as AntdTag } from 'antd';
 import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
@@ -876,6 +876,7 @@ class HelperGUI extends React.Component {
                         break;                    
                 }                 
             }
+        App.instance.allComponentsRef.current?.forceUpdate();
     }
 
     deletehints(){
@@ -883,6 +884,7 @@ class HelperGUI extends React.Component {
         {
             this.controller.deleteHint(i.id);
         }
+        App.instance.allComponentsRef.current?.forceUpdate();
     }
 
     // eleIdToTagId(itemId: number) {
@@ -904,11 +906,19 @@ class HelperGUI extends React.Component {
         }
     }
 
+    tagIdToEleIndex(tagId: number): number {
+        let eles = this.state.instructionDisplay[1].map((x, idx) => {return x ? idx : -1});
+        eles = eles.filter(function(i) {return i !== -1});
+        console.log(eles);
+        return eles.indexOf(tagId);
+    }
+
     tagIdToele(tagId: number) {
         return this.state.instructionDisplay[1][tagId];
     }
 
     updateSelectedItem(itemId?: number, fromTag?: boolean){
+        console.log(itemId);
         if(itemId == undefined){
             itemId = this.state.selectedItemId;
             this.deletehints();
@@ -925,14 +935,31 @@ class HelperGUI extends React.Component {
         let ele = this.controller.getElement(itemId);
         if (!fromTag) {
             if (this.state.chosenObj >= 0) {
-                let textPos = this.state.instructionDisplay[0][this.state.chosenObj];
-                console.log(textPos);
+                // let textPos = this.state.instructionDisplay[0][this.state.chosenObj];
+                // console.log(textPos);
                 let newTextArray = this.state.instructionDisplay[0];
-                console.log(ele.getAttribute("text")!.val.val);
-                newTextArray[this.state.chosenObj] = ele.getAttribute("text")!.val.val;
-                let newText = newTextArray.join("");
-                App.instance.cmdInputRef.current!.value = newText;
-                App.instance.updateWithTextAndTrace(newText);
+                // console.log(ele.getAttribute("text")!.val.val);
+                let eleText = ele.getAttribute("text")!.val.val;
+                if (eleText) {
+                    newTextArray[this.state.chosenObj] = eleText;
+                    let newText = newTextArray.join("");
+                    App.instance.cmdInputRef.current!.value = newText;
+                    App.instance.updateWithTextAndTrace(newText);
+                } else {
+                    if (!this.state.instructionDisplay[1][this.state.chosenObj]!.ref) {
+                        newTextArray[this.state.chosenObj] = "这个";
+                        let newText = newTextArray.join("");
+                        App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
+                        App.instance.cmdInputRef.current!.value = newText;
+                        App.instance.updateWithTextAndTrace(newText);
+                    } else {
+                        App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
+                        App.instance.updateWithTextAndTrace(App.instance.cmdInputRef.current!.value);
+                    }
+                    // console.log(App.instance.state.curControllerOp);
+                    // App.instance.updateWithNewConOp()
+                    // console.log(this.state.instructionDisplay);
+                }
             }
         }
         this.setState({
@@ -941,6 +968,7 @@ class HelperGUI extends React.Component {
         })
         let displays:Display[] = check(this.controller,ele);
         this.deletehints();
+        console.log(displays);
         this.addhints(displays);
         return;
     }
@@ -1217,7 +1245,9 @@ class HelperGUI extends React.Component {
 
     clearTrace(){
         Log.logDefault('清空路径')
+        App.instance.updateWithTextAndTrace(App.instance.state.curText!);
         App.instance.traces = [];
+        App.instance.specialMap = new Map<number, SingleElement>();
         App.instance.forceUpdate()
     }
 
@@ -1548,16 +1578,50 @@ class HelperGUI extends React.Component {
         let inputTexts = [];
         for (let i = 0; i < displayArray[0].length; i++) {
             if (displayArray[1][i]) {
+                let text = displayArray[1][i]?.actualEle!.getAttribute("text")?.val.val;
+                let pos_x = Math.round(displayArray[1][i]?.actualEle!.getAttribute("x")?.val.val);
+                let pos_y = Math.round(displayArray[1][i]?.actualEle!.getAttribute("y")?.val.val);
+                let width = Math.round(displayArray[1][i]?.actualEle!.getAttribute("w")?.val.val);
+                let height = Math.round(displayArray[1][i]?.actualEle!.getAttribute("h")?.val.val);
+                let color = displayArray[1][i]?.actualEle!.getAttribute("color")?.val.val;
                 inputTexts.push(
-                    <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheckTag(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
+                    <Col className={inputTexts.length > 0 ? 'display-row':''}>
+                        <Row justify="center">
+                            <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheckTag(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
+                        </Row>
+                        <Row justify="center">
+                            <p>{"文字: " + (text ? text : "\"\"")}</p>
+                        </Row>
+                        <Row justify="center">
+                            <p>{"水平位置: " + (pos_x ? pos_x : "")}</p>
+                        </Row>
+                        <Row justify="center">
+                            <p>{"竖直位置: " + (pos_y ? pos_y : "")}</p>
+                        </Row>
+                        <Row justify="center">
+                            <p>{"高度: " + (height ? height : "")}</p>
+                        </Row>
+                        <Row justify="center">
+                            <p>{"宽度: " + (width ? width : "")}</p>
+                        </Row>
+                        <Row justify="center">
+                            <p>{"颜色: " + (color ? ColorNamesCN[ColorNames.indexOf(color)] : "")}</p>
+                        </Row>
+                    </Col>
                 );
             } else {
                 inputTexts.push(
-                    <AntdTag key={`tag-${i}`}><div>{displayArray[0][i]}</div></AntdTag>
+                    <Col>
+                        <Row justify="center">
+                            <AntdTag key={`tag-${i}`}><div>{displayArray[0][i]}</div></AntdTag>
+                        </Row>
+                    </Col>
                 );
             }
         }
-        return inputTexts;
+        return <Row justify="center">
+            {inputTexts}
+        </Row>;
     }
 
     render(){
@@ -1606,6 +1670,7 @@ class App extends Component {
     stageHeight: number;
     taskId: number = 0;
     userName: string = 'test';
+    specialMap: Map<number, SingleElement>;
     constructor(props: any) {
         super(props);
         console.log(window.location.pathname)
@@ -1625,6 +1690,7 @@ class App extends Component {
         Controller.getInstance(this.taskId)
 
         this.allComponentsRef = React.createRef<AllComponents>();
+        this.specialMap = new Map<number, SingleElement>();
         // let u = new TestParser();
         // u.parse("这个红色的矩形\n");
         let p = new Parser()
@@ -1794,7 +1860,7 @@ class App extends Component {
         let crtTrace = this.traces[this.traces.length - 1];
         crtTrace.push([event.evt.clientX, event.evt.clientY]);
         this.isDown = false;
-        this.updateWithTextAndTrace(this.state.curText!);
+        this.updateWithTextAndTrace(App.instance.cmdInputRef.current!.value);
         // console.log(crtTrace)
         this.forceUpdate()
     }
@@ -1807,7 +1873,7 @@ class App extends Component {
         // crtTrace.push([event.evt.touches[event.evt.touches.length-1].clientX, event.evt.touches[event.evt.touches.length-1].clientY]);
         this.isDown = false;
         // console.log(crtTrace)
-        this.updateWithTextAndTrace(this.state.curText!);
+        this.updateWithTextAndTrace(App.instance.cmdInputRef.current!.value);
         this.forceUpdate()
     }
 
@@ -1938,6 +2004,9 @@ class App extends Component {
                 
                 // this.updateUttrParseState(uttr, parseRes, conOp);
                 this.traces = [];
+                this.specialMap = new Map<number, SingleElement>();
+                this.updateWithTextAndTrace(this.state.curText!);
+
                 this.forceUpdate(()=>{
                     Log.logExecuteCmd()
                     Log.savePic(App.instance.stageRef.current, '运行结果');
@@ -2004,7 +2073,7 @@ class App extends Component {
             } else {
                 parseRes = new Parser().parse(text);
             }
-            let conOp = new ControllerOp(parseRes, this.traces);
+            let conOp = new ControllerOp(parseRes, this.traces, this.specialMap);
             let instructionDisplay = this.displayText(text, parseRes, conOp);
             this.updateUttrParseState(text, parseRes, conOp);
             this.helpGUIRef.current?.setState({
@@ -2012,11 +2081,20 @@ class App extends Component {
             })
             this.helpGUIRef.current?.forceUpdate();
         } catch (error) {
+            this.updateUttrParseState(undefined, undefined, undefined);
             this.helpGUIRef.current?.setState({
                 instructionDisplay: [[], []]
             })
             console.log(error);
         }
+    }
+
+    updateWithNewConOp(conOp: ControllerOp) {
+        this.updateUttrParseState(this.state.curText, this.state.curParsedResult, conOp);
+        let instructionDisplay = this.displayText(this.state.curText, this.state.curParsedResult, conOp);
+        this.helpGUIRef.current?.setState({
+            instructionDisplay: instructionDisplay
+        })
     }
 
     listenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
