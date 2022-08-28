@@ -53,6 +53,7 @@
 "上"                     return 'UP'
 "下"                     return 'DOWN' 
 "中点"                   return 'MIDDLE' 
+"中间"                   return 'MIDDLE' 
 "的"                     return 'D'
 "和"                     return 'AND'
 "到"                     return 'DAO'
