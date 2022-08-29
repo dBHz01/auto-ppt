@@ -168,7 +168,7 @@ class AllComponents extends React.Component {
                                     width={w_val}
                                     height={h_val}
                                     fill={ALLCOLORS[color]}
-                                    shadowBlur={this.state.selectedItemId === idx? 15:0}
+                                    shadowBlur={this.state.selectedItemId === idx? 20:0}
                                     key={i.id}
                                     draggable={true}
                                     onDragEnd={this.create_drag_end_handler(i).bind(this)}
@@ -186,7 +186,7 @@ class AllComponents extends React.Component {
                                     radiusX={w_val}
                                     radiusY={h_val}
                                     fill={ALLCOLORS[color]}
-                                    shadowBlur={this.state.selectedItemId === idx? 15:0}
+                                    shadowBlur={this.state.selectedItemId === idx? 20:0}
                                     key={i.id}
                                     draggable={true}
                                     onDragEnd={this.create_drag_end_handler(i).bind(this)}
@@ -1602,22 +1602,22 @@ class HelperGUI extends React.Component {
                         <Row justify="center">
                             <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheckTag(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
                         </Row>
-                        <Row justify="center">
+                        <Row justify="center" className="attr-row">
                             <p>{"文字: " + (text ? text : "\"\"")}</p>
                         </Row>
-                        <Row justify="center">
-                            <p>{"水平位置: " + (pos_x ? pos_x : "")}</p>
+                        <Row justify="center" className="attr-row">
+                            <p>{"位置: (" + (pos_x ? pos_x : "")  + ", " + (pos_y ? pos_y : "") + ")"}</p>
                         </Row>
-                        <Row justify="center">
+                        {/* <Row justify="center" className="attr-row">
                             <p>{"竖直位置: " + (pos_y ? pos_y : "")}</p>
+                        </Row> */}
+                        <Row justify="center" className="attr-row">
+                            <p>{"高×宽: (" + (height ? height : "") + ", " + (width ? width : "") + ")"}</p>
                         </Row>
-                        <Row justify="center">
-                            <p>{"高度: " + (height ? height : "")}</p>
-                        </Row>
-                        <Row justify="center">
+                        {/* <Row justify="center" className="attr-row">
                             <p>{"宽度: " + (width ? width : "")}</p>
-                        </Row>
-                        <Row justify="center">
+                        </Row> */}
+                        <Row justify="center" className="attr-row">
                             <p>{"颜色: " + (color ? ColorNamesCN[ColorNames.indexOf(color)] : "")}</p>
                         </Row>
                     </Col>
@@ -1632,9 +1632,11 @@ class HelperGUI extends React.Component {
                 );
             }
         }
-        return <Row justify="center">
-            {inputTexts}
-        </Row>;
+        return <div style={{height: '30vh', overflow: 'scroll'}}>
+                <Row justify="center">
+                    {inputTexts}
+                </Row>;
+        </div>
     }
 
     render(){
@@ -2024,6 +2026,12 @@ class App extends Component {
                     Log.logExecuteCmd()
                     Log.savePic(App.instance.stageRef.current, '运行结果');
                 });
+                this.helpGUIRef.current?.setState({
+                    selectedTag: HelperGUI.TAG_DISP_CDT
+                })
+                this.updateSelectedItemId(-1);
+                this.helpGUIRef.current?.forceUpdate();
+                // this.allComponentsRef.current?.forceUpdate();
                 return true;
             } catch(error){
                 console.error(error);
@@ -2050,6 +2058,10 @@ class App extends Component {
                 this.cmdInputRef.current!.value = txt;
                 Log.logDefault('识别结束', {uttr: txt})
                 this.updateWithTextAndTrace(txt);
+                // this.helpGUIRef.current?.setState({
+                //     selectedTag: HelperGUI.TAG_DISP_INS
+                // })
+                this.helpGUIRef.current?.forceUpdate();
                 if(finished){
                     this.setState({
                         listening: false
@@ -2080,6 +2092,10 @@ class App extends Component {
             this.setState({
                 curText: text,
             })
+            this.helpGUIRef.current?.setState({
+                selectedTag: HelperGUI.TAG_DISP_INS
+            })
+            this.helpGUIRef.current?.forceUpdate();
             let parseRes: any;
             if (text.includes("箭头") || text.includes("线")) {
                 parseRes = new ArrowParser().parse(text);
@@ -2088,6 +2104,15 @@ class App extends Component {
                 parseRes = new Parser().parse(text);
             }
             let conOp = new ControllerOp(parseRes, this.traces, this.specialMap);
+            let allElePlaceholders = conOp.allElements.map((x) => {return x});
+            allElePlaceholders = allElePlaceholders.sort((a, b) => {return a.pos - b.pos;})
+            let allEles = allElePlaceholders.map((x) => {return x.actualEle});
+            allEles = allEles.filter(function(x) {return x != undefined});
+            for (let i = 0; i < allEles.length; i++) {
+                if (allEles[i]) {
+                    this.specialMap.set(i, allEles[i]!);
+                }
+            }
             let instructionDisplay = this.displayText(text, parseRes, conOp);
             this.updateUttrParseState(text, parseRes, conOp);
             this.helpGUIRef.current?.setState({
