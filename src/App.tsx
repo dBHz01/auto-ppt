@@ -948,19 +948,21 @@ class HelperGUI extends React.Component {
                     App.instance.cmdInputRef.current!.value = newText;
                     App.instance.updateWithTextAndTrace(newText);
                 } else {
-                    if (!this.state.instructionDisplay[1][this.state.chosenObj]!.ref) {
-                        newTextArray[this.state.chosenObj] = "这个";
-                        let newText = newTextArray.join("");
-                        App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
-                        App.instance.cmdInputRef.current!.value = newText;
-                        App.instance.updateWithTextAndTrace(newText);
-                    } else {
-                        App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
-                        App.instance.updateWithTextAndTrace(App.instance.cmdInputRef.current!.value);
+                    if (this.state.instructionDisplay[1][this.state.chosenObj]) {
+                        if (!this.state.instructionDisplay[1][this.state.chosenObj]!.ref) {
+                            newTextArray[this.state.chosenObj] = "这个";
+                            let newText = newTextArray.join("");
+                            App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
+                            App.instance.cmdInputRef.current!.value = newText;
+                            App.instance.updateWithTextAndTrace(newText);
+                        } else {
+                            App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
+                            App.instance.updateWithTextAndTrace(App.instance.cmdInputRef.current!.value);
+                        }
+                        // console.log(App.instance.state.curControllerOp);
+                        // App.instance.updateWithNewConOp()
+                        // console.log(this.state.instructionDisplay);
                     }
-                    // console.log(App.instance.state.curControllerOp);
-                    // App.instance.updateWithNewConOp()
-                    // console.log(this.state.instructionDisplay);
                 }
             }
         }
@@ -1909,6 +1911,7 @@ class App extends Component {
                 );
                 if(res){
                     this.traces = [];
+                    this.specialMap = new Map<number, SingleElement>();
                     this.forceUpdate();
                 }
                 return res;
@@ -2055,6 +2058,7 @@ class App extends Component {
         if(!this.state.listening){
             Log.logDefault('开始语音输入')
             this.traces = [];
+            this.specialMap = new Map<number, SingleElement>();
             this.crtASR = new ASR(((txt, finished)=>{
                 this.cmdInputRef.current!.value = txt;
                 Log.logDefault('识别结束', {uttr: txt})
@@ -2108,7 +2112,7 @@ class App extends Component {
             let allElePlaceholders = conOp.allElements.map((x) => {return x});
             allElePlaceholders = allElePlaceholders.sort((a, b) => {return a.pos - b.pos;})
             let allEles = allElePlaceholders.map((x) => {return x.actualEle});
-            allEles = allEles.filter(function(x) {return x != undefined});
+            allEles = allEles.filter(function(x) {return x != undefined && x.id != 65535});
             for (let i = 0; i < allEles.length; i++) {
                 if (allEles[i]) {
                     this.specialMap.set(i, allEles[i]!);
