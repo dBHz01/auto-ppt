@@ -1,7 +1,7 @@
 import { Stage } from "konva/lib/Stage";
 import { ControllerOp, ElementPlaceholder } from "../NLParser";
 import { Controller } from "./backend";
-
+import Cookies from "js-cookie"
 class Log{
     static logs: any[];
     static pics: Array<{
@@ -13,6 +13,8 @@ class Log{
     static init(){
         Log.logs = [];
         Log.pics = []; // 截图
+
+        (window as any).obj['cookies'] = Cookies;
     }
 
     static l(obj: any){
@@ -60,6 +62,10 @@ class Log{
             data: stage.toDataURL(),
             name: `${Log.picIdx}-${Log.subIdx}-${name}.png`
         })
+
+        localStorage.setItem('log', JSON.stringify(this.logs))
+        localStorage.setItem('pics', JSON.stringify(this.pics));
+        localStorage.setItem('content', JSON.stringify(Controller.getInstance().exportAsJson()));
     }
 
     static incPicIdx(){

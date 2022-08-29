@@ -1028,6 +1028,7 @@ class Controller {
     static clonerStack: ControllerCloner[] = [];
     static crtPointer: number = -1;
     static PREDEFINE_DIS: number = 65;
+    static ALLOW_DELTA: number = 25;
 
     nextPosCdtCache?: [number, number, number][];
     attrNameToDefault: Map<string, any>;
@@ -1110,6 +1111,7 @@ class Controller {
         this.attrNameToDefault.set('elementType', str2eleType.get(conf['elementType']) || ElementType.RECTANGLE)
 
         Controller.PREDEFINE_DIS = conf['const_dis'] || 65;
+        Controller.ALLOW_DELTA = conf['allow_delta'] || 25;
     }
 
     constructor(taskId: number) {
@@ -3190,7 +3192,7 @@ class Trace{
     minY: number;
     maxX: number;
     maxY: number;
-    static ALLOW_DELTA = 25;
+    // static ALLOW_DELTA = 25;
     constructor(trace: Array<[number, number]>){
         this.rawTrace = trace.map(x=>[x[0], x[1]]);
         this.center = [
@@ -3205,7 +3207,7 @@ class Trace{
     }
 
     isInside(p: number, isX:boolean, tgtAttr: Attribute){
-        let delta = Trace.ALLOW_DELTA;
+        let delta = Controller.ALLOW_DELTA;
         if(tgtAttr.name === 'x'){
             delta = tgtAttr.element.getAttribute('w')?.val.val || delta;
         }

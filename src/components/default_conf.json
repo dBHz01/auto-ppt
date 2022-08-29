@@ -8,7 +8,8 @@
         "pointerAtBeginning": false,
         "pointerAtEnding": false,
         "dashEnabled": false,
-        "const_dis": 65
+        "const_dis": 65,
+        "allow_delta": 40
     }, 
     "mendelian": {
         "w": 60,
