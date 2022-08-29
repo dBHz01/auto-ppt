@@ -139,10 +139,15 @@ class RawNumber implements Value {
 class RawText implements Value {
     val: string;
     constructor(_val: string) {
+        // if(_val === '空'){
+        //     console.log("空的空的");
+        //     this.val = "";
+        //     console.log(this.val);
+        // } else {
+        //     this.val = _val;
+        //     console.log(this.val);
+        // }
         this.val = _val;
-        if(this.val === '空'){
-            this.val = ""
-        }
     }
     clone(): Value {
         return new RawText(this.val);
@@ -162,6 +167,10 @@ class RawNumberNoCal implements Value {
     val: any;
     constructor(_val: any) {
         this.val = _val;
+        // console.log(this.val);
+        // if(this.val === '空'){
+        //     this.val = ""
+        // }
     }
     clone(): Value {
         return new RawNumberNoCal(this.val);

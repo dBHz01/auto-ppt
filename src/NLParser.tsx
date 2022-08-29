@@ -817,14 +817,14 @@ class ControllerOp {
                     }
                 }
                 // 所有找到元素中ts最大的那一个
-                if(allIds.includes('new')){
+                /*if(allIds.includes('new')){
                     // 存在新建的话，必然是最大的
                     eleIds.push('new');
                     if(elePh.attrRequires.size === 0){
                         lastIt = `new`;
                     }
                     return;
-                }
+                }*/
                 allElements.sort((ele1, ele2)=>ele2.timestamp - ele1.timestamp);
                 if(elePh.attrRequires.size === 0){
                     lastIt = `${allElements[0].id}`;

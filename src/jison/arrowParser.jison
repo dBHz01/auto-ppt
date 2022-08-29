@@ -74,6 +74,7 @@
 "灰色"                   return 'GREY'
 "蓝灰色"                 return 'BLUEGREY'
 "一个"                   return 'SINGLEONE'
+"一条"                   return 'SINGLEONE'
 "它"                     return 'IT'
 "形状"                   return 'SHAPE'
 "矩形"                   return 'RECT'
