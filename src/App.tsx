@@ -672,7 +672,7 @@ class HelperGUI extends React.Component {
         this.editTextRef = React.createRef()
         this.showDebugInfoRef = React.createRef();
         this.uploadFileRef = React.createRef();
-        this.showHintsRef = React.createRef()
+        this.showHintsRef = React.createRef();
     }
 
     addhints(displays:Display[]){
@@ -1422,7 +1422,7 @@ class HelperGUI extends React.Component {
         let selectedItem = this.state.selectedItemId > 0? this.controller.getElement(this.state.selectedItemId): undefined;
         return <div>
             {this.state.selectedItemId >= 0? <div>
-                <div style={{display: 'none'}}>
+                <div style={{display: App.instance.userName === 'admin'? "": 'none'}}>
                     <textarea ref={this.editTextRef} 
                         defaultValue={this.controller.elements.get(this.state.selectedItemId)?.attributes.get('text')?.val.val || ""}
                     /><button onClick={()=>{
@@ -1784,6 +1784,7 @@ class App extends Component {
         this.stageHeight = window.innerHeight / 4 * 3 - 200;
 
         this.stageRef = React.createRef();
+        (window as any).obj['app'] = this;
     }
 
     displayText(text?: string, parsedResult?: Object, controllerOp?: ControllerOp): [string[], (ElementPlaceholder | undefined)[]] {

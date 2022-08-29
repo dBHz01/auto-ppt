@@ -62,6 +62,7 @@ class ASR {
                 .replaceAll('坐标边吗', '坐标编码')
                 .replaceAll('视图', '使得')
                 .replaceAll('为止', '位置')
+                .replaceAll('文书', '元素')
             console.log(this.res)
             cb(this.res, this.finished);
         }
