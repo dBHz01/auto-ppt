@@ -54,6 +54,7 @@ class ASR {
                 .replaceAll('梦见', '新建')
                 .replaceAll('成色', '橙色')
                 .replaceAll('上访', '上方')
+                .replaceAll('文书', '元素')
             console.log(this.res)
             cb(this.res, this.finished);
         }
