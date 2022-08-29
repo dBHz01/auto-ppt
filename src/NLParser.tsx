@@ -1403,12 +1403,13 @@ class ControllerOp {
                 return [`x_${ele.id}`, `y_${ele.id}`];
             })
         } else {
-            inferChanged = inferChangedAttr.flatMap((attr)=>{
+
+            /*inferChanged = inferChangedAttr.flatMap((attr)=>{
                 return [`${attr.name}_${attr.element.id}`];
             })
             forceUnchanged = [... inferUnchangedAttr].flatMap((attr)=>{
                 return [`${attr.name}_${attr.element.id}`];
-            })
+            })*/
         }
 
 

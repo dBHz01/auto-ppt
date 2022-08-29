@@ -936,6 +936,7 @@ class HelperGUI extends React.Component {
         let ele = this.controller.getElement(itemId);
         if (!fromTag) {
             if (this.state.chosenObj >= 0) {
+                Log.logDefault('指令展示-修改元素')
                 // let textPos = this.state.instructionDisplay[0][this.state.chosenObj];
                 // console.log(textPos);
                 let newTextArray = this.state.instructionDisplay[0];
@@ -2047,6 +2048,7 @@ class App extends Component {
             this.traces = [];
             this.crtASR = new ASR(((txt, finished)=>{
                 this.cmdInputRef.current!.value = txt;
+                Log.logDefault('识别结束', {uttr: txt})
                 this.updateWithTextAndTrace(txt);
                 if(finished){
                     this.setState({
