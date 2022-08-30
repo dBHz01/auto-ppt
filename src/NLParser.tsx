@@ -36,6 +36,10 @@ class ElementPlaceholder {
         }
         return this;
     }
+
+    deepCopy(): ElementPlaceholder {
+        return new ElementPlaceholder(this.ref, this.pos, this.end, )
+    }
 }
 
 class AttributePlaceholder {
@@ -393,12 +397,13 @@ class PosToElement {
     
     toStringExprForEle(tgtEle: ElementPlaceholder, 
         ele2id: Map<ElementPlaceholder, string>, 
-        traceUseInfo: Map<ElementPlaceholder| PosToElement, [number, Trace]>){
+        traceUseInfo: Map<ElementPlaceholder| PosToElement, [number, Trace]>,
+        forNewEle=false){
         if(this.posAtSentence != undefined){
             // 暂时都是等于
             let crtTraceInfo = traceUseInfo.get(this)!;
-            let strX = `x_${ele2id.get(tgtEle)} = trace_${crtTraceInfo[0]}`
-            let strY = `y_${ele2id.get(tgtEle)} = trace_${crtTraceInfo[0]}`
+            let strX = `x_${forNewEle? 'new': ele2id.get(tgtEle)} = trace_${crtTraceInfo[0]}`
+            let strY = `y_${forNewEle? 'new': ele2id.get(tgtEle)} = trace_${crtTraceInfo[0]}`
 
             return `${strX}; ${strY}`;
         }
@@ -406,25 +411,25 @@ class PosToElement {
         if(this.pos === PosToElement.CENTER){
             assert(this.elements?.length === 2);
             // x 和 y 都应该是中点
-            let strX = `x_${ele2id.get(this.elements[0])} - x_${ele2id.get(tgtEle)} = x_${ele2id.get(tgtEle)} - x_${ele2id.get(this.elements[1])}`;
-            let strY = `y_${ele2id.get(this.elements[0])} - y_${ele2id.get(tgtEle)} = y_${ele2id.get(tgtEle)} - y_${ele2id.get(this.elements[1])}`;
+            let strX = `x_${ele2id.get(this.elements[0])} - x_${forNewEle? 'new': ele2id.get(tgtEle)} = x_${forNewEle? 'new': ele2id.get(tgtEle)} - x_${ele2id.get(this.elements[1])}`;
+            let strY = `y_${ele2id.get(this.elements[0])} - y_${forNewEle? 'new': ele2id.get(tgtEle)} = y_${forNewEle? 'new': ele2id.get(tgtEle)} - y_${ele2id.get(this.elements[1])}`;
             return `${strX}; ${strY}`;
         }
         assert(this.elements?.length === 1);
         if(this.pos === PosToElement.LEFT){
-            return `x_${ele2id.get(tgtEle)} < x_${ele2id.get(this.elements[0])}`;
+            return `x_${forNewEle? 'new': ele2id.get(tgtEle)} < x_${ele2id.get(this.elements[0])}`;
         }
 
         if(this.pos === PosToElement.RIGHT){
-            return `x_${ele2id.get(tgtEle)} > x_${ele2id.get(this.elements[0])}`;
+            return `x_${forNewEle? 'new': ele2id.get(tgtEle)} > x_${ele2id.get(this.elements[0])}`;
         }
 
         if(this.pos === PosToElement.UP){
-            return `y_${ele2id.get(tgtEle)} < y_${ele2id.get(this.elements[0])}`;
+            return `y_${forNewEle? 'new': ele2id.get(tgtEle)} < y_${ele2id.get(this.elements[0])}`;
         }
 
         if(this.pos === PosToElement.DOWN){
-            return `y_${ele2id.get(tgtEle)} > y_${ele2id.get(this.elements[0])}`;
+            return `y_${forNewEle? 'new': ele2id.get(tgtEle)} > y_${ele2id.get(this.elements[0])}`;
         }
 
         throw Error('未知的元素-位置类型');
@@ -433,6 +438,7 @@ class PosToElement {
 
 class ControllerOp {
     isCreate: boolean = false; // 是否新建元素
+    isCopy: boolean = false; // 是否复制元素
     isArrow: boolean = false; // 是否箭头操作
     isLine: boolean = false; // 是否直线操作
 
@@ -504,6 +510,7 @@ class ControllerOp {
             // 解析整体操作类型
             assert(obj['predicate'] != undefined)
             this.isCreate = obj['predicate'] === 'new';
+            this.isCopy = obj['predicate'] === 'copy';
 
             if(obj['remain'] === 'other'){
                 this.remainOther = true;
@@ -1047,7 +1054,7 @@ class ControllerOp {
     }
 
     executeOnControllerNewEle(con: Controller){
-        if(!this.isCreate){
+        if((!this.isCreate) && (!this.isCopy)){
             throw Error('期望元素创建指令');
         }
 
@@ -1062,12 +1069,21 @@ class ControllerOp {
 
         if(this.targetElement != undefined){
             // 创建元素的初始属性
-            this.targetElement.attrRequires.forEach((attrV, attrName)=>{
-                if(attrName === 'name'){
-                    attrName = 'text';
-                }
-                newEleAttrs.set(attrName, attrV);
-            })
+            if (this.isCreate) {
+                this.targetElement.attrRequires.forEach((attrV, attrName)=>{
+                    if(attrName === 'name'){
+                        attrName = 'text';
+                    }
+                    newEleAttrs.set(attrName, attrV);
+                })
+            } else if (this.isCopy) {
+                this.targetElement.actualEle!.attributes.forEach((attrV, attrName)=>{
+                    if(attrName === 'x' || attrName === 'y'){
+                        return;
+                    }
+                    newEleAttrs.set(attrName, attrV.val.val);
+                })
+            }
 
             // 元素位置
             if(this.pos != undefined){
@@ -1075,14 +1091,14 @@ class ControllerOp {
                 if(this.pos.posAtSentence != undefined){
                     // 描述的是元素和绘制路径之间的关系
                     traceEleStrings.push(this.pos.toStringExprForEle(
-                        this.targetElement, elePh2id, traceUseInfo
+                        this.targetElement, elePh2id, traceUseInfo, this.isCopy
                     ))
                 } else if(this.pos.pos === PosToElement.CENTER){
                     // 说明是属性之间的等于关系
-                    eqStrings.push(this.pos.toStringExprForEle(this.targetElement, elePh2id, traceUseInfo));
+                    eqStrings.push(this.pos.toStringExprForEle(this.targetElement, elePh2id, traceUseInfo, this.isCopy));
                 } else {
                     // 说明是属性之间的偏序关系
-                    rangeStrings.push(this.pos.toStringExprForEle(this.targetElement, elePh2id, traceUseInfo));
+                    rangeStrings.push(this.pos.toStringExprForEle(this.targetElement, elePh2id, traceUseInfo, this.isCopy));
                 }
             }
 
@@ -1094,18 +1110,21 @@ class ControllerOp {
             assert(this.assignText === undefined); 
 
             if(this.extraEqs != undefined){
+                assert(!this.isCopy)
                 this.extraEqs.forEach((eq)=>{
                     eqStrings.push(eq.toString());
                 })
             }
 
             if(this.extraRanges != undefined){
+                assert(!this.isCopy)
                 this.extraRanges.forEach((eq)=>{
                     rangeStrings.push(eq.toString());
                 })
             }
 
             if(this.extraMap != undefined){
+                assert(!this.isCopy)
                 this.extraMap.forEach((attrVal, attrPh)=>{
                     if(elePh2id.get(attrPh.element!) != 'new'){
                         console.warn("新建过程中仅允许额外调整新建元素的属性");
@@ -1125,6 +1144,7 @@ class ControllerOp {
             }
 
             if(this.extraAttrMap != undefined){
+                assert(!this.isCopy)
                 this.extraAttrMap.forEach((sourceAttrPh, tgtAttrPh)=>{
                     if(elePh2id.get(tgtAttrPh.element!) != 'new'){
                         console.warn("新建过程中仅允许额外调整新建元素的属性");

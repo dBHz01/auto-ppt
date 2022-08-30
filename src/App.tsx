@@ -10,7 +10,7 @@ import Konva from 'konva';
 
 import { abs, max, min, number, sqrt } from 'mathjs';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { convertObjToMap, floatEq, getOrDefault, reader, splitRange, uniquifyList} from './components/utility';
+import { convertObjToMap, floatEq, getOrDefault, noOverlapping, reader, splitRange, uniquifyList} from './components/utility';
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp, ElementPlaceholder } from './NLParser';
@@ -269,10 +269,11 @@ class AllComponents extends React.Component {
                     }
                     // console.log(startOption);
                     let startCornerIndex = 0;
+                    let canPushArray = true;
                     if (startOption.length === 1) {
                         // 只有一个备选项
                         startCornerIndex = startOption[0];
-                    } else {
+                    } else if (startOption.length > 0) {
                         // 多个备选项，选择和目标点积值最小的那一个
                         let vectorMinus = function(vec_0: number[], vec_1: number[]) {
                             return [vec_0[0] - vec_1[0], vec_0[1] - vec_1[1]]
@@ -293,6 +294,9 @@ class AllComponents extends React.Component {
                         }
                         let maxDotValueIndex = dotValues.indexOf(Math.max(...dotValues));
                         startCornerIndex = startOption[maxDotValueIndex];
+                    } else {
+                        // throw Error("error arrow")
+                        canPushArray = false;
                     }
                     let endCornerIndex = (startCornerIndex + 4) % 8
                     let width = endCorners[endCornerIndex][0] - startCorners[startCornerIndex][0];
@@ -304,23 +308,25 @@ class AllComponents extends React.Component {
                     let pointerAtEnding = i.getAttrVal('pointerAtEnding', this.controller.attrNameToDefault.get('pointerAtEnding'));
                     let dashEnabled = i.getAttrVal('dashEnabled', this.controller.attrNameToDefault.get('dashEnabled'));
 
-                    elements.push(<Arrow
-                        x={startCorners[startCornerIndex][0]}
-                        y={startCorners[startCornerIndex][1]}
-                        points={[0, 0, width, height]}
-                        pointerLength={5}
-                        pointerWidth={5}
-                        fill={'black'}
-                        stroke={this.state.selectedItemId === idx? 'red': 'black'}
-                        strokeWidth={3}
-                        key={i.id}
-                        idInController={`${idx}`}
-                        pointerAtBeginning={pointerAtBeginning}
-                        pointerAtEnding={pointerAtEnding}
-                        dashEnabled={dashEnabled}
-                        dash={[3, 3]}
-                        
-                        />);
+                    if (canPushArray) {
+                        elements.push(<Arrow
+                            x={startCorners[startCornerIndex][0]}
+                            y={startCorners[startCornerIndex][1]}
+                            points={[0, 0, width, height]}
+                            pointerLength={5}
+                            pointerWidth={5}
+                            fill={'black'}
+                            stroke={this.state.selectedItemId === idx? 'red': 'black'}
+                            strokeWidth={3}
+                            key={i.id}
+                            idInController={`${idx}`}
+                            pointerAtBeginning={pointerAtBeginning}
+                            pointerAtEnding={pointerAtEnding}
+                            dashEnabled={dashEnabled}
+                            dash={[3, 3]}
+                            
+                            />);
+                    }
                     let arrowText = i.getAttribute("text");
                     if (arrowText && arrowText.val.val.length > 0) {
                         // elements.push(<Rect
@@ -1999,9 +2005,20 @@ class App extends Component {
                 // let conOp = new ControllerOp(parseRes, raw_traces);
                 Log.logParseResult(conOp);
                 let res:boolean = false;
-                if(conOp.isCreate){
+                if(conOp.isCreate || conOp.isCopy){
                     res = conOp.executeOnControllerNewEle(Controller.getInstance());
                 } else if (conOp.isArrow || conOp.isLine) {
+                    let x1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("x").val.val;
+                    let y1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("y").val.val;
+                    let w1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("w").val.val;
+                    let h1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("h").val.val;
+                    let x2 = conOp.arrowTo!.actualEle!.getCertainAttribute("x").val.val;
+                    let y2 = conOp.arrowTo!.actualEle!.getCertainAttribute("y").val.val;
+                    let w2 = conOp.arrowTo!.actualEle!.getCertainAttribute("w").val.val;
+                    let h2 = conOp.arrowTo!.actualEle!.getCertainAttribute("h").val.val;
+                    if (!noOverlapping(x1, y1, w1, h1, x2, y2, w2, h2)) {
+                        throw Error("overlapping");
+                    }
                     switch (conOp.arrowOperation) {
                         case "new":
                             res = conOp.executeOnAddArrow(Controller.getInstance());

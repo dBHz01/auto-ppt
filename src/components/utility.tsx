@@ -432,9 +432,25 @@ function splitRange(l: number, r: number[][]): number[][] {
 }
 
 
+function noOverlapping(x1: number, y1: number, w1: number, h1: number, x2: number, y2: number, w2: number, h2: number): boolean {
+    let left_1 = x1 - w1 / 2;
+    let right_1 = x1 + w1 / 2;
+    let up_1 = y1 - h1 / 2;
+    let down_1 = y1 + h1 / 2;
+    let left_2 = x2 - w2 / 2;
+    let right_2 = x2 + w2 / 2;
+    let up_2 = y2 - h2 / 2;
+    let down_2 = y2 + h2 / 2;
+    if (left_1 > right_2 || right_1 < left_2 || up_1 > down_2 || down_1 < up_2) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 export {getAllCase, count, getTs, floatEq, 
     randomID, reduceRowJs, listEq, floatGe, 
     floatLe, floatGt, floatLt, uniquifyList, 
     beamSolve, countTimeStart, countTimeEnd, 
     countTimeFinish, getOrDefault, reader, 
-    convertObjToMap, splitRange}
+    convertObjToMap, splitRange, noOverlapping}

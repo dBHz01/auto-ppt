@@ -44,6 +44,7 @@ class Log{
         Log.l({
             msg: '解析结束', 
             create: res.isCreate,
+            copy: res.isCopy,
             arrow: res.isArrow || res.isLine,
             arrowOp: res.arrowOperation,
             traceEleNum: [... res.obj2trace.keys()].filter((x)=>(x instanceof ElementPlaceholder)).length,
@@ -52,7 +53,7 @@ class Log{
             itEleNum: [... (res.phs2id?.entries() || [])].filter((v)=>(v[1] != 'new' && v[0].attrRequires.size === 0)).length,
             attrChange: (res.extraMap?.size || 0) + (res.extraAttrMap?.size || 0) 
                 + ((res.targetAttr && res.targetAttr?.name !== 'x' && res.targetAttr?.name !== 'y')? 1: 0),
-            posRelated: res.isCreate || res.targetAttr?.name === 'x' || res.targetAttr?.name === 'y' || (res.extraEqs && res.extraEqs.length > 0) || (res.extraRanges && res.extraRanges.length > 0) || res.pos
+            posRelated: res.isCreate || res.isCopy || res.targetAttr?.name === 'x' || res.targetAttr?.name === 'y' || (res.extraEqs && res.extraEqs.length > 0) || (res.extraRanges && res.extraRanges.length > 0) || res.pos
         })
     }
 

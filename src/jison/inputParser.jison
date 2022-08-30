@@ -11,6 +11,7 @@
 "移动"                   return 'MOVE'
 "修改"                   return 'CHANGE'
 "改"                     return 'CHANGE'
+"复制"                   return 'COPY'
 "这个"                   return 'THIS'
 "那个"                   return 'THAT'
 "这里"                   return 'HERE'
@@ -114,7 +115,7 @@
 
 // [\u4e00-\u9fa5]+?(?=[新建移动修改这那里大小高宽度颜色文字水平位置竖直距离深浅左右上下边方的和到在往为中点])            return 'INPUTTEXT'
 // [\u4e00-\u9fa5A-Za-z0123456789]+?(?=[和的到往在为使深浅大小等于红粉紫蓝青蓝黄橙棕灰色它这那个保持不变不动新建画移动修改\n])            return 'INPUTTEXT'
-[\u4e00-\u9fa5A-Za-z0123456789]+?(?=[和的到往在为使深浅大小等保不新画移修改\n])            return 'INPUTTEXT'
+[\u4e00-\u9fa5A-Za-z0123456789]+?(?=[和的到往在为使深浅大小等保不新画移修改复\n])            return 'INPUTTEXT'
 
 
 "\n"                     return 'BREAK_LINE'
@@ -576,6 +577,8 @@ predicate
         {$$ = "move";}
     | CHANGE
         {$$ = "change";}
+    | COPY
+        {$$ = "copy";}
     ;
         
 target
