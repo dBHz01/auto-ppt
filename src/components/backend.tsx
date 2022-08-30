@@ -1062,6 +1062,8 @@ class Controller {
         let res = func();
         if(res){
             Controller.saveToStack()
+        } else {
+            Controller.resetToCrt()
         }
     }
 
@@ -1069,6 +1071,8 @@ class Controller {
         let res = await func();
         if(res){
             Controller.saveToStack()
+        } else {
+            Controller.resetToCrt()
         }
     }
 
@@ -1088,6 +1092,14 @@ class Controller {
             return false;
         }
         Controller.crtPointer -= 1;
+        Controller.clonerStack[Controller.crtPointer].assign();
+        return true;
+    }
+
+    static resetToCrt(): boolean{
+        if(Controller.crtPointer < 0){
+            return false;
+        }
         Controller.clonerStack[Controller.crtPointer].assign();
         return true;
     }
