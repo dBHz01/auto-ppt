@@ -885,6 +885,9 @@ class ControllerOp {
         for(let req of requires){
             let attrName = req[0];
             let attrValue = req[1];
+            if(attrName === 'shape'){
+                continue;
+            }
             if(attrName === 'name'){
                 attrName = 'text';
             }
