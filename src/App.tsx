@@ -371,13 +371,13 @@ class AllComponents extends React.Component {
             }
         }
 
-        let nextCdts = this.state.nextCdt.map((v, idx)=>{
+        let nextCdts = this.state.nextCdt.slice(0, AllComponents.cdtColors.length * 2).map((v, idx)=>{
             return <Circle
                 key={`cdt${idx}-${v[0]}-${v[1]}`} 
                 x={v[0]}
                 y={v[1]}
-                width={15}
-                height={15}
+                width={5}
+                height={5}
                 fill={idx >= AllComponents.cdtColors.length - 1?AllComponents.cdtColors[AllComponents.cdtColors.length - 1]: AllComponents.cdtColors[idx]}
             />
         })
@@ -1057,6 +1057,7 @@ class HelperGUI extends React.Component {
                 Log.logDefault('选择候选', {idx, length: this.controller.candidates.length})
                 this.controller.crtCdtIdx = idx;
                 this.controller.update_attr();
+                App.instance.forceUpdate()
                 Log.savePic(App.instance.stageRef.current, `候选结果切换-${idx}`);
                 return true;
             })
