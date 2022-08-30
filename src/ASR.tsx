@@ -63,6 +63,7 @@ class ASR {
                 .replaceAll('视图', '使得')
                 .replaceAll('为止', '位置')
                 .replaceAll('文书', '元素')
+                .replaceAll('元后', '元素') 
             console.log(this.res)
             cb(this.res, this.finished);
         }
