@@ -2005,7 +2005,7 @@ class App extends Component {
 
                 // let conOp = new ControllerOp(parseRes, raw_traces);
                 Log.logParseResult(conOp);
-                if(conOp.isCreate){
+                if(conOp.isCreate || conOp.isCopy){
                     conOp.executeOnControllerNewEle(Controller.getInstance());
                 } else if (conOp.isArrow || conOp.isLine) {
                     let x1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("x").val.val;
