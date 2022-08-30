@@ -768,6 +768,9 @@ class ControllerOp {
         elePhs.forEach((elePh, idx)=>{
             if(elePh === createElePh){
                 eleIds.push('new');
+                if(lastIt == undefined){
+                    lastIt = 'new';
+                }
                 return;
             }
 
