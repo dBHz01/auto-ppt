@@ -1927,7 +1927,6 @@ class App extends Component {
                 alert('运行出错，请检查指令')
                 return false;
             }
-            
         })
     }
 
@@ -2005,8 +2004,9 @@ class App extends Component {
 
                 // let conOp = new ControllerOp(parseRes, raw_traces);
                 Log.logParseResult(conOp);
+                let res:boolean = false;
                 if(conOp.isCreate || conOp.isCopy){
-                    conOp.executeOnControllerNewEle(Controller.getInstance());
+                    res = conOp.executeOnControllerNewEle(Controller.getInstance());
                 } else if (conOp.isArrow || conOp.isLine) {
                     let x1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("x").val.val;
                     let y1 = conOp.arrowFrom!.actualEle!.getCertainAttribute("y").val.val;
@@ -2021,22 +2021,22 @@ class App extends Component {
                     }
                     switch (conOp.arrowOperation) {
                         case "new":
-                            conOp.executeOnAddArrow(Controller.getInstance());
+                            res = conOp.executeOnAddArrow(Controller.getInstance());
                             break;
 
                         case "delete":
-                            conOp.executeOnDeleteArrow(Controller.getInstance());
+                            res = conOp.executeOnDeleteArrow(Controller.getInstance());
                             break;
 
                         case "change":
-                            conOp.executeOnChangeArrow(Controller.getInstance());
+                            res = conOp.executeOnChangeArrow(Controller.getInstance());
                             break;
                     
                         default:
                             break;
                     }
                 } else {
-                    conOp.executeOnControllerModify(Controller.getInstance());
+                    res = conOp.executeOnControllerModify(Controller.getInstance());
                 }
                 
                 // this.updateUttrParseState(uttr, parseRes, conOp);
@@ -2054,7 +2054,7 @@ class App extends Component {
                 this.updateSelectedItemId(-1);
                 this.helpGUIRef.current?.forceUpdate();
                 // this.allComponentsRef.current?.forceUpdate();
-                return true;
+                return res;
             } catch(error){
                 console.error(error);
                 alert('运行出错，请检查指令')

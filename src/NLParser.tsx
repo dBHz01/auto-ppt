@@ -1173,7 +1173,7 @@ class ControllerOp {
         }
 
         // 调用controller 对应的函数
-        con.handleUserAdd(
+        return con.handleUserAdd(
             this.rawTraces, traceEleStrings.join(';'), eqStrings.join(';'), rangeStrings.join(';'), newEleAttrs
         );
 
@@ -1435,7 +1435,7 @@ class ControllerOp {
         }
 
 
-        con.handleUserModify(
+        return con.handleUserModify(
             eqStrings.join(';'), forceUnchanged.join(';'), inferChanged.join(';'), 
             rangeStrings.join(';'), this.rawTraces, traceEleStrings.join(';'), 
             eleAttrMod, elePosMod, eleTypeMod
@@ -1453,6 +1453,8 @@ class ControllerOp {
             con.addAttribute(newArrow.id, "pointerAtBeginning", new RawNumberNoCal(false));
             con.addAttribute(newArrow.id, "pointerAtEnding", new RawNumberNoCal(true));
         }
+
+        return true;
     }
 
     executeOnDeleteArrow(con: Controller) {
@@ -1461,6 +1463,7 @@ class ControllerOp {
         let fromId = Number(elePh2id.get(this.arrowFrom!));
         let toId = Number(elePh2id.get(this.arrowTo!));
         con.deleteArrow(con.findArrow(fromId, toId).id);
+        return true;
     }
 
     executeOnChangeArrow(con: Controller) {
@@ -1472,6 +1475,8 @@ class ControllerOp {
         // arrow.addAttribute(new Attribute('dashEnabled', new RawNumberNoCal(this.dashed), arrow));
         let arrowId = con.findArrow(fromId, toId).id;
         con.addAttribute(arrowId, "dashEnabled", new RawNumberNoCal(this.dashed));
+
+        return true;
     }
 
     genValForStepChange(attr:Attribute, inc:boolean): any{
