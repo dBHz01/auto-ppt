@@ -2161,6 +2161,7 @@ class App extends Component {
 
     listenInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
         this.updateWithTextAndTrace(e.target.value);
+        Log.logDefault('输入框文本变化', {text: e.target.value})
     }
 
     render() {
