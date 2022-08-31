@@ -36,10 +36,6 @@ class ElementPlaceholder {
         }
         return this;
     }
-
-    deepCopy(): ElementPlaceholder {
-        return new ElementPlaceholder(this.ref, this.pos, this.end, )
-    }
 }
 
 class AttributePlaceholder {
