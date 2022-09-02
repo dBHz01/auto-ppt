@@ -292,14 +292,16 @@ class SingleElement {
             }
         }
 
-        if(Controller.getInstance().attrNameToDefault.has(name)){
+        if(Controller.getInstance().attrNameToDefault.has(name) && !App.instance.naive){
             Controller.getInstance().attrNameToDefault.set(name, val);
         }
     }
 
     changeElementType(type: ElementType){
         this.type = type;
-        Controller.getInstance().attrNameToDefault.set('elementType', type);
+        if(!App.instance.naive){
+            Controller.getInstance().attrNameToDefault.set('elementType', type);
+        }
     }
 
     getAttrOrDefault(name:string, dft: Attribute | null):Attribute|null{
@@ -416,7 +418,9 @@ class SingleElement {
 
     changeType(_type: ElementType){
         this.type = _type;
-        Controller.getInstance().attrNameToDefault.set('elementType', _type);
+        if(!App.instance.naive){
+            Controller.getInstance().attrNameToDefault.set('elementType', _type);
+        }
     }
 
 }
@@ -1206,6 +1210,9 @@ class Controller {
     }
 
     searchSimilarByHistory(_type: ElementType | undefined, _inAttrs?: Map<string, any>): SingleElement | undefined{
+        if(App.instance.naive){
+            return undefined;
+        }
         if(_inAttrs == undefined){
             _inAttrs = new Map();
         }
@@ -1363,7 +1370,7 @@ class Controller {
     addAttribute(_id: number, _name: string, _val: Value) {
         let newAttribute = new Attribute(_name, _val, this.elements.get(_id)!);
         this.elements.get(_id)!.addAttribute(newAttribute);
-        if(this.attrNameToDefault.has(_name)){
+        if(this.attrNameToDefault.has(_name) && !App.instance.naive){
             this.attrNameToDefault.set(_name, _val.val);
         }
     }
@@ -1895,6 +1902,7 @@ class Controller {
         outputEq=true,
         extra_attrs: Attribute[]=[])
         : Array<[Equation[], Attribute[], number[], number]>{
+        assert(!App.instance.naive);
         // 返回的内容：每一个元素都是一个可能的选项，分别对应于
         // 满足的方程、属性列表、属性取值、误差
 
@@ -2194,11 +2202,21 @@ class Controller {
 
     }
 
+    update_contentsNaive(new_attr_values: Map<Attribute, number>){
+        new_attr_values.forEach((v, attr)=>{
+            attr.val.val = v;
+        })
+        return true
+    }
+
     update_contents(new_attr_values: Map<Attribute, number>, 
         new_equations: Equation[],
         unchangedAttr: Attribute[], 
         inferChangedAttr: Attribute[]){
-        
+        if(App.instance.naive){
+            return this.update_contentsNaive(new_attr_values);
+        }
+
         let res = this.cal_contents(new_attr_values, new_equations, unchangedAttr, inferChangedAttr);
         this.candidates = res;
         this.crtCdtIdx = 0;
@@ -2209,6 +2227,7 @@ class Controller {
     }
 
     update_attr(){
+        assert(!App.instance.naive);
         this.equations = this.candidates[this.crtCdtIdx][0].map((eq)=>(eq.clone()));
         // 将所有的equation中的临时内容全部替换
         for(let i = 0; i < this.equations.length; ++ i){
@@ -2379,10 +2398,47 @@ class Controller {
         ]
     }
 
+    handleUserAddNaive(RawTraces: Array<Array<[number, number]>>, 
+        traceEleRelation: string, newEleEq: string,
+        newEleRange:string, newEleAttrs: Map<string, any>): boolean{
+        let traces = RawTraces.map(rt=>new Trace(rt));
+
+        let nextElementId = this.createElement(
+            newEleAttrs.get("type"),
+            undefined, newEleAttrs
+            ); // 后续接受更多内容
+        this.addAttribute(nextElementId, 'x', new RawNumber(100));
+        this.addAttribute(nextElementId, 'y', new RawNumber(100));
+        let nextElement = this.getElement(nextElementId);
+        nextElement.name = `${nextElementId}`
+        let xAttr = nextElement.getAttribute('x')!;
+        let yAttr = nextElement.getAttribute('y')!;
+        traceEleRelation = traceEleRelation.replaceAll('new', `${nextElementId}`)
+        if(traceEleRelation.length > 0){
+            traceEleRelation.split(';').forEach((x)=>{
+                let crt = new TraceAttrRelation(this, traces, x);
+                if(crt.op !== AssignOp.eq){
+                    return;
+                }
+
+                if(crt.isX){
+                    xAttr.val.val = crt.trace.center[0];
+                } else {
+                    yAttr.val.val = crt.trace.center[1];
+                }
+            })
+        }
+
+        return true;
+    }
+
     handleUserAdd(RawTraces: Array<Array<[number, number]>>, 
         traceEleRelation: string, newEleEq: string,
         newEleRange:string, newEleAttrs: Map<string, any>): boolean{
-
+        if(App.instance.naive){
+            return this.handleUserAddNaive(RawTraces, traceEleRelation, newEleEq,
+                newEleRange, newEleAttrs)
+        }
         let traces = RawTraces.map(rt=>new Trace(rt));
 
         let nextElementId = this.createElement(
@@ -2713,7 +2769,7 @@ class Controller {
 
     }
 
-    handleUserModify(newEleEq: string, 
+    handleUserModifyNaive(newEleEq: string, 
         forceUnchangeStr: string, 
         inferChangeStr: string, 
         newEleRange: string, 
@@ -2721,7 +2777,63 @@ class Controller {
         traceEleRelation: string,
         eleAttrMod?: Map<Attribute, any>,
         elePosMod?:Map<Attribute, number>,
+        eleTypeMod?:Map<SingleElement, ElementType>): boolean {
+            let traces = RawTraces.map(rt=>new Trace(rt));
+            if(eleAttrMod == undefined){
+                eleAttrMod = new Map();
+            }
+    
+            if(elePosMod == undefined){
+                elePosMod = new Map();
+            }
+    
+            if(eleTypeMod == undefined){
+                eleTypeMod = new Map();
+            }
+            let nonPosAttrUpdated = false;
+            eleTypeMod.forEach((eleType, ele)=>{
+                ele.changeElementType(eleType);
+                nonPosAttrUpdated = true;
+            })
+
+            eleAttrMod.forEach((val, attr)=>{
+                attr.element.changeCertainAttribute(attr.name, val, true);
+                nonPosAttrUpdated = true;
+            })
+
+            elePosMod.forEach((val, attr)=>{
+                assert(attr.name === 'x' || attr.name === 'y');
+                attr.val.val = val;
+            })
+
+            if(traceEleRelation.length > 0){
+                traceEleRelation.split(';').forEach((x)=>{
+                    let crt = new TraceAttrRelation(this, traces, x);
+                    if(crt.op != AssignOp.eq){
+                        return;
+                    }
+
+                    crt.atttibute.val.val = crt.trace.center[crt.isX? 0:1];
+                })
+            }
+
+            return true;
+
+        }
+
+    handleUserModify(newEleEq: string, 
+        forceUnchangeStr: string, 
+        inferChangeStr: string,
+        newEleRange: string, 
+        RawTraces: Array<Array<[number, number]>>, 
+        traceEleRelation: string,
+        eleAttrMod?: Map<Attribute, any>,
+        elePosMod?:Map<Attribute, number>,
         eleTypeMod?:Map<SingleElement, ElementType>): boolean{
+        
+        if(App.instance.naive){
+            return this.handleUserModifyNaive(newEleEq, forceUnchangeStr, inferChangeStr, newEleRange, RawTraces, traceEleRelation, eleAttrMod, elePosMod, eleTypeMod);
+        }
         
         let traces = RawTraces.map(rt=>new Trace(rt));
         let unchangedAttr: Attribute[] = [];
