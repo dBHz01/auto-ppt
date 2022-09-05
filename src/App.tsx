@@ -660,7 +660,7 @@ class HelperGUI extends React.Component {
         this.controller = Controller.getInstance();
         this.state = {
             cdtIdx: 0,
-            selectedTag: HelperGUI.TAG_DISP_CDT,
+            selectedTag: HelperGUI.TAG_DISP_SET_GLOBAL,
             selectedItemId: -1,
             itemAttrObj: new Map(),
             nextModifyRecommand: [],
@@ -1116,7 +1116,8 @@ class HelperGUI extends React.Component {
         return <div style={{display: 'flex'}}>
             <div style={{flex: '1', 
                 backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_CDT? "#d6d6d6": "#ffffff",
-                lineHeight: '3'}}
+                lineHeight: '3',
+                display: App.instance.naive? 'none': ''}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_CDT).bind(this)}>
                 候选方案{this.state.selectedTag === HelperGUI.TAG_DISP_CDT?"✍︎": ""}
             </div>
@@ -1130,7 +1131,8 @@ class HelperGUI extends React.Component {
 
             <div style={{flex: '1', 
                 backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_MOD? "#d6d6d6": "#ffffff",
-                lineHeight: '3'}}
+                lineHeight: '3',
+                display: App.instance.naive? 'none': ''}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_MOD).bind(this)}>
                 修改预测{this.state.selectedTag === HelperGUI.TAG_DISP_MOD?"✍︎": ""}
             </div>
@@ -1695,6 +1697,8 @@ class App extends Component {
     taskId: number = 0;
     userName: string = 'test';
     specialMap: Map<number, SingleElement>;
+
+    naive: boolean = false;
     constructor(props: any) {
         super(props);
         console.log(window.location.pathname)
@@ -1706,9 +1710,14 @@ class App extends Component {
         let attrSplit = attrs.split('/');
         if(attrSplit.length < 2){
             alert('没有输入任务和用户信息')
-        } else {
+        } else if(attrSplit.length === 2){
             this.taskId = Number(attrSplit[1]);
             this.userName = attrSplit[0];
+            this.naive = false;
+        } else {
+            this.taskId = Number(attrSplit[2]);
+            this.userName = attrSplit[1];
+            this.naive = attrSplit[0] === 'naive';
         }
 
         Controller.getInstance(this.taskId)
@@ -2196,6 +2205,7 @@ class App extends Component {
                                         width={5}
                                         height={5}
                                         fill={App.colors[traceId % App.colors.length]}
+                                        listening={false}
                                     />
                                 })
                             })}
