@@ -303,9 +303,9 @@ function find_EQUAL(all: SingleElement[], center: SingleElement) {
         let sameShip: Ship[] = [];
         let thisShip;
         let tomatch: SingleElement[] = [center, all[i]];
-        for (let i = 0; i < ShipNum; i++) {
-            if (distances[i].match(tomatch)) {
-                thisShip = distances[i];
+        for (let j = 0; j < ShipNum; j++) {
+            if (distances[j].match(tomatch)) {
+                thisShip = distances[j];
                 break;
             }
         }
@@ -314,20 +314,20 @@ function find_EQUAL(all: SingleElement[], center: SingleElement) {
                 thisShip.checked = true;
                 sameShip.push(thisShip);
                 let thisValue = thisShip.value;
-                for (let i = 0; i < ShipNum; i++) {
-                    if (distances[i].checked === false) {
-                        let checkValue = distances[i].value;
+                for (let j = 0; j < ShipNum; j++) {
+                    if (distances[j].checked === false) {
+                        let checkValue = distances[j].value;
                         if (same(thisValue, checkValue)) {
-                            distances[i].checked = true;
-                            sameShip.push(distances[i]);
+                            distances[j].checked = true;
+                            sameShip.push(distances[j]);
                         }
                     }
                 }
                 if (sameShip.length > 1) {
                     console.log("等距关系");
                     displays.push(new Display(sameShip, DisplayType.EQUAL));
-                    for (let i = 0; i < sameShip.length; i++) {
-                        console.log(sameShip[i].related);
+                    for (let j = 0; j < sameShip.length; j++) {
+                        console.log(sameShip[j].related);
                     }
                 }
             }
@@ -349,27 +349,27 @@ function find_MULTIPLE(all: SingleElement[], center: SingleElement) {
     for (let i = 0; i < len; i++) {
         let thisShip;
         let tomatch: SingleElement[] = [center, all[i]];
-        for (let i = 0; i < ShipNum; i++) {
-            if (distances[i].match(tomatch)) {
-                thisShip = distances[i];
+        for (let j = 0; j < ShipNum; j++) {
+            if (distances[j].match(tomatch)) {
+                thisShip = distances[j];
                 break;
             }
         }
         if (thisShip != undefined && thisShip.value != undefined) {
             let thisValue = thisShip.value;
-            for (let i = 0; i < ShipNum; i++) {
+            for (let j = 0; j < ShipNum; j++) {
                 let mulShip: Ship[] = [];
-                let checkValue = distances[i].value;
+                let checkValue = distances[j].value;
                 if (checkValue !== undefined) {
                     let mul;
                     if (multiple(thisValue, checkValue) > 1) {
                         mulShip.push(thisShip);
-                        mulShip.push(distances[i]);
+                        mulShip.push(distances[j]);
                         mul = multiple(thisValue, checkValue);
                         console.log("距离倍数关系");
                         displays.push(new Display(mulShip, DisplayType.MULTIPLE, mul));
-                        for (let i = 0; i < mulShip.length; i++) {
-                            console.log(mulShip[i].related);
+                        for (let k = 0; k < mulShip.length; k++) {
+                            console.log(mulShip[k].related);
                         }
                         console.log("倍数:", mul);
                     }
