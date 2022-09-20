@@ -65,7 +65,11 @@ class Log{
         })
 
         localStorage.setItem('log', JSON.stringify(this.logs))
-        localStorage.setItem('pics', JSON.stringify(this.pics));
+        try{
+            localStorage.setItem('pics', JSON.stringify(this.pics));
+        } catch(e){
+            localStorage.setItem('pics', "");
+        }
         localStorage.setItem('content', JSON.stringify(Controller.getInstance().exportAsJson()));
     }
 

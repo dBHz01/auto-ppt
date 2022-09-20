@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse, Line} from "react-konva";
+import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse, Line, Path} from "react-konva";
 import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
@@ -614,23 +614,32 @@ class ModifyRecommand {
 
     disp(){
         return <div key={`${this.modifyAttrName}-${this.tgtVal}-${this.filterAttrName}-${this.filterAttrVal}`}>
-            将所有 <b>{ModifyRecommand.attrToName.get(this.filterAttrName)}</b> 为 {this.toStrToDisp(this.filterAttrVal)} 的元素的
-            <br/>
-            {ModifyRecommand.attrToName.get(this.modifyAttrName)}修改为{this.toStrToDisp(this.tgtVal)}
-            <button onClick={this.apply.bind(this)}>确认</button>
+            {/*将所有*/'ALL SAME '} <b>{ModifyRecommand.attrToName.get(this.filterAttrName)}</b> {/*'==' + this.toStrToDisp(this.filterAttrVal)*/} :   
+            {/* <br/> */}
+            {ModifyRecommand.attrToName.get(this.modifyAttrName)} {"<="} {this.toStrToDisp(this.tgtVal)}
+            <button onClick={this.apply.bind(this)}>Preview</button>---
+            <button onClick={this.apply.bind(this)}>OK</button>
             <hr/>
         </div>
     }
 }
 
 ModifyRecommand.attrToName = new Map();
-ModifyRecommand.attrToName.set('x', '水平位置')
-ModifyRecommand.attrToName.set('y', '竖直位置')
-ModifyRecommand.attrToName.set('color', '颜色')
-ModifyRecommand.attrToName.set('lightness', '亮度')
-ModifyRecommand.attrToName.set('w', '宽度')
-ModifyRecommand.attrToName.set('h', '高度')
-ModifyRecommand.attrToName.set('text', '文本')
+// ModifyRecommand.attrToName.set('x', '水平位置')
+// ModifyRecommand.attrToName.set('y', '竖直位置')
+// ModifyRecommand.attrToName.set('color', '颜色')
+// ModifyRecommand.attrToName.set('lightness', '亮度')
+// ModifyRecommand.attrToName.set('w', '宽度')
+// ModifyRecommand.attrToName.set('h', '高度')
+// ModifyRecommand.attrToName.set('text', '文本')
+
+ModifyRecommand.attrToName.set('x', 'x')
+ModifyRecommand.attrToName.set('y', 'y')
+ModifyRecommand.attrToName.set('color', 'color')
+ModifyRecommand.attrToName.set('lightness', 'lightness')
+ModifyRecommand.attrToName.set('w', 'width')
+ModifyRecommand.attrToName.set('h', 'height')
+ModifyRecommand.attrToName.set('text', 'text')
 
 class HelperGUI extends React.Component {
     controller: Controller;
@@ -1119,14 +1128,14 @@ class HelperGUI extends React.Component {
                 lineHeight: '3',
                 display: App.instance.naive? 'none': ''}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_CDT).bind(this)}>
-                候选方案{this.state.selectedTag === HelperGUI.TAG_DISP_CDT?"✍︎": ""}
+                {"Candidates"/*"候选方案"*/}{this.state.selectedTag === HelperGUI.TAG_DISP_CDT?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
                 backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET? "#d6d6d6": "#ffffff",
                 lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET).bind(this)}>
-                元素微调{this.state.selectedTag === HelperGUI.TAG_DISP_SET?"✍︎": ""}
+                {"Element Settings"/*"元素微调"*/}{this.state.selectedTag === HelperGUI.TAG_DISP_SET?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
@@ -1134,21 +1143,21 @@ class HelperGUI extends React.Component {
                 lineHeight: '3',
                 display: App.instance.naive? 'none': ''}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_MOD).bind(this)}>
-                修改预测{this.state.selectedTag === HelperGUI.TAG_DISP_MOD?"✍︎": ""}
+                {"Predicted Ineractions"/*'修改预测'*/}{this.state.selectedTag === HelperGUI.TAG_DISP_MOD?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
                 backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL? "#d6d6d6": "#ffffff",
                 lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_SET_GLOBAL).bind(this)}>
-                设置{this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL?"✍︎": ""}
+                {"Settings"/*"设置"*/}{this.state.selectedTag === HelperGUI.TAG_DISP_SET_GLOBAL?"✍︎": ""}
             </div>
 
             <div style={{flex: '1', 
                 backgroundColor: this.state.selectedTag === HelperGUI.TAG_DISP_INS? "#d6d6d6": "#ffffff",
                 lineHeight: '3'}}
                 onClick={this.genHandleTagSelected(HelperGUI.TAG_DISP_INS).bind(this)}>
-                指令展示{this.state.selectedTag === HelperGUI.TAG_DISP_INS?"✍︎": ""}
+                {"Parsing Results"/*"指令展示"*/}{this.state.selectedTag === HelperGUI.TAG_DISP_INS?"✍︎": ""}
             </div>
         </div>
     }
@@ -1232,6 +1241,18 @@ class HelperGUI extends React.Component {
         let blob = new Blob([JSON.stringify(this.controller.exportAsJson())], {"type": "text/json"});
         eleLink.href = URL.createObjectURL(blob);
 
+        document.body.appendChild(eleLink);
+        eleLink.click();
+        document.body.removeChild(eleLink);
+    }
+
+    downloadPic(){
+        let dataURL = App.instance.stageRef.current.toDataURL({ pixelRatio: 5 });
+
+        let eleLink = document.createElement('a');
+        eleLink.download = `content.png`;
+        eleLink.style.display = 'none';
+        eleLink.href = dataURL
         document.body.appendChild(eleLink);
         eleLink.click();
         document.body.removeChild(eleLink);
@@ -1416,6 +1437,7 @@ class HelperGUI extends React.Component {
             <div>
                 <button onClick={this.downloadContent.bind(this)}>下载当前内容</button>
                 <button onClick={this.downloadUserLog.bind(this)}>下载当前日志</button>
+                <button onClick={this.downloadPic.bind(this)}>下载图片</button>
                 <input type="file" name="file" ref={this.uploadFileRef} ></input>
                 <button onClick={this.handleUploadFileClick.bind(this)}>上传文件</button>    
             </div>
@@ -2234,11 +2256,13 @@ class App extends Component {
                         <button style={{height: '50px'}}
                             onClick={()=>{
                             this.handleInputFinished(this.cmdInputRef.current!.value);
-                        }}>确认</button>
+                        }}>{/*'确认'*/'Send'}</button>
                         ------
                         <button 
                             style={{height: '50px'}}
-                            onClick={this.handleListenClick.bind(this)}>{this.state.listening? "结束输入":"开始输入"}</button>
+                            onClick={this.handleListenClick.bind(this)}>
+                                {this.state.listening? /*"结束输入"*/'Finish Voice Input':/*"开始输入"*/"Start Voice Input"}
+                            </button>
                     </div>
                     <div style={{display: 'none'}}>
                         添加箭头：<input ref={this.addArrowRef} type='text'/>
