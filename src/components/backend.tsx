@@ -2589,7 +2589,7 @@ class Controller {
                     `属性${missedInferAttr.name}_${missedInferAttr.element.id}没有符合要求的推荐。`
                 );
 
-                new_attr_values.set(missedInferAttr, 300); //predefined
+                new_attr_values.set(missedInferAttr, 100); //predefined
             }
         })
 
