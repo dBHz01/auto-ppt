@@ -14,7 +14,7 @@ import { convertObjToMap, floatEq, getOrDefault, noOverlapping, reader, splitRan
 import { loadFile } from './components/load_file';
 import { check, Display } from './components/backendDisplay';
 import { ControllerOp, ElementPlaceholder } from './NLParser';
-import { ASR } from './ASR';
+import { ASR } from './ASR2';
 import { Log } from './components/Log';
 import JSZip from 'jszip';
 
@@ -2123,7 +2123,7 @@ class App extends Component {
                     this.crtASR = undefined;
                 } else {
                     try{
-                        this.crtASR!.start();
+                        // this.crtASR!.start();
                     } catch(e){
 
                     }
