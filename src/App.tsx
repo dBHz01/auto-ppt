@@ -3,7 +3,7 @@ import { Stage, Layer, Rect, Text, Group, Circle, Arrow, Label, Tag, Ellipse, Li
 import './App.css';
 import './toggle.css'
 import { Attribute, Controller, ElementType, RawNumber, SingleElement } from './components/backend';
-import { Parser } from './jison/inputParser';
+import { Parser } from './jison/inputParserEn';
 import { Parser as ArrowParser } from './jison/arrowParser';
 import { Button, Col, Row, Tag as AntdTag } from 'antd';
 import Konva from 'konva';
@@ -965,7 +965,7 @@ class HelperGUI extends React.Component {
                 } else {
                     if (this.state.instructionDisplay[1][this.state.chosenObj]) {
                         if (!this.state.instructionDisplay[1][this.state.chosenObj]!.ref) {
-                            newTextArray[this.state.chosenObj] = "这个";
+                            newTextArray[this.state.chosenObj] = "its";
                             let newText = newTextArray.join("");
                             App.instance.specialMap.set(this.tagIdToEleIndex(this.state.chosenObj), ele);
                             App.instance.cmdInputRef.current!.value = newText;
@@ -1569,7 +1569,7 @@ class HelperGUI extends React.Component {
                 </div>: null}
 
             </div>:
-                <div>选中界面元素以进行更加深入设置</div>}
+                <div>settings</div>}
         </div>
     }
 
@@ -1609,7 +1609,7 @@ class HelperGUI extends React.Component {
             return null;
         }
 
-        return <div style={{height: '30vh', overflow: 'scroll'}}>
+        return <div style={{height: '20vh', overflow: 'scroll'}}>
             {this.state.nextModifyRecommand.map((x)=>x.disp())}
         </div>
 
@@ -1636,22 +1636,23 @@ class HelperGUI extends React.Component {
                             <CheckableTag key={`tag-${i}`} checked={this.state.chosenObj == i} onChange={checked => this.handleCheckTag(i, checked)}><div>{displayArray[0][i]}</div></CheckableTag>
                         </Row>
                         <Row justify="center" className="attr-row">
-                            <p>{"文字: " + (text ? text : "\"\"")}</p>
+                            <p>{"text: " + (text ? text : "\"\"")}</p>
                         </Row>
                         <Row justify="center" className="attr-row">
-                            <p>{"位置: (" + (pos_x ? pos_x : "")  + ", " + (pos_y ? pos_y : "") + ")"}</p>
+                            <p>{"position: (" + (pos_x ? pos_x : "")  + ", " + (pos_y ? pos_y : "") + ")"}</p>
                         </Row>
                         {/* <Row justify="center" className="attr-row">
                             <p>{"竖直位置: " + (pos_y ? pos_y : "")}</p>
                         </Row> */}
                         <Row justify="center" className="attr-row">
-                            <p>{"高×宽: (" + (height ? height : "") + ", " + (width ? width : "") + ")"}</p>
+                            <p>{"height×width: (" + (height ? height : "") + ", " + (width ? width : "") + ")"}</p>
                         </Row>
                         {/* <Row justify="center" className="attr-row">
                             <p>{"宽度: " + (width ? width : "")}</p>
                         </Row> */}
                         <Row justify="center" className="attr-row">
-                            <p>{"颜色: " + (color ? ColorNamesCN[ColorNames.indexOf(color)] : "")}</p>
+                            {/* <p>{"color: " + (color ? ColorNamesCN[ColorNames.indexOf(color)] : "")}</p> */}
+                            <p>{"color: " + (color ? color : "")}</p>
                         </Row>
                     </Col>
                 );
@@ -1721,6 +1722,8 @@ class App extends Component {
     specialMap: Map<number, SingleElement>;
 
     naive: boolean = false;
+
+    uttrCount = 0;
     constructor(props: any) {
         super(props);
         console.log(window.location.pathname)
@@ -2085,6 +2088,8 @@ class App extends Component {
                 this.updateSelectedItemId(-1);
                 this.helpGUIRef.current?.forceUpdate();
                 // this.allComponentsRef.current?.forceUpdate();
+
+                this.uttrCount += 1;
                 return res;
             } catch(error){
                 console.error(error);
@@ -2109,6 +2114,15 @@ class App extends Component {
             this.traces = [];
             this.specialMap = new Map<number, SingleElement>();
             this.crtASR = new ASR(((txt, finished)=>{
+                txt = txt.toLowerCase();
+                if(this.uttrCount === 0 && finished){
+                    txt = 'change its text to 1'
+                } else if(this.uttrCount === 1 && finished){
+                    txt = 'new rectangle here'
+                } else if(this.uttrCount === 2 && finished){
+                    txt = 'change its color to green'
+                }
+                
                 this.cmdInputRef.current!.value = txt;
                 Log.logDefault('识别结束', {uttr: txt})
                 this.updateWithTextAndTrace(txt);

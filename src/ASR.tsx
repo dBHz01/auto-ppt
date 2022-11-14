@@ -9,7 +9,8 @@ class ASR {
         this.sr = new window.webkitSpeechRecognition();
         this.sr.grammars = ASR.grammarList;
         this.res = "";
-        this.sr.lang = 'zh-CN';
+        // this.sr.lang = 'zh-CN';
+        this.sr.lang = 'en-US';
         this.sr.continuous = true;
         this.sr.onresult = (ev)=>{
             this.res = ev.results[0][0].transcript
